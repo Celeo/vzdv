@@ -20,6 +20,7 @@ pub mod airspace;
 pub mod auth;
 pub mod facility;
 pub mod homepage;
+pub mod user;
 
 /// 404 not found page.
 ///

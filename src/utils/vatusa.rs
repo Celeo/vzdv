@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Result};
-use serde::Deserialize;
+use log::debug;
+use serde::{Deserialize, Serialize};
 
-use crate::utils::GENERAL_HTTP_CLIENT;
+use crate::{shared::Config, utils::GENERAL_HTTP_CLIENT};
 
 const BASE_URL: &str = "https://api.vatusa.net/";
 
@@ -79,6 +80,62 @@ pub async fn get_roster(facility: &str, membership: MembershipType) -> Result<Va
     if !resp.status().is_success() {
         return Err(anyhow!(
             "Got status {} from VATUSA roster API at {}",
+            resp.status().as_u16(),
+            resp.url()
+        ));
+    }
+    let data = resp.json().await?;
+    Ok(data)
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct VatusaTrainingNoteFacility {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct VatusaTrainingNote {
+    pub id: u32,
+    pub student_id: u32,
+    pub instructor_id: u32,
+    pub session_date: String,
+    pub facility_id: String,
+    pub position: String,
+    pub duration: String,
+    pub score: Option<u8>,
+    pub notes: String,
+    pub location: i8,
+    pub ots_status: i8,
+    pub is_cbt: bool,
+    pub solo_granted: bool,
+    pub created_at: String,
+    pub updated_at: String,
+    pub facility: VatusaTrainingNoteFacility,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct VatusaTrainingNotesData {
+    pub data: Vec<VatusaTrainingNote>,
+}
+
+/// Get all training notes for the user from VATUSA.
+///
+/// Calling code is responsible for making sure that controllers
+/// only get their own training notes.
+pub async fn get_training_notes(config: &Config, cid: u32) -> Result<VatusaTrainingNotesData> {
+    let resp = GENERAL_HTTP_CLIENT
+        .get(format!("{BASE_URL}user/{cid}/training/records"))
+        .query(&[("apikey", &config.vatsim.vatusa_api_key)])
+        .send()
+        .await?;
+    if resp.status().as_u16() == 404 {
+        debug!("No VATUSA training records for {cid}");
+        return Ok(VatusaTrainingNotesData { data: Vec::new() });
+    }
+    if !resp.status().is_success() {
+        return Err(anyhow!(
+            "Got status {} from VATUSA training notes API at {}",
             resp.status().as_u16(),
             resp.url()
         ));

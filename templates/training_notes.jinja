@@ -1,0 +1,40 @@
+{% extends "_layout" %}
+
+{% block title %}My Training Notes | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h2>My Training Notes</h2>
+
+{% if records|length > 0 %}
+  <table class="table table-striped table-hover">
+    <thead>
+      <tr>
+        <th>Facility</th>
+        <th>Position</th>
+        <th>Score</th>
+        <th>Date</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in records %}
+        <tr>
+          <td>{{ record.facility_id }}</td>
+          <td>{{ record.position }}</td>
+          <td>
+            {% if record.score %}
+              {{ record.score }} / 5
+            {% endif %}
+          </td>
+          <td>{{ record.session_date }}</td>
+          <td>{{ record.notes }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <h4>No training records found</h4>
+{% endif %}
+
+{% endblock %}
