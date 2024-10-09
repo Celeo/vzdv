@@ -65,6 +65,7 @@ async fn page_auth_callback(
         first_name: session_user_info.data.personal.name_first,
         last_name: session_user_info.data.personal.name_last,
         is_some_staff: !roles.is_empty(),
+        is_named_staff: controller_can_see(&db_user_info, vzdv::PermissionsGroup::NamedPosition),
         is_training_staff: controller_can_see(&db_user_info, vzdv::PermissionsGroup::TrainingTeam),
         is_event_staff: controller_can_see(&db_user_info, vzdv::PermissionsGroup::EventsTeam),
         is_admin: controller_can_see(&db_user_info, vzdv::PermissionsGroup::Admin),

@@ -185,6 +185,7 @@ pub struct UserInfo {
     pub last_name: String,
 
     pub is_some_staff: bool,
+    pub is_named_staff: bool,
     pub is_training_staff: bool,
     pub is_event_staff: bool,
     pub is_admin: bool,

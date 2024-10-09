@@ -92,7 +92,9 @@
                   <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">Admin</a>
                   <ul class="dropdown-menu">
                     <li><a href="/admin/off_roster_list" class="dropdown-item">Off-roster list</a></li>
-                    <li><a href="/admin/resources" class="dropdown-item">Manage resources</a></li>
+                    {% if user_info.is_named_staff %}
+                      <li><a href="/admin/resources" class="dropdown-item">Manage resources</a></li>
+                    {% endif %}
                     {% if user_info.is_admin %}
                       <li><a href="/admin/feedback" class="dropdown-item">Manage feedback</a></li>
                       <li><a href="/admin/visitor_applications" class="dropdown-item">Manage visitor apps</a></li>
