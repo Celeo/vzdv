@@ -64,22 +64,18 @@ async fn update_controller_record(db: &SqlitePool, controller: &RosterMember) ->
         .await?;
 
     // merge any new roles with any existing roles
-    let roles = if roles.is_empty() {
-        roles
-    } else {
-        match &controller_record {
-            Some(cr) => {
-                let mut all_roles = HashSet::new();
-                cr.roles.split(',').for_each(|r| {
-                    all_roles.insert(r);
-                });
-                roles.iter().for_each(|r| {
-                    all_roles.insert(r);
-                });
-                all_roles.iter().map(|s| s.to_string()).collect()
-            }
-            None => roles,
+    let roles = match &controller_record {
+        Some(cr) => {
+            let mut all_roles = HashSet::new();
+            cr.roles.split(',').for_each(|r| {
+                all_roles.insert(r);
+            });
+            roles.iter().for_each(|r| {
+                all_roles.insert(r);
+            });
+            all_roles.iter().map(|s| s.to_string()).collect()
         }
+        None => roles,
     };
 
     let facility_join = DateTime::parse_from_rfc3339(&controller.facility_join)?;
