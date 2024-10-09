@@ -13,7 +13,7 @@ use axum::{
     routing::{delete, get, post},
     Form, Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use itertools::Itertools;
 use log::{error, info, warn};
 use minijinja::{context, Environment};
@@ -416,7 +416,7 @@ async fn snippet_get_training_records(
     let all_training_records = get_training_records(&state.config.vatsim.vatusa_api_key, cid)
         .await
         .map_err(|e| AppError::GenericFallback("getting VATUSA training records", e))?;
-    let training_records: Vec<_> = all_training_records
+    let mut training_records: Vec<_> = all_training_records
         .iter()
         .filter(|record| record.facility_id == "ZDV")
         .map(|record| {
@@ -427,6 +427,14 @@ async fn snippet_get_training_records(
             }
         })
         .collect();
+
+    // Sort by session_date in descending order (newest first)
+    training_records.sort_by(|a, b| {
+      let date_a = NaiveDateTime::parse_from_str(&a.session_date, "%Y-%m-%d %H:%M:%S").unwrap_or_else(|_| NaiveDateTime::from_timestamp(0, 0));
+      let date_b = NaiveDateTime::parse_from_str(&b.session_date, "%Y-%m-%d %H:%M:%S").unwrap_or_else(|_| NaiveDateTime::from_timestamp(0, 0));
+      date_b.cmp(&date_a) // Sort newest first
+    });
+
     let instructor_cids: Vec<u32> = training_records
         .iter()
         .map(|record| record.instructor_id)

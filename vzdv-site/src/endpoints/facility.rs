@@ -157,6 +157,13 @@ async fn page_roster(
         .fetch_all(&state.db)
         .await?;
 
+    let certification_order = &state.config.training.certifications;
+    let cert_order_map: HashMap<&String, usize> = certification_order
+        .into_iter()
+        .enumerate()
+        .map(|(index, cert)| (cert, index))
+        .collect();
+
     let controllers_with_certs: Vec<_> = controllers
         .iter()
         .map(|controller| {
@@ -165,11 +172,14 @@ async fn page_roster(
                 None => "",
             };
             let roles = determine_staff_positions(controller).join(", ");
-            let certs = certifications
+            let mut certs = certifications
                 .iter()
                 .filter(|cert| cert.cid == controller.cid)
                 .cloned()
                 .collect::<Vec<_>>();
+
+            // Sort certifications based on the order in the TOML file
+            certs.sort_by_key(|cert| cert_order_map.get(&cert.name).cloned().unwrap_or(usize::MAX));
 
             ControllerWithCerts {
                 cid: controller.cid,
