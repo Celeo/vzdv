@@ -59,15 +59,15 @@ async fn set_nickname(
     if let Some(existing) = &member.nick {
         if existing != &name {
             info!("Updating nick of {} to {name}", member.user.id);
-            // http.update_guild_member(guild_id, member.user.id)
-            //     .nick(Some(&name))?
-            //     .await?;
+            http.update_guild_member(guild_id, member.user.id)
+                .nick(Some(&name))?
+                .await?;
         }
     } else {
         info!("Setting nick of {} to {name}", member.user.id);
-        // http.update_guild_member(guild_id, member.user.id)
-        //     .nick(Some(&name))?
-        //     .await?;
+        http.update_guild_member(guild_id, member.user.id)
+            .nick(Some(&name))?
+            .await?;
     }
 
     Ok(())
@@ -80,8 +80,6 @@ async fn resolve_roles(
     roles: &[(u64, bool)],
     http: &Arc<Client>,
 ) -> Result<()> {
-    // TODO
-
     let existing: Vec<_> = member.roles.iter().map(|r| r.get()).collect();
     for &(id, should_have) in roles {
         if should_have && !existing.contains(&id) {
@@ -90,16 +88,16 @@ async fn resolve_roles(
                 member.nick.as_ref().unwrap_or(&member.user.name),
                 member.user.id.get()
             );
-            // http.add_guild_member_role(guild_id, member.user.id, Id::new(id))
-            //     .await?;
+            http.add_guild_member_role(guild_id, member.user.id, Id::new(id))
+                .await?;
         } else if !should_have && existing.contains(&id) {
             info!(
                 "Removing role {id} from {} ({})",
                 member.nick.as_ref().unwrap_or(&member.user.name),
                 member.user.id.get()
             );
-            // http.remove_guild_member_role(guild_id, member.user.id, Id::new(id))
-            //     .await?;
+            http.remove_guild_member_role(guild_id, member.user.id, Id::new(id))
+                .await?;
         }
     }
     Ok(())
