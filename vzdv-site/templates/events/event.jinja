@@ -33,8 +33,11 @@
       <div class="d-flex justify-content-between">
         {% if user_info and user_info.is_some_staff or is_on_roster %}
           <button role="button" class="btn btn-primary" onclick="modalRegisterForm.showModal()">
-            <i class="bi bi-plus-circle"></i>
-            Register
+            {% if self_register %}
+              <i class="bi bi-pencil"></i> Update registration
+            {% else %}
+              <i class="bi bi-plus-circle"></i> Register
+            {% endif %}
           </button>
         {% endif %}
         {% if is_event_staff %}
