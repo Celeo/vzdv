@@ -42,22 +42,28 @@ struct Cli {
 async fn update_controller_record(db: &SqlitePool, controller: &RosterMember) -> Result<()> {
     // VATUSA doesn't handle Jr staff roles well, so ignore them in the sync, but do keep Mentors
     let roles_to_match = &["ATM", "DATM", "TA", "MTR"];
-    let roles: Vec<_> = controller
-        .roles
-        .iter()
-        .filter(|role| role.facility == "ZDV")
-        .flat_map(|role| {
-            let n = &role.role;
-            if roles_to_match.contains(&n.as_str()) {
-                Some(n.clone())
-            } else {
-                None
-            }
-        })
-        // there's 1 controller in ZDV who actually has an "INS" role in addition to their controller rating
-        .filter(|role| role != "INS")
-        .collect();
+    let roles = {
+        let mut roles: Vec<_> = controller
+            .roles
+            .iter()
+            .filter(|role| role.facility == "ZDV")
+            .flat_map(|role| {
+                let n = &role.role;
+                if roles_to_match.contains(&n.as_str()) {
+                    Some(n.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        // add in home controllers with Instructor network rating
+        if controller.facility == "ZDV" && [8, 9, 10].contains(&controller.rating) {
+            roles.push(String::from("INS"));
+        }
+        roles
+    };
 
+    // pull the existing DB data
     let controller_record: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
         .bind(controller.cid)
         .fetch_optional(db)
@@ -78,7 +84,6 @@ async fn update_controller_record(db: &SqlitePool, controller: &RosterMember) ->
         None => roles,
     };
 
-    let facility_join = DateTime::parse_from_rfc3339(&controller.facility_join)?;
     // update main record
     sqlx::query(sql::UPSERT_USER_TASK)
         .bind(controller.cid)
@@ -89,7 +94,7 @@ async fn update_controller_record(db: &SqlitePool, controller: &RosterMember) ->
         .bind(&controller.facility)
         // controller will be on the roster since that's what the VATSIM API is showing
         .bind(true)
-        .bind(facility_join)
+        .bind(DateTime::parse_from_rfc3339(&controller.facility_join)?)
         .bind(roles.join(","))
         .execute(db)
         .await?;

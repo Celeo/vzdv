@@ -86,14 +86,11 @@ pub async fn get_controller_cids_and_names(
 /// This function will return all positions in the event the controller holds more
 /// than one, like being an Instructor and also the FE, or a Mentor and an AEC.
 pub fn determine_staff_positions(controller: &Controller) -> Vec<String> {
-    let mut roles: HashSet<_> = controller
+    let roles: HashSet<_> = controller
         .roles
         .split_terminator(',')
         .filter(|r| !IGNORE_MISSING_STAFF_POSITIONS_FOR.contains(r))
         .collect();
-    if controller.home_facility == "ZDV" && [8, 9, 10].contains(&controller.rating) {
-        roles.insert("INS");
-    }
     roles.iter().map(|&r| r.to_owned()).collect()
 }
 
@@ -574,16 +571,6 @@ pub mod tests {
         controller.roles = "AFE".to_owned();
 
         assert_eq!(determine_staff_positions(&controller), vec!["AFE"]);
-    }
-
-    #[test]
-    fn test_determine_staff_positions_instructor() {
-        let mut controller = Controller::default();
-        controller.cid = 123;
-        controller.rating = 10;
-        controller.home_facility = "ZDV".to_owned();
-
-        assert_eq!(determine_staff_positions(&controller), vec!["INS"]);
     }
 
     #[test]
