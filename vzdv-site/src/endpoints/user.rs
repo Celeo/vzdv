@@ -10,6 +10,7 @@ use axum::{
     routing::get,
     Router,
 };
+use chrono::NaiveDateTime;
 use log::{debug, info, warn};
 use minijinja::{context, Environment};
 use std::{collections::HashMap, sync::Arc};
@@ -35,7 +36,7 @@ async fn page_training_notes(
         vatusa::get_training_records(&state.config.vatsim.vatusa_api_key, user_info.cid)
             .await
             .map_err(|e| AppError::GenericFallback("getting VATUSA training records", e))?;
-    let training_records: Vec<_> = all_training_records
+    let mut training_records: Vec<_> = all_training_records
         .iter()
         .filter(|record| record.facility_id == "ZDV")
         .map(|record| {
@@ -46,6 +47,15 @@ async fn page_training_notes(
             }
         })
         .collect();
+
+    // sort by session_date in descending order (newest first)
+    training_records.sort_by(|a, b| {
+        let date_a = NaiveDateTime::parse_from_str(&a.session_date, "%Y-%m-%d %H:%M:%S")
+            .unwrap_or_else(|_| NaiveDateTime::default());
+        let date_b = NaiveDateTime::parse_from_str(&b.session_date, "%Y-%m-%d %H:%M:%S")
+            .unwrap_or_else(|_| NaiveDateTime::default());
+        date_b.cmp(&date_a) // sort newest first
+    });
 
     let template = state.templates.get_template("user/training_notes")?;
     let rendered = template.render(context! { user_info, training_records })?;

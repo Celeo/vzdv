@@ -159,7 +159,7 @@ async fn page_roster(
 
     let certification_order = &state.config.training.certifications;
     let cert_order_map: HashMap<&String, usize> = certification_order
-        .into_iter()
+        .iter()
         .enumerate()
         .map(|(index, cert)| (cert, index))
         .collect();
@@ -179,7 +179,12 @@ async fn page_roster(
                 .collect::<Vec<_>>();
 
             // Sort certifications based on the order in the TOML file
-            certs.sort_by_key(|cert| cert_order_map.get(&cert.name).cloned().unwrap_or(usize::MAX));
+            certs.sort_by_key(|cert| {
+                cert_order_map
+                    .get(&cert.name)
+                    .cloned()
+                    .unwrap_or(usize::MAX)
+            });
 
             ControllerWithCerts {
                 cid: controller.cid,

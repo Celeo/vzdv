@@ -428,11 +428,13 @@ async fn snippet_get_training_records(
         })
         .collect();
 
-    // Sort by session_date in descending order (newest first)
+    // sort by session_date in descending order (newest first)
     training_records.sort_by(|a, b| {
-      let date_a = NaiveDateTime::parse_from_str(&a.session_date, "%Y-%m-%d %H:%M:%S").unwrap_or_else(|_| NaiveDateTime::from_timestamp(0, 0));
-      let date_b = NaiveDateTime::parse_from_str(&b.session_date, "%Y-%m-%d %H:%M:%S").unwrap_or_else(|_| NaiveDateTime::from_timestamp(0, 0));
-      date_b.cmp(&date_a) // Sort newest first
+        let date_a = NaiveDateTime::parse_from_str(&a.session_date, "%Y-%m-%d %H:%M:%S")
+            .unwrap_or_else(|_| NaiveDateTime::default());
+        let date_b = NaiveDateTime::parse_from_str(&b.session_date, "%Y-%m-%d %H:%M:%S")
+            .unwrap_or_else(|_| NaiveDateTime::default());
+        date_b.cmp(&date_a) // sort newest first
     });
 
     let instructor_cids: Vec<u32> = training_records
