@@ -269,7 +269,6 @@ ON CONFLICT(cid) DO UPDATE SET
 WHERE
     cid=excluded.cid
 ";
-
 pub const UPSERT_USER_TASK: &str = "
 INSERT INTO controller
     (id, cid, first_name, last_name, email, rating, home_facility, is_on_roster, join_date, roles)
@@ -287,6 +286,10 @@ ON CONFLICT(cid) DO UPDATE SET
 WHERE
     cid=excluded.cid
 ";
+pub const INSERT_USER_SIMPLE: &str = "INSERT INTO controller
+    (id, cid, first_name, last_name, rating, home_facility, is_on_roster)
+VALUES
+    (NULL, $1, $2, $3, $4, $5, FALSE)";
 
 pub const GET_ALL_CONTROLLERS: &str = "SELECT * FROM controller";
 pub const GET_ALL_CONTROLLERS_ON_ROSTER: &str = "SELECT * FROM controller WHERE is_on_roster=TRUE";

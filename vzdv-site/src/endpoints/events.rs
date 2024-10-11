@@ -26,6 +26,7 @@ use std::sync::Arc;
 use tower_sessions::Session;
 use vzdv::{
     sql::{self, Controller, Event, EventPosition, EventRegistration},
+    vatusa::get_controller_info,
     ControllerRating, PermissionsGroup,
 };
 
@@ -629,6 +630,32 @@ async fn post_delete_position(
 struct SetPositionForm {
     position_id: u32,
     controller: u32,
+    controller_cid: Option<String>,
+}
+
+/// Return a controller record, possibly creating it with VATUSA info.
+async fn controller_by_cid(db: &Pool<Sqlite>, cid: u32) -> Result<u32, AppError> {
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(cid)
+        .fetch_optional(db)
+        .await?;
+    if controller.is_some() {
+        return Ok(cid);
+    }
+    // retrieve unknown controller info
+    let info = get_controller_info(cid, None)
+        .await
+        .map_err(|e| AppError::GenericFallback("getting controller info", e))?;
+    // insert in DB
+    sqlx::query(sql::INSERT_USER_SIMPLE)
+        .bind(cid)
+        .bind(&info.first_name)
+        .bind(&info.last_name)
+        .bind(info.rating)
+        .bind(&info.facility)
+        .execute(db)
+        .await?;
+    Ok(cid)
 }
 
 /// Set a controller (or no-one) for a position.
@@ -651,6 +678,13 @@ async fn post_set_position(
     if event.is_some() {
         let cid = if new_position_data.controller != 0 {
             Some(new_position_data.controller)
+        } else if let Some(new_cid) = new_position_data.controller_cid {
+            if new_cid.is_empty() {
+                None
+            } else {
+                let new_cid = new_cid.parse()?;
+                Some(controller_by_cid(&state.db, new_cid).await?)
+            }
         } else {
             None
         };
