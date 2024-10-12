@@ -147,6 +147,7 @@ async fn main() {
         }
     };
 
+    info!("Saving changes");
     for controller in data {
         if let Err(e) = update_single(&db, &controller).await {
             error!("Error updating controller {}: {e}", controller.cid);
