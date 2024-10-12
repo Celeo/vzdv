@@ -33,27 +33,27 @@ async fn set_nickname(
         }
     }
 
-    if controller.roles.contains("DATM") {
-        name.push_str(" | DATM");
-    } else if controller.roles.contains("ATM") {
-        // ATM is a higher role, but since the string is a subset of "DATM", do this second
+    let roles: Vec<_> = controller.roles.split_terminator(',').collect();
+    if roles.contains(&"ATM") {
         name.push_str(" | ATM");
-    } else if controller.roles.contains("TA") {
+    } else if roles.contains(&"DATM") {
+        name.push_str(" | DATM");
+    } else if roles.contains(&"TA") {
         name.push_str(" | TA");
-    } else if controller.roles.contains("EC") {
+    } else if roles.contains(&"EC") {
         name.push_str(" | EC");
-    } else if controller.roles.contains("FE") {
+    } else if roles.contains(&"FE") {
         name.push_str(" | FE");
-    } else if controller.roles.contains("WM") {
+    } else if roles.contains(&"WM") {
         name.push_str(" | WM");
-    } else if controller.roles.contains("AEC") {
+    } else if roles.contains(&"MTR") {
+        name.push_str(" | MTR")
+    } else if roles.contains(&"AEC") {
         name.push_str(" | AEC");
-    } else if controller.roles.contains("AFE") {
+    } else if roles.contains(&"AFE") {
         name.push_str(" | AFE");
-    } else if controller.roles.contains("AWM") {
+    } else if roles.contains(&"AWM") {
         name.push_str(" | AWM");
-    } else if controller.roles.contains("MTR") {
-        name.push_str(" | MTR");
     }
 
     if let Some(existing) = &member.nick {
@@ -106,10 +106,8 @@ async fn resolve_roles(
 /// Determine which roles the guild member should have.
 async fn get_correct_roles(
     config: &Arc<Config>,
-    member: &Member,
     controller: &Option<Controller>,
 ) -> Result<Vec<(u64, bool)>> {
-    debug!("Processing roles for {}", member.user.id);
     let mut to_resolve = Vec::with_capacity(15);
 
     let home_facility = controller
@@ -121,9 +119,9 @@ async fn get_correct_roles(
         .map(|c| c.is_on_roster)
         .unwrap_or_default();
     let rating = controller.as_ref().map(|c| c.rating).unwrap_or_default();
-    let roles = controller
+    let roles: Vec<_> = controller
         .as_ref()
-        .map(|c| c.roles.clone())
+        .map(|c| c.roles.split_terminator(',').collect())
         .unwrap_or_default();
 
     // membership
@@ -192,7 +190,14 @@ async fn get_correct_roles(
     }
 
     // staff teams
-    // TODO
+    let training_team = ["TA", "MTR", "INS"].iter().any(|role| roles.contains(role));
+    to_resolve.push((config.discord.roles.training_staff, training_team));
+    let event_team = ["EC", "AEC"].iter().any(|role| roles.contains(role));
+    to_resolve.push((config.discord.roles.event_team, event_team));
+    let fe_team = ["FE", "AFE"].iter().any(|role| roles.contains(role));
+    to_resolve.push((config.discord.roles.fe_team, fe_team));
+    let web_team = ["WM", "AWM"].iter().any(|role| roles.contains(role));
+    to_resolve.push((config.discord.roles.web_team, web_team));
 
     Ok(to_resolve)
 }
@@ -220,17 +225,14 @@ async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Re
             debug!("Skipping over bot user {nick} ({user_id})");
             continue;
         }
-        debug!("Processing user {}", member.user.id);
+        debug!("Processing user {} ({})", nick, user_id);
         let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_DISCORD_ID)
             .bind(user_id.to_string())
             .fetch_optional(db)
             .await?;
 
-        // roles
-        debug!("Determining roles to resolve for {} ({})", nick, user_id);
-
         // determine the roles the guild member should have and update accordingly
-        match get_correct_roles(config, member, &controller).await {
+        match get_correct_roles(config, &controller).await {
             Ok(to_resolve) => {
                 if let Err(e) = resolve_roles(guild_id, member, &to_resolve, http).await {
                     error!("Error resolving roles for {nick} ({user_id}): {e}");
