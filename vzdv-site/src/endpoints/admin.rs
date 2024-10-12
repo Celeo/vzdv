@@ -188,7 +188,8 @@ async fn page_email_manual_send(
         .fetch_all(&state.db)
         .await?;
     let template = state.templates.get_template("admin/manual_email")?;
-    let rendered = template.render(context! { user_info, all_controllers })?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let rendered = template.render(context! { user_info, all_controllers, flashed_messages })?;
     Ok(Html(rendered).into_response())
 }
 
