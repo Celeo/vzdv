@@ -5,7 +5,6 @@ members = [
   "vzdv-site",
   "vzdv-tasks",
   "vzdv-bot",
-  "vzdv-import",
 ]
 
 resolver = "2"
