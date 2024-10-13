@@ -3489,7 +3489,7 @@ dependencies = [
 
 [[package]]
 name = "vzdv"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3514,7 +3514,7 @@ dependencies = [
 
 [[package]]
 name = "vzdv-bot"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -3536,7 +3536,7 @@ dependencies = [
 
 [[package]]
 name = "vzdv-import"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3552,7 +3552,7 @@ dependencies = [
 
 [[package]]
 name = "vzdv-site"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -3585,7 +3585,7 @@ dependencies = [
 
 [[package]]
 name = "vzdv-tasks"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",

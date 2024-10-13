@@ -1,6 +1,6 @@
 [package]
 name = "vzdv-tasks"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["Celeo <mattboulanger@fastmail.com>"]
 edition = "2021"
 description = "VATSIM ZDV task runner"
