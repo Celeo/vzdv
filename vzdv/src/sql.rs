@@ -357,8 +357,9 @@ pub const INSERT_INTO_VISITOR_REQ: &str =
     "INSERT INTO visitor_request VALUES (NULL, $1, $2, $3, $4, $5, $6);";
 pub const DELETE_VISITOR_REQUEST: &str = "DELETE FROM visitor_request WHERE id=$1";
 
-pub const GET_UPCOMING_EVENTS: &str = "SELECT * FROM event WHERE end > $1 AND published = TRUE";
-pub const GET_ALL_UPCOMING_EVENTS: &str = "SELECT * FROM event WHERE end > $1";
+pub const GET_UPCOMING_EVENTS: &str =
+    "SELECT * FROM event WHERE end > $1 AND published = TRUE ORDER BY start ASC";
+pub const GET_ALL_UPCOMING_EVENTS: &str = "SELECT * FROM event WHERE end > $1 ORDER BY start ASC";
 pub const GET_EVENT: &str = "SELECT * FROM event WHERE id=$1";
 pub const DELETE_EVENT: &str = "DELETE FROM event WHERE id=$1";
 pub const CREATE_EVENT: &str = "INSERT INTO event VALUES (NULL, $1, FALSE, $2, $3, $4, $5, $6);";
