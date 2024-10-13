@@ -2,7 +2,7 @@
 
 ![lang](https://img.shields.io/badge/lang-rust-orange)
 ![licensing](https://img.shields.io/badge/license-MIT_or_Apache_2.0-blue)
-![status](https://img.shields.io/badge/project_status-alpha-yellow)
+![status](https://img.shields.io/badge/project_status-production-green)
 ![CI](https://github.com/Celeo/vzdv/actions/workflows/ci.yml/badge.svg)
 
 New vZDV website.
