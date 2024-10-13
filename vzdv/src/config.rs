@@ -124,6 +124,9 @@ pub struct ConfigDiscordRoles {
     pub student_2: u64,
     pub student_1: u64,
     pub observer: u64,
+
+    // misc
+    pub ignore: u64,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

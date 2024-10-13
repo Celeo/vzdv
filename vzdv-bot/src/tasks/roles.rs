@@ -245,7 +245,13 @@ async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Re
 
         // nickname
         if let Some(controller) = controller {
-            if let Err(e) = set_nickname(guild_id, member, &controller, http).await {
+            if member
+                .roles
+                .iter()
+                .any(|r| r.get() == config.discord.roles.ignore)
+            {
+                debug!("{nick} ({user_id}) has bot ignore role; not setting nickname");
+            } else if let Err(e) = set_nickname(guild_id, member, &controller, http).await {
                 error!("Error setting nickname of {nick} ({user_id}): {e}");
             }
         }
