@@ -11,44 +11,68 @@ use vzdv::{config::Config, vatsim::get_online_facility_controllers};
 
 async fn create_message(config: &Arc<Config>, db: &Pool<Sqlite>) -> Result<Embed> {
     let data = get_online_facility_controllers(db, config).await?;
-    let enroute = data
-        .iter()
-        .filter(|c| {
-            c.callsign.ends_with("_CTR")
-                || c.callsign.ends_with("_FSS")
-                || c.callsign.ends_with("_TMU")
-        })
-        .fold(String::new(), |mut acc, c| {
-            writeln!(acc, "{} - {} - {}", c.callsign, c.name, c.online_for).unwrap();
-            acc
-        });
-    let tracon = data
-        .iter()
-        .filter(|c| c.callsign.ends_with("_APP") || c.callsign.ends_with("_DEP"))
-        .fold(String::new(), |mut acc, c| {
-            writeln!(acc, "{} - {} - {}", c.callsign, c.name, c.online_for).unwrap();
-            acc
-        });
-    let cab = data
-        .iter()
-        .filter(|c| {
-            c.callsign.ends_with("_TWR")
-                || c.callsign.ends_with("_GND")
-                || c.callsign.ends_with("_DEL")
-        })
-        .fold(String::new(), |mut acc, c| {
-            writeln!(acc, "{} - {} - {}", c.callsign, c.name, c.online_for).unwrap();
-            acc
-        });
+    let enroute = {
+        let s = data
+            .iter()
+            .filter(|c| {
+                c.callsign.ends_with("_CTR")
+                    || c.callsign.ends_with("_FSS")
+                    || c.callsign.ends_with("_TMU")
+            })
+            .fold(String::new(), |mut acc, c| {
+                writeln!(acc, "{} - {} - {}", c.callsign, c.name, c.online_for).unwrap();
+                acc
+            });
+        if s.is_empty() {
+            String::from("No controllers online")
+        } else {
+            s
+        }
+    };
+    let tracon = {
+        let s = data
+            .iter()
+            .filter(|c| c.callsign.ends_with("_APP") || c.callsign.ends_with("_DEP"))
+            .fold(String::new(), |mut acc, c| {
+                writeln!(acc, "{} - {} - {}", c.callsign, c.name, c.online_for).unwrap();
+                acc
+            });
+        if s.is_empty() {
+            String::from("No controllers online")
+        } else {
+            s
+        }
+    };
+    let cab = {
+        let s = data
+            .iter()
+            .filter(|c| {
+                c.callsign.ends_with("_TWR")
+                    || c.callsign.ends_with("_GND")
+                    || c.callsign.ends_with("_DEL")
+            })
+            .fold(String::new(), |mut acc, c| {
+                writeln!(acc, "{} - {} - {}", c.callsign, c.name, c.online_for).unwrap();
+                acc
+            });
+        if s.is_empty() {
+            String::from("No controllers online")
+        } else {
+            s
+        }
+    };
 
+    let now = Utc::now();
     let embed = EmbedBuilder::new()
         .title("Online Controllers")
         .field(EmbedFieldBuilder::new("Enroute", enroute))
         .field(EmbedFieldBuilder::new("TRACON", tracon))
         .field(EmbedFieldBuilder::new("CAB", cab))
         .footer(EmbedFooterBuilder::new(format!(
-            "Last updated: {}",
-            Utc::now().format("%H:%M:%S")
+            "Last updated: {} Denver, {} UTC",
+            now.with_timezone(&chrono_tz::America::Denver)
+                .format("%H:%M:%S"),
+            now.format("%H:%M:%S"),
         )))
         .validate()?
         .build();
