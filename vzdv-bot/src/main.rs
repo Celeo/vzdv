@@ -50,7 +50,6 @@ fn bot_id_from_token(token: &str) -> u64 {
 }
 
 /// Entrypoint.
-#[allow(clippy::needless_return)] // https://github.com/rust-lang/rust-clippy/issues/13458
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();

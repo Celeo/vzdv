@@ -239,7 +239,7 @@ async fn update_activity(config: &Config, db: &SqlitePool) -> Result<()> {
         .format("%Y-%m-%d")
         .to_string();
     for row in controllers {
-        let cid: u32 = row.try_get("cid")?;
+        let cid: u32 = row.try_get("cid").expect("no 'cid' column");
         debug!("Getting activity for {cid}");
         if let Err(e) = update_single_activity(config, db, &five_months_ago, cid).await {
             error!("Error updating activity for {cid}: {e}");
@@ -251,7 +251,6 @@ async fn update_activity(config: &Config, db: &SqlitePool) -> Result<()> {
 }
 
 /// Entrypoint.
-#[allow(clippy::needless_return)] // https://github.com/rust-lang/rust-clippy/issues/13458
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
