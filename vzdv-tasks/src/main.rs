@@ -99,7 +99,7 @@ async fn update_controller_record(db: &SqlitePool, controller: &RosterMember) ->
         .execute(db)
         .await?;
     // for controllers new to the ARTCC, also set their default OIs
-    if controller_record.is_none() {
+    if controller_record.is_none() || !controller_record.unwrap().is_on_roster {
         let in_use = retrieve_all_in_use_ois(db).await?;
         let new_ois = generate_operating_initials_for(
             &in_use,
