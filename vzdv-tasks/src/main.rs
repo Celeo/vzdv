@@ -273,8 +273,8 @@ async fn main() {
                         error!("Error updating roster: {e}");
                     }
                 }
-                debug!("Waiting 4 hours for next roster sync");
-                time::sleep(time::Duration::from_secs(60 * 60 * 4)).await;
+                debug!("Waiting 2 hours for next roster sync");
+                time::sleep(time::Duration::from_secs(60 * 60 * 2)).await;
             }
         })
     };
