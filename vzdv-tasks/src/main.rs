@@ -295,8 +295,8 @@ async fn main() {
                         error!("Error updating activity: {e}");
                     }
                 }
-                debug!("Waiting 12 hours for next activity sync");
-                time::sleep(time::Duration::from_secs(60 * 60 * 12)).await;
+                debug!("Waiting 6 hours for next activity sync");
+                time::sleep(time::Duration::from_secs(60 * 60 * 6)).await;
             }
         })
     };
