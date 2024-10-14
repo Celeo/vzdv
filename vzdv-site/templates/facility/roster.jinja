@@ -39,7 +39,7 @@
               <span class="badge text-bg-warning" title="Training">{{ cert.name }}</span>
             {% elif cert.value == "solo" %}
               <span class="badge text-bg-info" title="Solo">{{ cert.name }}</span>
-            {% else %}
+            {% elif cert.value == "certified" %}
               <span class="badge text-bg-success" title="Certified">{{ cert.name }}</span>
             {% endif %}
           {% endfor %}
