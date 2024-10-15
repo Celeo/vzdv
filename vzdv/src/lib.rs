@@ -531,11 +531,12 @@ pub mod tests {
     #[test]
     fn test_position_in_facility_airspace() {
         let mut config = Config::default();
-        config.stats.position_prefixes.push("DEN".to_string());
+        config.stats.position_prefixes.push("DEN_".to_string());
         config.stats.position_suffixes.push("_TWR".to_string());
 
         assert!(position_in_facility_airspace(&config, "DEN_2_TWR"));
         assert!(!position_in_facility_airspace(&config, "SAN_GND"));
+        assert!(!position_in_facility_airspace(&config, "DENN_F_TWR"));
     }
 
     #[test]
