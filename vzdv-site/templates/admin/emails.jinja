@@ -1,0 +1,139 @@
+{% extends "_layout" %}
+
+{% block title %}Emails | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h2 class="pb-3">Email templates</h2>
+<p>
+  There are <strong>3</strong> email templates that this site uses. You can edit them below. VATUSA hosts other templates.
+  <br>
+  The following template variables are available for use in emails:
+</p>
+
+{% raw %}
+<ul>
+  <li>"{{ recipient_name }}" - name of the recipient</li>
+  <li>"{{ atm }}" - name of the ARTCC ATM</li>
+  <li>"{{ datm }}" - name of the ARTCC DATM</li>
+</ul>
+{% endraw %}
+
+<ul class="nav nav-tabs pt-3" role="tablist">
+  <button class="nav-link active" id="nav-visitor-accepted-tab" data-bs-toggle="tab" data-bs-target="#nav-visitor-accepted" type="button" role="tab" aria-controls="nav-visitor-accepted" aria-selected="true">Visitor accepted</button>
+  <button class="nav-link" id="nav-visitor-denied-tab" data-bs-toggle="tab" data-bs-target="#nav-visitor-denied" type="button" role="tab" aria-controls="nav-visitor-denied" aria-selected="false">Visitor denied</button>
+  <button class="nav-link" id="nav-visitor-removed-tab" data-bs-toggle="tab" data-bs-target="#nav-visitor-removed" type="button" role="tab" aria-controls="nav-visitor-removed" aria-selected="false">Visitor removed</button>
+</ul>
+
+<div class="tab-content pt-3" id="nav-tabContent">
+  <div class="tab-pane fade show active" id="nav-visitor-accepted" role="tabpanel" aria-labelledby="nav-visitor-accepted-tab" tabindex="0">
+    <form action="/admin/emails/update" method="POST">
+      <input type="hidden" name="name" value="visitor_accepted">
+      <div class="row">
+        <div class="col">
+          <div class="mb-3">
+            <label for="subject" class="form-label">Subject</label>
+            <input type="text" id="subject" name="subject" class="form-control" value="{{ visitor_accepted.subject }}">
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <div class="mb-3">
+            <label for="body" class="form-label">Body</label>
+            <textarea name="body" id="body" class="form-control" style="height: 20rem">{{ visitor_accepted.body }}</textarea>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" role="button" type="submit">
+        <i class="bi bi-floppy2-fill"></i>
+        Save
+      </button>
+    </form>
+  </div>
+  <div class="tab-pane fade" id="nav-visitor-denied" role="tabpanel" aria-labelledby="nav-visitor-denied-tab" tabindex="0">
+    <form action="/admin/emails/update" method="POST">
+      <input type="hidden" name="name" value="visitor_denied">
+      <div class="row">
+        <div class="col">
+          <div class="mb-3">
+            <label for="subject" class="form-label">Subject</label>
+            <input type="text" id="subject" name="subject" class="form-control" value="{{ visitor_denied.subject }}">
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <div class="mb-3">
+            <label for="body" class="form-label">Body</label>
+            <textarea name="body" id="body" class="form-control" style="height: 20rem">{{ visitor_denied.body }}</textarea>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" role="button" type="submit">
+        <i class="bi bi-floppy2-fill"></i>
+        Save
+      </button>
+    </form>
+  </div>
+  <div class="tab-pane fade" id="nav-visitor-removed" role="tabpanel" aria-labelledby="nav-visitor-removed-tab" tabindex="0">
+    <form action="/admin/emails/update" method="POST">
+      <input type="hidden" name="name" value="visitor_removed">
+      <div class="row">
+        <div class="col">
+          <div class="mb-3">
+            <label for="subject" class="form-label">Subject</label>
+            <input type="text" id="subject" name="subject" class="form-control" value="{{ visitor_removed.subject }}">
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <div class="mb-3">
+            <label for="body" class="form-label">Body</label>
+            <textarea name="body" id="body" class="form-control" style="height: 20rem">{{ visitor_removed.body }}</textarea>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" role="button" type="submit">
+        <i class="bi bi-floppy2-fill"></i>
+        Save
+      </button>
+    </form>
+  </div>
+</div>
+
+<hr class="py-3">
+
+<h2 class="pb-3">Manually send email</h2>
+<p>
+  This section can be used to manually send an email to a controller.<br>
+  Primarily intended for use in testing templates by sending an email to yourself.<br><br>
+  <strong>Important</strong>: this will actually send an email, so be careful.
+</p>
+<form action="/admin/emails/send" method="POST">
+  <div class="row mb-3">
+    <div class="col">
+      <select class="form-select" name="recipient" id="recipient" required>
+        <option disabled>Controllers</option>
+        {% for controller in all_controllers %}
+          <option value="{{ controller.cid }}">{{ controller.first_name }} {{ controller.last_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col">
+      <select class="form-select" name="template" id="template" required>
+        <option disabled>Template</option>
+        <option value="visitor_accepted">Visitor accepted</option>
+        <option value="visitor_denied">Visitor denied</option>
+        <option value="visitor_removed">Visitor removed</option>
+      </select>
+    </div>
+  </div>
+  <button class="btn btn-primary" role="button" type="submit">
+    <i class="bi bi-envelope"></i>
+    Send
+  </button>
+</form>
+
+{% endblock %}

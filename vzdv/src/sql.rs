@@ -133,6 +133,14 @@ pub struct StaffNote {
     pub comment: String,
 }
 
+#[derive(Debug, FromRow, Serialize)]
+pub struct EmailTemplate {
+    pub id: u32,
+    pub name: String,
+    pub subject: String,
+    pub body: String,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -253,6 +261,13 @@ CREATE TABLE staff_note (
 
     FOREIGN KEY (cid) REFERENCES controller(cid),
     FOREIGN KEY (by) REFERENCES controller(cid)
+) STRICT;
+
+CREATE table email_template (
+    id INTEGER PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL
 ) STRICT;
 "#;
 
@@ -390,3 +405,7 @@ pub const GET_STAFF_NOTES_FOR: &str = "SELECT * FROM staff_note WHERE cid=$1";
 pub const GET_STAFF_NOTE: &str = "SELECT * FROM staff_note WHERE id=$1";
 pub const DELETE_STAFF_NOTE: &str = "DELETE FROM staff_note WHERE id=$1";
 pub const CREATE_STAFF_NOTE: &str = "INSERT INTO staff_note VALUES (NULL, $1, $2, $3, $4);";
+
+pub const GET_EMAIL_TEMPLATE: &str = "SELECT * FROM email_template WHERE name=$1";
+pub const UPDATE_EMAIL_TEMPLATE: &str =
+    "UPDATE email_template SET subject=$2, body=$3 WHERE name=$1";

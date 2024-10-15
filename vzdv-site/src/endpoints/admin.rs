@@ -173,10 +173,10 @@ async fn post_feedback_form_handle(
     Ok(Redirect::to("/admin/feedback").into_response())
 }
 
-/// Admin page to manually send emails.
+/// Page to set email templates and send emails.
 ///
 /// Admin staff members only.
-async fn page_email_manual_send(
+async fn page_emails(
     State(state): State<Arc<AppState>>,
     session: Session,
 ) -> Result<Response, AppError> {
@@ -187,10 +187,66 @@ async fn page_email_manual_send(
     let all_controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS)
         .fetch_all(&state.db)
         .await?;
-    let template = state.templates.get_template("admin/manual_email")?;
+    let template = state.templates.get_template("admin/emails")?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let rendered = template.render(context! { user_info, all_controllers, flashed_messages })?;
+    let email_templates = email::query_templates(&state.db).await?;
+    let rendered = template.render(context! {
+        user_info,
+        all_controllers,
+        flashed_messages,
+        visitor_accepted => email_templates.visitor_accepted,
+        visitor_denied => email_templates.visitor_denied,
+        visitor_removed => email_templates.visitor_removed,
+    })?;
     Ok(Html(rendered).into_response())
+}
+
+#[derive(Debug, Deserialize)]
+struct UpdateTemplateForm {
+    name: String,
+    subject: String,
+    body: String,
+}
+
+/// Form submission to update an email template.
+///
+/// Admin staff members only.
+async fn post_email_template_update(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Form(update_template_form): Form<UpdateTemplateForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect);
+    }
+    // verify it's one of the three templates
+    if ![
+        email::templates::VISITOR_ACCEPTED,
+        email::templates::VISITOR_DENIED,
+        email::templates::VISITOR_REMOVED,
+    ]
+    .iter()
+    .any(|&name| name == update_template_form.name)
+    {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            &format!("Unknown template name: {}", update_template_form.name),
+        )
+        .await?;
+        return Ok(Redirect::to("/admin/emails"));
+    }
+    // save
+    sqlx::query(sql::UPDATE_EMAIL_TEMPLATE)
+        .bind(update_template_form.name)
+        .bind(update_template_form.subject)
+        .bind(update_template_form.body)
+        .execute(&state.db)
+        .await?;
+    flashed_messages::push_flashed_message(session, MessageLevel::Info, "Email template updated")
+        .await?;
+    Ok(Redirect::to("/admin/emails"))
 }
 
 #[derive(Debug, Deserialize)]
@@ -634,8 +690,8 @@ pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
         .unwrap();
     templates
         .add_template(
-            "admin/manual_email",
-            include_str!("../../templates/admin/manual_email.jinja"),
+            "admin/emails",
+            include_str!("../../templates/admin/emails.jinja"),
         )
         .unwrap();
     templates
@@ -679,10 +735,9 @@ pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
     Router::new()
         .route("/admin/feedback", get(page_feedback))
         .route("/admin/feedback", post(post_feedback_form_handle))
-        .route(
-            "/admin/email/manual",
-            get(page_email_manual_send).post(post_email_manual_send),
-        )
+        .route("/admin/emails", get(page_emails))
+        .route("/admin/emails/update", post(post_email_template_update))
+        .route("/admin/emails/send", post(post_email_manual_send))
         .route("/admin/logs", get(page_logs))
         .route(
             "/admin/visitor_applications",

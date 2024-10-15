@@ -59,8 +59,6 @@ pub enum AppError {
     MultipartFormParsing(#[from] axum::extract::multipart::MultipartError),
     #[error(transparent)]
     EmailError(#[from] lettre::transport::smtp::Error),
-    #[error("unknown email template {0}")]
-    UnknownEmailTemplate(String),
     #[error(transparent)]
     FileWriteError(#[from] std::io::Error),
     #[error("generic error {0}: {1}")]
@@ -84,7 +82,6 @@ impl AppError {
             Self::MultipartFormGet => "Issue parsing form key",
             Self::MultipartFormParsing(_) => "Issue parsing form submission",
             Self::EmailError(_) => "Issue sending an email",
-            Self::UnknownEmailTemplate(_) => "Unknown email template",
             Self::FileWriteError(_) => "Writing to a file",
             Self::GenericFallback(_, _) => "Unknown error",
         }

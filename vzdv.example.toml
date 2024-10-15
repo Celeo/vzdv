@@ -215,14 +215,3 @@ password = ""
 from = ""
 reply_to = ""
 
-[email.visitor_accepted_template]
-subject = "You have been added to the visiting controller roster"
-body = ""
-
-[email.visitor_denied_template]
-subject = "Your visiting controller request has been rejected"
-body = ""
-
-[email.visitor_removed_template]
-subject = "You have been removed from the visiting controller roster"
-body = ""

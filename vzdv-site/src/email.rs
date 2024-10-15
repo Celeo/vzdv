@@ -5,13 +5,20 @@ use lettre::{Message, SmtpTransport, Transport};
 use minijinja::{context, Environment};
 use sqlx::{Pool, Sqlite};
 use vzdv::config::Config;
-use vzdv::sql::{self, Controller};
+use vzdv::sql::{self, Controller, EmailTemplate};
 
-/// Email templates.
+/// Email template names.
 pub mod templates {
     pub const VISITOR_ACCEPTED: &str = "visitor_accepted";
     pub const VISITOR_DENIED: &str = "visitor_denied";
     pub const VISITOR_REMOVED: &str = "visitor_removed";
+}
+
+/// Email templates by name.
+pub struct Templates {
+    pub visitor_accepted: EmailTemplate,
+    pub visitor_denied: EmailTemplate,
+    pub visitor_removed: EmailTemplate,
 }
 
 /// Send an SMTP email to the recipient.
@@ -22,15 +29,7 @@ pub async fn send_mail(
     recipient_address: &str,
     template_name: &str,
 ) -> Result<(), AppError> {
-    // template match from config
-    let template = match template_name {
-        templates::VISITOR_ACCEPTED => &config.email.visitor_accepted_template,
-        templates::VISITOR_DENIED => &config.email.visitor_denied_template,
-        templates::VISITOR_REMOVED => &config.email.visitor_removed_template,
-        _ => {
-            return Err(AppError::UnknownEmailTemplate(template_name.to_owned()));
-        }
-    };
+    let template = query_template(db, template_name).await?;
 
     // ATM and DATM names for signing
     let atm_datm: Vec<Controller> = sqlx::query_as(sql::GET_ATM_AND_DATM).fetch_all(db).await?;
@@ -71,4 +70,36 @@ pub async fn send_mail(
         .build();
     mailer.send(&email)?;
     Ok(())
+}
+
+/// Get a single template by name.
+///
+/// Returns an error if the template does not exist.
+pub async fn query_template(db: &Pool<Sqlite>, template: &str) -> Result<EmailTemplate, AppError> {
+    let template = sqlx::query_as(sql::GET_EMAIL_TEMPLATE)
+        .bind(template)
+        .fetch_one(db)
+        .await?;
+    Ok(template)
+}
+
+/// Load email templates from the database.
+pub async fn query_templates(db: &Pool<Sqlite>) -> Result<Templates, AppError> {
+    let visitor_accepted: EmailTemplate = sqlx::query_as(sql::GET_EMAIL_TEMPLATE)
+        .bind(templates::VISITOR_ACCEPTED)
+        .fetch_one(db)
+        .await?;
+    let visitor_denied: EmailTemplate = sqlx::query_as(sql::GET_EMAIL_TEMPLATE)
+        .bind(templates::VISITOR_DENIED)
+        .fetch_one(db)
+        .await?;
+    let visitor_removed: EmailTemplate = sqlx::query_as(sql::GET_EMAIL_TEMPLATE)
+        .bind(templates::VISITOR_REMOVED)
+        .fetch_one(db)
+        .await?;
+    Ok(Templates {
+        visitor_accepted,
+        visitor_denied,
+        visitor_removed,
+    })
 }
