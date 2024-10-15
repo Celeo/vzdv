@@ -280,7 +280,7 @@ async fn post_email_manual_send(
                 "Unknown controller",
             )
             .await?;
-            return Ok(Redirect::to("/admin/email/manual").into_response());
+            return Ok(Redirect::to("/admin/emails").into_response());
         }
     };
     let controller_info = vatusa::get_controller_info(
@@ -298,9 +298,15 @@ async fn post_email_manual_send(
                 "Could not get controller's email from VATUSA",
             )
             .await?;
-            return Ok(Redirect::to("/admin/email/manual").into_response());
+            return Ok(Redirect::to("/admin/emails").into_response());
         }
     };
+    info!(
+        "{} sent {} email to {}",
+        user_info.unwrap().cid,
+        manual_email_form.template,
+        manual_email_form.recipient
+    );
     send_mail(
         &state.config,
         &state.db,
@@ -310,7 +316,7 @@ async fn post_email_manual_send(
     )
     .await?;
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Email sent").await?;
-    Ok(Redirect::to("/admin/email/manual").into_response())
+    Ok(Redirect::to("/admin/emails").into_response())
 }
 
 /// Page for logs.
