@@ -1,2 +1,1 @@
-0 0 * * * /srv/vzdv/vzdv-import
 0 * * * * /srv/vzdv/backup.sh
