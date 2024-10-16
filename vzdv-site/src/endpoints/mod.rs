@@ -109,9 +109,13 @@ async fn page_feedback_form_post(
     Ok(Redirect::to("/feedback"))
 }
 
-async fn page_changelog(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
+async fn page_changelog(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Html<String>, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let template = state.templates.get_template("changelog")?;
-    let rendered = template.render(context! { no_links => true })?;
+    let rendered = template.render(context! { user_info })?;
     Ok(Html(rendered))
 }
 
