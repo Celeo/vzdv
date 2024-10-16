@@ -27,6 +27,7 @@ mod discord;
 mod email;
 mod endpoints;
 mod flashed_messages;
+mod flights;
 mod middleware;
 mod shared;
 

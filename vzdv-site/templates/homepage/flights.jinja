@@ -6,14 +6,18 @@
 </h4>
 <p class="ms-2">
   <span title="Starting and ending at local fields">
-    <strong>Within</strong>: {{ flights.within }}
+    <strong>Planned within</strong>: {{ flights.plan_within }}
   </span>
   <br>
   <span title="From local fields to outside the airspace">
-    <strong>From</strong>: {{ flights.from }}
+    <strong>Planned from</strong>: {{ flights.plan_from }}
   </span>
   <br>
   <span title="From outside airspace to local fields">
-    <strong>To</strong>: {{ flights.to }}
+    <strong>Planned to</strong>: {{ flights.plan_to }}
+  </span>
+  <br>
+  <span title="Currently inside the airspace">
+    <strong>In airspace</strong>: {{ flights.actually_within }}
   </span>
 </p>

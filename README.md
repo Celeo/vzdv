@@ -51,10 +51,10 @@ This app makes few assertions about how it should be ran. You can run it directl
 
 Licensed under either of
 
-* Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
-* MIT license ([LICENSE-MIT](LICENSE-MIT))
+- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
 
-Loading indicator from [SamHerbert/SVG-Loaders](https://github.com/SamHerbert/SVG-Loaders).
+Loading indicator from [SamHerbert/SVG-Loaders](https://github.com/SamHerbert/SVG-Loaders). Geo boundary data from [vatspy-data-project](https://github.com/vatsimnetwork/vatspy-data-project). See 'Cargo.toml' files for a list of used libraries.
 
 ## Contributing
 

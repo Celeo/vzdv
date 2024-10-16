@@ -2,6 +2,7 @@
 
 use crate::{
     flashed_messages,
+    flights::get_relevant_flights,
     shared::{AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{extract::State, response::Html, routing::get, Router};
@@ -102,45 +103,30 @@ async fn snippet_weather(State(state): State<Arc<AppState>>) -> Result<Html<Stri
 async fn snippet_flights(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
     #[derive(Serialize, Default)]
     struct OnlineFlights {
-        within: u16,
-        from: u16,
-        to: u16,
+        plan_within: usize,
+        plan_from: usize,
+        plan_to: usize,
+        actually_within: usize,
     }
 
-    // cache this endpoint's returned data for 60 seconds
+    // cache this endpoint's returned data for 15 seconds
     let cache_key = "ONLINE_FLIGHTS_HOMEPAGE";
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
-        if elapsed.as_secs() < 60 {
+        if elapsed.as_secs() < 15 {
             return Ok(Html(cached.data));
         }
         state.cache.invalidate(&cache_key);
     }
 
-    let artcc_fields: Vec<_> = state
-        .config
-        .airports
-        .all
-        .iter()
-        .map(|airport| &airport.code)
-        .collect();
     let data = Vatsim::new().await?.get_v3_data().await?;
-    let flights: OnlineFlights =
-        data.pilots
-            .iter()
-            .fold(OnlineFlights::default(), |mut flights, flight| {
-                if let Some(plan) = &flight.flight_plan {
-                    let from = artcc_fields.contains(&&plan.departure);
-                    let to = artcc_fields.contains(&&plan.arrival);
-                    match (from, to) {
-                        (true, true) => flights.within += 1,
-                        (false, true) => flights.to += 1,
-                        (true, false) => flights.from += 1,
-                        _ => {}
-                    }
-                };
-                flights
-            });
+    let flights = get_relevant_flights(&state.config, &data.pilots);
+    let flights = OnlineFlights {
+        plan_within: flights.plan_within.len(),
+        plan_from: flights.plan_from.len(),
+        plan_to: flights.plan_to.len(),
+        actually_within: flights.actually_within.len(),
+    };
 
     let template = state.templates.get_template("homepage/flights")?;
     let rendered = template.render(context! { flights })?;

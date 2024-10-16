@@ -2,6 +2,7 @@
 
 use crate::{
     flashed_messages,
+    flights::get_relevant_flights,
     shared::{AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
@@ -13,9 +14,9 @@ use axum::{
 use itertools::Itertools;
 use log::{info, warn};
 use minijinja::{context, Environment};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
-use std::{sync::Arc, time::Instant};
+use std::{collections::HashSet, sync::Arc, time::Instant};
 use thousands::Separable;
 use tower_sessions::Session;
 use vatsim_utils::live_api::Vatsim;
@@ -38,60 +39,31 @@ async fn page_flights(
     State(state): State<Arc<AppState>>,
     session: Session,
 ) -> Result<Html<String>, AppError> {
-    #[derive(Serialize, Default)]
-    struct OnlineFlight<'a> {
-        pilot_name: &'a str,
-        pilot_cid: u64,
-        callsign: &'a str,
-        departure: &'a str,
-        arrival: &'a str,
-        altitude: String,
-        speed: String,
-    }
-
-    // cache this endpoint's returned data for 60 seconds
+    // cache this endpoint's returned data for 15 seconds
     let cache_key = "ONLINE_FLIGHTS_FULL";
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
-        if elapsed.as_secs() < 60 {
+        if elapsed.as_secs() < 15 {
             return Ok(Html(cached.data));
         }
         state.cache.invalidate(&cache_key);
     }
 
-    let artcc_fields: Vec<_> = state
-        .config
-        .airports
-        .all
-        .iter()
-        .map(|airport| &airport.code)
-        .collect();
     let vatsim_data = Vatsim::new().await?.get_v3_data().await?;
-    let flights: Vec<OnlineFlight> = vatsim_data
-        .pilots
-        .iter()
-        .flat_map(|flight| {
-            if let Some(plan) = &flight.flight_plan {
-                let from = artcc_fields.contains(&&plan.departure);
-                let to = artcc_fields.contains(&&plan.arrival);
-                if from || to {
-                    Some(OnlineFlight {
-                        pilot_name: &flight.name,
-                        pilot_cid: flight.cid,
-                        callsign: &flight.callsign,
-                        departure: &plan.departure,
-                        arrival: &plan.arrival,
-                        altitude: flight.altitude.separate_with_commas(),
-                        speed: flight.groundspeed.separate_with_commas(),
-                    })
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        })
-        .collect();
+    let flights = {
+        let all = get_relevant_flights(&state.config, &vatsim_data.pilots);
+        let mut flights = HashSet::with_capacity(all.plan_within.len()); // won't be all of them, but might save one allocation
+        flights.extend(all.actually_within);
+        flights.extend(all.plan_from);
+        flights.extend(all.plan_to);
+        flights.extend(all.plan_within);
+        let flights: Vec<_> = flights
+            .iter()
+            .cloned()
+            .sorted_by(|a, b| a.callsign.cmp(&b.callsign))
+            .collect();
+        flights
+    };
 
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let template = state.templates.get_template("airspace/flights")?;
