@@ -109,6 +109,12 @@ async fn page_feedback_form_post(
     Ok(Redirect::to("/feedback"))
 }
 
+async fn page_changelog(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
+    let template = state.templates.get_template("changelog")?;
+    let rendered = template.render(context! { no_links => true })?;
+    Ok(Html(rendered))
+}
+
 /// This file's routes and templates.
 pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
     templates
@@ -117,10 +123,14 @@ pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
     templates
         .add_template("feedback", include_str!("../../templates/feedback.jinja"))
         .unwrap();
+    templates
+        .add_template("changelog", include_str!("../../templates/changelog.jinja"))
+        .unwrap();
 
     Router::new()
         .route("/404", get(page_404))
         .route("/feedback", get(page_feedback_form))
         .route("/feedback", post(page_feedback_form_post))
+        .route("/changelog", get(page_changelog))
         .nest_service("/assets", ServeDir::new("assets"))
 }

@@ -1,0 +1,69 @@
+{% extends "_layout" %}
+
+{% block title %}Changelog | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h2 class="pb-3">Changelog</h2>
+
+<h4>What is this?</h4>
+<p>
+  This page details the changes that have been made to the site, task runner, and Discord bot over time. You don't need to know the information on this page, but it's provided
+  as a record of those changes.
+</p>
+
+<hr>
+
+<div class="card shadow mb-3">
+  <div class="card-body">
+    <h5 class="card-title">2024-10-14</h5>
+    <div class="card-text">
+      <ul>
+        <li>Add flights not starting or ending in facility airports but physically located in its airspace to home and flights pages</li>
+        <li>Add this changelog page</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow mb-3">
+  <div class="card-body">
+    <h5 class="card-title">2024-10-14</h5>
+    <div class="card-text">
+      <ul>
+        <li>Fix for adding OIs to new roster controllers</li>
+        <li>Restrict event notes to 500 characters</li>
+        <li>Fix position matching for off-roster controllers</li>
+        <li>Create editable email templates for Sr. Staff</li>
+        <li>Fix manual-email-send post-form-submission redirect destination</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow mb-3">
+  <div class="card-body">
+    <h5 class="card-title">2024-10-13</h5>
+    <div class="card-text">
+      <ul>
+        <li>Improved the online controllers message in Discord</li>
+        <li>Code cleanup</li>
+        <li>Fix roster page showing 'none' certificates as certified</li>
+        <li>Added 'bot-ignore' support for Discord nicknames</li>
+        <li>Reduce activity task delay to 6 hours</li>
+        <li>Reduce roster task delay to 2 hours</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow mb-3">
+  <div class="card-body">
+    <h5 class="card-title">2024-10-12</h5>
+    <p class="card-text">
+      Site released! Welcome to v1.0.0.
+    </p>
+  </div>
+</div>
+
+{% endblock %}
