@@ -343,6 +343,7 @@ INSERT INTO activity
 VALUES
     (NULL, $1, $2, $3)
 ";
+pub const UPDATE_ACTIVITY: &str = "UPDATE activity SET minutes=$3 WHERE cid=$1 AND month=$2";
 
 pub const INSERT_FEEDBACK: &str = "
 INSERT INTO feedback
