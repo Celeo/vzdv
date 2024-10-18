@@ -37,8 +37,8 @@ async fn main() {
     let roster_handle = {
         let db = db.clone();
         tokio::spawn(async move {
-            debug!("Waiting 10 seconds before starting roster sync");
-            time::sleep(Duration::from_secs(10)).await;
+            debug!("Waiting 15 seconds before starting roster sync");
+            time::sleep(Duration::from_secs(15)).await;
             loop {
                 info!("Querying roster");
                 match roster::update_roster(&db).await {
@@ -59,10 +59,9 @@ async fn main() {
         let config = config.clone();
         let db = db.clone();
         tokio::spawn(async move {
-            debug!("Waiting 60 seconds before starting activity sync");
-            time::sleep(Duration::from_secs(60)).await;
-            // FIXME to 0
-            for index in 1u64.. {
+            debug!("Waiting 30 seconds before starting activity sync");
+            time::sleep(Duration::from_secs(30)).await;
+            for index in 0u64.. {
                 /*
                  * Update everyone on a 6 hour schedule (15 minutes * 24 ticks = 6 hours).
                  * This update makes sure that everyone's data is accurate.

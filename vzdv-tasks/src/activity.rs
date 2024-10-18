@@ -1,7 +1,7 @@
 //! Update activity from VATSIM.
 
 use anyhow::{Context, Result};
-use chrono::Months;
+use chrono::{DateTime, Months, Utc};
 use log::{debug, error};
 use sqlx::{Pool, Row, Sqlite};
 use std::{collections::HashMap, time::Duration};
@@ -105,8 +105,9 @@ async fn update_single_activity(
     db: &Pool<Sqlite>,
     start_of_month: &str,
     cid: u64,
+    logon_time: &str,
 ) -> Result<()> {
-    let sessions = rest_api::get_atc_sessions(cid, None, None, None, Some(start_of_month)).await?;
+    let sessions = rest_api::get_atc_sessions(cid, None, None, Some(start_of_month), None).await?;
     let mut counter = 0.0;
     for session in sessions.results {
         if !position_in_facility_airspace(config, &session.callsign) {
@@ -114,10 +115,13 @@ async fn update_single_activity(
         }
         counter += session.minutes_on_callsign.parse::<f32>().unwrap() * 60.0;
     }
+    let logon_time = DateTime::parse_from_rfc3339(logon_time)?.timestamp();
+    let online_seconds = Utc::now().timestamp() - logon_time;
+    let minutes = ((counter + online_seconds as f32) / 60.0).round() as u32;
     sqlx::query(sql::UPDATE_ACTIVITY)
         .bind(cid as u32)
         .bind(start_of_month[0..7].to_string())
-        .bind(counter)
+        .bind(minutes)
         .execute(db)
         .await
         .with_context(|| format!("Updating CID {cid}"))?;
@@ -138,11 +142,7 @@ pub async fn update_online_controller_activity(config: &Config, db: &Pool<Sqlite
         let vatsim = vatsim_utils::live_api::Vatsim::new().await?;
         vatsim.get_v3_data().await?.controllers
     };
-    let start_of_month = chrono::Utc::now()
-        .checked_sub_months(Months::new(1))
-        .unwrap()
-        .format("%Y-%m-%d")
-        .to_string();
+    let start_of_month = chrono::Utc::now().format("%Y-%m-01").to_string();
 
     for controller in online_controllers {
         let cid = controller.cid;
@@ -150,7 +150,9 @@ pub async fn update_online_controller_activity(config: &Config, db: &Pool<Sqlite
             continue;
         }
         debug!("Spot-updating activity for {cid}");
-        if let Err(e) = update_single_activity(config, db, &start_of_month, cid).await {
+        if let Err(e) =
+            update_single_activity(config, db, &start_of_month, cid, &controller.logon_time).await
+        {
             error!("Error spot-updating CID {cid}: {e}")
         }
         // wait a second to be nice to the VATSIM API
