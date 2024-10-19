@@ -164,6 +164,28 @@ async fn post_feedback_form_handle(
                 "Feedback shared",
             )
             .await?;
+        } else if feedback_form.action == "Silently approve" {
+            sqlx::query(sql::UPDATE_FEEDBACK_TAKE_ACTION)
+                .bind(user_info.cid)
+                .bind("approve")
+                .bind(false)
+                .bind(feedback_form.id)
+                .execute(&state.db)
+                .await?;
+            info!(
+                "{} silently-approved {} feedback {} for {} by {}",
+                user_info.cid,
+                feedback.rating,
+                feedback.id,
+                feedback.controller,
+                feedback.submitter_cid
+            );
+            flashed_messages::push_flashed_message(
+                session,
+                MessageLevel::Success,
+                "Feedback silently approved",
+            )
+            .await?;
         }
     } else {
         flashed_messages::push_flashed_message(session, MessageLevel::Error, "Feedback not found")
