@@ -54,7 +54,7 @@ Licensed under either of
 - Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
 - MIT license ([LICENSE-MIT](LICENSE-MIT))
 
-Loading indicator from [SamHerbert/SVG-Loaders](https://github.com/SamHerbert/SVG-Loaders). Geo boundary data from [vatspy-data-project](https://github.com/vatsimnetwork/vatspy-data-project). See 'Cargo.toml' files for a list of used libraries.
+Loading indicator from [SamHerbert/SVG-Loaders](https://github.com/SamHerbert/SVG-Loaders). Geo boundary data from [vatspy-data-project](https://github.com/vatsimnetwork/vatspy-data-project). HTML table sorting JS from [kryogenix.org](https://www.kryogenix.org/code/browser/sorttable). See 'Cargo.toml' files for a list of used Rust libraries.
 
 ## Contributing
 
