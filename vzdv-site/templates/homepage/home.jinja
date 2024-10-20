@@ -15,7 +15,11 @@
     </p>
     <div class="card shadow mb-2">
       <div class="card-body">
-        <div id="events" hx-get="/events/upcoming" hx-trigger="load">
+        <div
+          id="events"
+          hx-get="/events/upcoming"
+          hx-trigger="load"
+        >
           <p>Loading ...</p>
         </div>
       </div>
@@ -27,7 +31,7 @@
         <div
           id="online"
           hx-get="/home/online/controllers"
-          hx-trigger="load"
+          hx-trigger="load, every 1m"
         >
           <p>Loading ...</p>
         </div>
@@ -35,7 +39,11 @@
     </div>
     <div class="card shadow mt-2">
       <div class="card-body">
-        <div id="weather" hx-get="/home/weather" hx-trigger="load">
+        <div
+          id="weather"
+          hx-get="/home/weather"
+          hx-trigger="load, every 5m"
+        >
           <p>Loading ...</p>
         </div>
       </div>
@@ -45,7 +53,7 @@
         <div
           id="flights"
           hx-get="/home/online/flights"
-          hx-trigger="load"
+          hx-trigger="load, every 1m"
         >
           <p>Loading ...</p>
         </div>
@@ -56,7 +64,7 @@
         <div
           id="cotm"
           hx-get="/home/cotm"
-          hx-trigger="load"
+          hx-trigger="load, every 1m"
         >
           <p>Loading ...</p>
         </div>

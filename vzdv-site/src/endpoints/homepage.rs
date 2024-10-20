@@ -36,11 +36,11 @@ async fn page_home(
 async fn snippet_online_controllers(
     State(state): State<Arc<AppState>>,
 ) -> Result<Html<String>, AppError> {
-    // cache this endpoint's returned data for 60 seconds
+    // cache this endpoint's returned data for 30 seconds
     let cache_key = "ONLINE_CONTROLLERS";
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
-        if elapsed.as_secs() < 60 {
+        if elapsed.as_secs() < 30 {
             return Ok(Html(cached.data));
         }
         state.cache.invalidate(&cache_key);
