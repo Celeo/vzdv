@@ -17,6 +17,7 @@ use twilight_model::id::Id;
 use vzdv::{config::Config, general_setup};
 
 mod commands;
+mod events;
 mod tasks;
 
 /// vZDV Discord bot.
@@ -129,6 +130,7 @@ async fn handle_event(
     db: &Pool<Sqlite>,
 ) -> Result<()> {
     commands::handler(&event, &http, bot_id, config, db).await?;
+    events::handler(&event, &http, config, db).await?;
 
     Ok(())
 }

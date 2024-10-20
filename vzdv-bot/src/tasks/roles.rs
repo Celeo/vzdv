@@ -202,6 +202,67 @@ async fn get_correct_roles(
     Ok(to_resolve)
 }
 
+/// Handle everything for a single guild member.
+///
+/// Returns a `bool` of if a controller was located by Discord user ID.
+pub async fn process_single_member(
+    member: &Member,
+    guild_id: Id<GuildMarker>,
+    config: &Arc<Config>,
+    db: &Pool<Sqlite>,
+    http: &Arc<Client>,
+) -> bool {
+    let nick = member.nick.as_ref().unwrap_or(&member.user.name);
+    let user_id = member.user.id.get();
+
+    if user_id == config.discord.owner_id {
+        debug!("Skipping over guild owner {nick} ({user_id})");
+        return false;
+    }
+    if member.user.bot {
+        debug!("Skipping over bot user {nick} ({user_id})");
+        return false;
+    }
+    debug!("Processing user {} ({})", nick, user_id);
+    let controller: Option<Controller> = match sqlx::query_as(sql::GET_CONTROLLER_BY_DISCORD_ID)
+        .bind(user_id.to_string())
+        .fetch_optional(db)
+        .await
+    {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Error getting controller by Discord ID: {e}");
+            return false;
+        }
+    };
+
+    // determine the roles the guild member should have and update accordingly
+    match get_correct_roles(config, &controller).await {
+        Ok(to_resolve) => {
+            if let Err(e) = resolve_roles(guild_id, member, &to_resolve, http).await {
+                error!("Error resolving roles for {nick} ({user_id}): {e}");
+            }
+        }
+        Err(e) => {
+            error!("Error determining roles for {nick} ({user_id}): {e}");
+        }
+    }
+
+    // nickname
+    if let Some(controller) = controller {
+        if member
+            .roles
+            .iter()
+            .any(|r| r.get() == config.discord.roles.ignore)
+        {
+            debug!("{nick} ({user_id}) has bot ignore role; not setting nickname");
+        } else if let Err(e) = set_nickname(guild_id, member, &controller, http).await {
+            error!("Error setting nickname of {nick} ({user_id}): {e}");
+        }
+    }
+    true
+}
+
 /// Single loop execution.
 async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Result<()> {
     info!("Role tick");
@@ -214,49 +275,8 @@ async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Re
         .await?;
     debug!("Found {} Discord members", members.len());
     for member in &members {
-        let nick = member.nick.as_ref().unwrap_or(&member.user.name);
-        let user_id = member.user.id.get();
-
-        if user_id == config.discord.owner_id {
-            debug!("Skipping over guild owner {nick} ({user_id})");
-            continue;
-        }
-        if member.user.bot {
-            debug!("Skipping over bot user {nick} ({user_id})");
-            continue;
-        }
-        debug!("Processing user {} ({})", nick, user_id);
-        let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_DISCORD_ID)
-            .bind(user_id.to_string())
-            .fetch_optional(db)
-            .await?;
-
-        // determine the roles the guild member should have and update accordingly
-        match get_correct_roles(config, &controller).await {
-            Ok(to_resolve) => {
-                if let Err(e) = resolve_roles(guild_id, member, &to_resolve, http).await {
-                    error!("Error resolving roles for {nick} ({user_id}): {e}");
-                }
-            }
-            Err(e) => {
-                error!("Error determining roles for {nick} ({user_id}): {e}");
-            }
-        }
-
-        // nickname
-        if let Some(controller) = controller {
-            if member
-                .roles
-                .iter()
-                .any(|r| r.get() == config.discord.roles.ignore)
-            {
-                debug!("{nick} ({user_id}) has bot ignore role; not setting nickname");
-            } else if let Err(e) = set_nickname(guild_id, member, &controller, http).await {
-                error!("Error setting nickname of {nick} ({user_id}): {e}");
-            }
-        }
-
-        // short wait
+        process_single_member(member, guild_id, config, db, http).await;
+        // short wait between members
         sleep(Duration::from_secs(1)).await;
     }
     debug!("Roles tick complete");
