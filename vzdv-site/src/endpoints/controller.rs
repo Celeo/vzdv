@@ -29,7 +29,7 @@ use vzdv::{
     controller_can_see, get_controller_cids_and_names, retrieve_all_in_use_ois,
     sql::{self, Certification, Controller, Feedback, StaffNote},
     vatusa::{
-        get_multiple_controller_names, get_training_records, save_training_record,
+        self, get_multiple_controller_names, get_training_records, save_training_record,
         NewTrainingRecord, TrainingRecord,
     },
     ControllerRating, PermissionsGroup, StaffPosition,
@@ -114,7 +114,7 @@ async fn page_controller(
         None => {
             flashed_messages::push_flashed_message(
                 session,
-                flashed_messages::MessageLevel::Error,
+                MessageLevel::Error,
                 "Controller not found",
             )
             .await?;
@@ -191,6 +191,7 @@ async fn page_controller(
         settable_roles,
         feedback,
         staff_notes,
+        is_admin,
         flashed_messages
     })?;
     Ok(Html(rendered).into_response())
@@ -592,6 +593,87 @@ async fn post_set_roles(
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
+#[derive(Debug, Deserialize)]
+struct RemoveControllerForm {
+    reason: String,
+}
+
+async fn post_remove_controller(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(cid): Path<u32>,
+    Form(removal_form): Form<RemoveControllerForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect);
+    }
+    let user_info = user_info.unwrap();
+
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(cid)
+        .fetch_optional(&state.db)
+        .await?;
+    let controller = match controller {
+        Some(c) => c,
+        None => {
+            warn!("{} tried to remove unknown controller {cid}", user_info.cid);
+            flashed_messages::push_flashed_message(
+                session,
+                MessageLevel::Error,
+                "Unknown controller",
+            )
+            .await?;
+            return Ok(Redirect::to(&format!("/controller/{cid}")));
+        }
+    };
+
+    if !controller.is_on_roster {
+        warn!(
+            "{} tried to remove off-roster controller {cid}",
+            user_info.cid
+        );
+        return Ok(Redirect::to(&format!("/controller/{cid}")));
+    }
+
+    if controller.home_facility == "ZDV" {
+        // home
+        vatusa::remove_home_controller(
+            cid,
+            &user_info.cid.to_string(),
+            &removal_form.reason,
+            &state.config.vatsim.vatusa_api_key,
+        )
+        .await
+        .map_err(|e| AppError::GenericFallback("removing home controller", e))?;
+        info!(
+            "{} removed home controller {cid}, reason: {}",
+            user_info.cid, &removal_form.reason
+        );
+    } else {
+        // visiting
+        vatusa::remove_visiting_controller(
+            cid,
+            &removal_form.reason,
+            &state.config.vatsim.vatusa_api_key,
+        )
+        .await
+        .map_err(|e| AppError::GenericFallback("removing visiting controller", e))?;
+        info!(
+            "{} removed visiting controller {cid}, reason: {}",
+            user_info.cid, &removal_form.reason
+        );
+    }
+    flashed_messages::push_flashed_message(
+        session,
+        MessageLevel::Info,
+        "Controller removed from roster",
+    )
+    .await?;
+
+    Ok(Redirect::to(&format!("/controller/{cid}")))
+}
+
 pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
     templates
         .add_template(
@@ -627,4 +709,5 @@ pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
             get(snippet_get_training_records).post(post_add_training_note),
         )
         .route("/controller/:cid/roles", post(post_set_roles))
+        .route("/controller/:cid/remove", post(post_remove_controller))
 }

@@ -311,3 +311,41 @@ pub async fn save_training_record(api_key: &str, cid: u32, data: &NewTrainingRec
     }
     Ok(())
 }
+
+/// Remove a home controller from the roster.
+pub async fn remove_home_controller(cid: u32, by: &str, reason: &str, api_key: &str) -> Result<()> {
+    let resp = GENERAL_HTTP_CLIENT
+        .delete(format!("{BASE_URL}v2/facility/ZDV/roster/{cid}"))
+        .query(&[("apikey", api_key)])
+        .json(&json!({ "by": by, "reason": reason }))
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        // not including the URL since it'll have the API key in it
+        bail!(
+            "Got status {} from VATUSA home controller removal API",
+            resp.status().as_u16()
+        );
+    }
+    Ok(())
+}
+
+/// Remove a visiting controller from the roster.
+pub async fn remove_visiting_controller(cid: u32, reason: &str, api_key: &str) -> Result<()> {
+    let resp = GENERAL_HTTP_CLIENT
+        .delete(format!(
+            "{BASE_URL}v2/facility/ZDV/roster/manageVisitor/{cid}"
+        ))
+        .query(&[("apikey", api_key)])
+        .json(&json!({ "reason": reason }))
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        // not including the URL since it'll have the API key in it
+        bail!(
+            "Got status {} from VATUSA visiting controller removal API",
+            resp.status().as_u16()
+        );
+    }
+    Ok(())
+}

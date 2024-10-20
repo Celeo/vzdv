@@ -26,6 +26,12 @@
       <i class="bi bi-pencil"></i>
       Edit OIs
     </button>
+    {% if controller.is_on_roster %}
+      <button class="ms-2 btn btn-sm btn-danger" onclick="modalRemoveController.showModal()">
+        <i class="bi bi-x-circle"></i>
+        Remove
+      </button>
+    {% endif %}
   {% endif %}
 </h2>
 
@@ -372,6 +378,31 @@
   </form>
 </dialog>
 
+<dialog id="modalRemoveController">
+  <h2 class="pb-3">Remove controller from roster</h2>
+  <p>
+    <strong>WARNING!</strong>
+    <br>
+    Upon submission, this will remove the controller from the roster, visiting or home.
+  </p>
+  <form action="/controller/{{ controller.cid }}/remove" method="POST">
+    <div class="row">
+      <div class="col">
+        <div class="mb-3">
+          <label for="reason" class="form-label">Removal reason</label>
+          <input type="text" name="reason" id="reason" class="form-control" required>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="d-flex justify-content-between">
+        <button class="btn btn-warning" role="button" id="btn-modal-remove-close">Close</button>
+        <button class="btn btn-primary" role="button" type="submit">Confirm</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
 <script>
   document.getElementById('btn-unlink-discord')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -402,6 +433,10 @@
   document.getElementById('btn-modal-note-close').addEventListener('click', (e) => {
     e.preventDefault();
     document.getElementById('modalNewStaffNote').close();
+  });
+  document.getElementById('btn-modal-remove-close').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('modalRemoveController').close();
   });
   document.getElementById('btn-modal-training-record-close').addEventListener('click', (e) => {
     e.preventDefault();
