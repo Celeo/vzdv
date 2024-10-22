@@ -191,7 +191,7 @@
   </div>
 {% endif %}
 
-{% if user_info and user_info.is_admin %}
+{% if user_info and (user_info.is_admin or user_info.cid == controller.cid) %}
   <div class="row pt-3">
     <div class="card">
       <div class="card-body p-3">

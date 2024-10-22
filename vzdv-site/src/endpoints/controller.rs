@@ -143,8 +143,14 @@ async fn page_controller(
     let roles: Vec<_> = controller.roles.split_terminator(',').collect();
 
     let is_admin = is_user_member_of(&state, &user_info, PermissionsGroup::Admin).await;
+    let viewing_themselves = user_info.as_ref().map(|info| info.cid).unwrap_or_default() == cid;
     let feedback: Vec<Feedback> = if is_admin {
         sqlx::query_as(sql::GET_ALL_FEEDBACK_FOR)
+            .bind(cid)
+            .fetch_all(&state.db)
+            .await?
+    } else if viewing_themselves {
+        sqlx::query_as(sql::GET_APPROVED_FEEDBACK_FOR)
             .bind(cid)
             .fetch_all(&state.db)
             .await?
