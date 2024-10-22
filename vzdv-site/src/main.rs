@@ -19,7 +19,7 @@ use std::{
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower_http::timeout::TimeoutLayer;
-use tower_sessions::SessionManagerLayer;
+use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::SqliteStore;
 use vzdv::general_setup;
 
@@ -81,7 +81,8 @@ fn load_router(
             ServiceBuilder::new()
                 .layer(TimeoutLayer::new(Duration::from_secs(30)))
                 .layer(axum_middleware::from_fn(middleware::logging))
-                .layer(sessions_layer),
+                .layer(sessions_layer)
+                .layer(axum_middleware::from_fn(middleware::extend_session)),
         )
         .fallback(endpoints::page_404)
 }
@@ -127,9 +128,13 @@ async fn main() {
         error!("Could not create table for sessions: {e}");
         return;
     }
+
     // "lax" seems to be needed for the Discord OAuth login, but is there a concern about security?
-    let session_layer =
-        SessionManagerLayer::new(sessions).with_same_site(tower_sessions::cookie::SameSite::Lax);
+    let session_layer = SessionManagerLayer::new(sessions)
+        .with_same_site(tower_sessions::cookie::SameSite::Lax)
+        .with_expiry(Expiry::OnInactivity(time::Duration::hours(
+            middleware::SESSION_INACTIVITY_WINDOW,
+        )));
     let mut templates = match load_templates() {
         Ok(t) => t,
         Err(e) => {
