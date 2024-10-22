@@ -2,7 +2,7 @@
 
 use crate::{
     discord, flashed_messages,
-    shared::{AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{strip_some_tags, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
     extract::{Query, State},
@@ -25,8 +25,6 @@ async fn page_training_notes(
     State(state): State<Arc<AppState>>,
     session: Session,
 ) -> Result<Response, AppError> {
-    use voca_rs::Voca;
-
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let user_info = match user_info {
         Some(info) => info,
@@ -42,7 +40,7 @@ async fn page_training_notes(
         .map(|record| {
             let record = record.clone();
             TrainingRecord {
-                notes: record.notes._strip_tags(),
+                notes: strip_some_tags(&record.notes).replace("\n", "<br>"),
                 ..record
             }
         })

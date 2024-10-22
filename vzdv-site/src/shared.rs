@@ -9,9 +9,10 @@ use chrono::{NaiveDateTime, TimeZone};
 use log::{error, info};
 use mini_moka::sync::Cache;
 use minijinja::{context, Environment};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::sync::OnceLock;
+use std::sync::{LazyLock, OnceLock};
 use std::{sync::Arc, time::Instant};
 use tower_sessions_sqlx_store::sqlx::SqlitePool;
 use vzdv::GENERAL_HTTP_CLIENT;
@@ -268,4 +269,56 @@ pub fn post_audit(config: &Config, message: String) {
             error!("Could not send info to audit webhook: {e}");
         }
     });
+}
+
+static TAG_REGEX_REPLACEMENTS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
+    vec![
+        Regex::new(r"(?i)<form").unwrap(),
+        Regex::new(r"(?i)<script").unwrap(),
+        Regex::new(r"(?i)<button").unwrap(),
+        Regex::new(r"(?i)<a").unwrap(),
+    ]
+});
+
+/// Strip some tags from the HTML string for (relatively) safe direct rendering in the DOM.
+///
+/// I'm not really worried about the resulting string _looking_ okay, I just don't want
+/// to render forms or scripts in people's browsers.
+pub fn strip_some_tags(s: &str) -> String {
+    let mut ret = s.to_string();
+    for re in TAG_REGEX_REPLACEMENTS.iter() {
+        ret = re.replace_all(&ret, "").to_string();
+    }
+    ret
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_some_tags;
+
+    #[test]
+    fn test_strip_some_tags() {
+        assert_eq!(
+            strip_some_tags(r#"foo <script src="https://example.com"></script> bar"#),
+            r#"foo  src="https://example.com"></script> bar"#
+        );
+        assert_eq!(
+            strip_some_tags(r#"foo <SCRIPT src="https://example.com"></SCRIPT> bar"#),
+            r#"foo  src="https://example.com"></SCRIPT> bar"#
+        );
+        assert_eq!(
+            strip_some_tags(
+                r#"foo <fORm method="POST" action="https://example.com"></SCRIPT> bar"#
+            ),
+            r#"foo  method="POST" action="https://example.com"></SCRIPT> bar"#
+        );
+        assert_eq!(
+            strip_some_tags(r#"something <button type="submit"></button>"#),
+            r#"something  type="submit"></button>"#
+        );
+        assert_eq!(
+            strip_some_tags(r#"click <a href="https://example.com">here</a> to win"#),
+            r#"click  href="https://example.com">here</a> to win"#
+        );
+    }
 }

@@ -24,7 +24,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
 use tower_sessions::Session;
-use voca_rs::Voca;
 use vzdv::{
     sql::{self, Controller, Event, EventPosition, EventRegistration},
     vatusa::get_controller_info,
@@ -494,7 +493,7 @@ async fn post_register_for_event(
         .bind(c_1)
         .bind(c_2)
         .bind(c_3)
-        .bind(register_data.notes._substring(0, 500))
+        .bind(&register_data.notes[0..500])
         .execute(&state.db)
         .await?;
     info!(

@@ -3,8 +3,8 @@
 use crate::{
     flashed_messages::{self, MessageLevel},
     shared::{
-        is_user_member_of, js_timestamp_to_utc, post_audit, reject_if_not_in, AppError, AppState,
-        UserInfo, SESSION_USER_INFO_KEY,
+        is_user_member_of, js_timestamp_to_utc, post_audit, reject_if_not_in, strip_some_tags,
+        AppError, AppState, UserInfo, SESSION_USER_INFO_KEY,
     },
 };
 use axum::{
@@ -412,8 +412,6 @@ async fn snippet_get_training_records(
     session: Session,
     Path(cid): Path<u32>,
 ) -> Result<Response, AppError> {
-    use voca_rs::Voca;
-
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     if let Some(redirect) =
         reject_if_not_in(&state, &user_info, PermissionsGroup::TrainingTeam).await
@@ -429,7 +427,7 @@ async fn snippet_get_training_records(
         .map(|record| {
             let record = record.clone();
             TrainingRecord {
-                notes: record.notes._strip_tags(),
+                notes: strip_some_tags(&record.notes).replace("\n", "<br>"),
                 ..record
             }
         })
