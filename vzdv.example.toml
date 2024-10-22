@@ -172,6 +172,7 @@ redirect_uri = ""
 
 [discord.webhooks]
 staffing_request = ""
+new_feedback = ""
 feedback = ""
 new_visitor_app = ""
 errors = ""

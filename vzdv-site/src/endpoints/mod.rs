@@ -10,13 +10,17 @@ use axum::{
     routing::{get, post},
     Form, Router,
 };
-use log::info;
+use log::{error, info};
 use minijinja::{context, Environment};
 use serde::Deserialize;
+use serde_json::json;
 use std::sync::Arc;
 use tower_http::services::ServeDir;
 use tower_sessions::Session;
-use vzdv::sql::{self, Controller};
+use vzdv::{
+    sql::{self, Controller},
+    GENERAL_HTTP_CLIENT,
+};
 
 pub mod admin;
 pub mod airspace;
@@ -88,16 +92,47 @@ async fn page_feedback_form_post(
             .bind(user_info.cid)
             .execute(&state.db)
             .await?;
-        info!(
-            "{} submitted feedback for {}",
-            user_info.cid, feedback.controller
-        );
         flashed_messages::push_flashed_message(
             session,
             flashed_messages::MessageLevel::Success,
             "Feedback submitted, thank you!",
         )
         .await?;
+        info!(
+            "{} submitted feedback for {}",
+            user_info.cid, feedback.controller
+        );
+        let notification_webhook = state.config.discord.webhooks.new_feedback.clone();
+        let for_controller: Controller = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+            .bind(feedback.controller)
+            .fetch_one(&state.db)
+            .await?;
+        let message = format!(
+            "New {} feedback posted for {} {} ({}) on **{}** by {}:\n\t{}",
+            feedback.rating,
+            for_controller.first_name,
+            for_controller.last_name,
+            for_controller
+                .operating_initials
+                .unwrap_or_else(|| String::from("??")),
+            feedback.position,
+            user_info.cid,
+            if feedback.comments.len() >= 100 {
+                format!("{} ...", &feedback.comments[0..100])
+            } else {
+                feedback.comments
+            }
+        );
+        tokio::spawn(async move {
+            let res = GENERAL_HTTP_CLIENT
+                .post(&notification_webhook)
+                .json(&json!({ "content": message }))
+                .send()
+                .await;
+            if let Err(e) = res {
+                error!("Could not send info to new feedback webhook: {e}");
+            }
+        });
     } else {
         flashed_messages::push_flashed_message(
             session,
