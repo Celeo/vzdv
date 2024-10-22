@@ -92,6 +92,7 @@ pub struct ConfigDiscordWebhooks {
     pub feedback: String,
     pub new_visitor_app: String,
     pub errors: String,
+    pub audit: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

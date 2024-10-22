@@ -4,7 +4,8 @@ use crate::{
     email::{self, send_mail},
     flashed_messages::{self, MessageLevel},
     shared::{
-        is_user_member_of, reject_if_not_in, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY,
+        is_user_member_of, post_audit, reject_if_not_in, AppError, AppState, UserInfo,
+        SESSION_USER_INFO_KEY,
     },
 };
 use axum::{
@@ -607,10 +608,12 @@ async fn api_delete_resource(
         .bind(id)
         .execute(&state.db)
         .await?;
-    info!(
+    let message = format!(
         "{} deleted resource {id} (name: {}, category: {})",
         user_info.cid, resource.name, resource.category
     );
+    info!("{message}");
+    post_audit(&state.config, message);
     Ok(StatusCode::OK)
 }
 
@@ -673,13 +676,14 @@ async fn post_new_resource(
         .bind(resource.updated)
         .execute(&state.db)
         .await?;
-
-    info!(
+    flashed_messages::push_flashed_message(session, MessageLevel::Info, "New resource created")
+        .await?;
+    let message = format!(
         "{} created a new resource name: {}, category: {}",
         user_info.cid, resource.name, resource.category,
     );
-    flashed_messages::push_flashed_message(session, MessageLevel::Info, "New resource created")
-        .await?;
+    info!("{message}");
+    post_audit(&state.config, message);
     Ok(Redirect::to("/admin/resources"))
 }
 

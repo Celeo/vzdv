@@ -3,8 +3,8 @@
 use crate::{
     flashed_messages::{self, MessageLevel},
     shared::{
-        is_user_member_of, js_timestamp_to_utc, reject_if_not_in, AppError, AppState, UserInfo,
-        SESSION_USER_INFO_KEY,
+        is_user_member_of, js_timestamp_to_utc, post_audit, reject_if_not_in, AppError, AppState,
+        UserInfo, SESSION_USER_INFO_KEY,
     },
 };
 use axum::{
@@ -579,17 +579,18 @@ async fn post_set_roles(
         .iter()
         .join(",");
 
-    info!(
-        "{} is setting roles for {cid} to '{}'; was '{}'",
-        user_info.cid, new_roles, controller.roles
-    );
     sqlx::query(sql::SET_CONTROLLER_ROLES)
         .bind(cid)
-        .bind(new_roles)
+        .bind(&new_roles)
         .execute(&state.db)
         .await?;
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Roles updated").await?;
-
+    let message = format!(
+        "{} is setting roles for {cid} to '{}'; was '{}'",
+        user_info.cid, new_roles, controller.roles
+    );
+    info!("{message}");
+    post_audit(&state.config, message);
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 

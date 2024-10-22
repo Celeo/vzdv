@@ -254,3 +254,18 @@ pub fn js_timestamp_to_utc(timestamp: &str, timezone: &str) -> Result<NaiveDateT
         .naive_utc();
     Ok(converted)
 }
+
+/// Send message to the audit webhook.
+pub fn post_audit(config: &Config, message: String) {
+    let audit_webhook = config.discord.webhooks.audit.clone();
+    tokio::spawn(async move {
+        let res = GENERAL_HTTP_CLIENT
+            .post(&audit_webhook)
+            .json(&json!({ "content": message }))
+            .send()
+            .await;
+        if let Err(e) = res {
+            error!("Could not send info to audit webhook: {e}");
+        }
+    });
+}
