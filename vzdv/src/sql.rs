@@ -362,6 +362,7 @@ pub const DELETE_FROM_FEEDBACK: &str = "DELETE FROM feedback WHERE id=$1";
 pub const GET_ALL_FEEDBACK_FOR: &str = "SELECT * FROM feedback WHERE controller=$1";
 pub const GET_APPROVED_FEEDBACK_FOR: &str =
     "SELECT * FROM feedback WHERE controller=$1 AND (reviewer_action='approve' OR reviewer_action='post')";
+pub const UPDATE_FEEDBACK_COMMENTS: &str = "UPDATE feedback SET comments=$2 WHERE id=$1";
 
 pub const GET_ALL_RESOURCES: &str = "SELECT * FROM resource";
 pub const GET_RESOURCE_BY_ID: &str = "SELECT * FROM resource WHERE id=$1";

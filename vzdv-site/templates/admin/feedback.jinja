@@ -2,6 +2,20 @@
 
 {% block title %}Manage feedback | {{ super() }}{% endblock %}
 
+{% block head_extra %}
+<style>
+  dialog::backdrop {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  dialog {
+    background-color: var(--bs-body-bg);
+    width: 30%;
+    border: none;
+    border-radius: 1.5rem;
+  }
+</style>
+{% endblock %}
+
 {% block body %}
 
 <h2 class="pb-3">Manage feedback</h2>
@@ -35,10 +49,10 @@
             <span class="col-2">{{ feedback.rating }}</span>
             <span class="col-2">{{ feedback.created_date|nice_date }}</span>
             <span class="col-12 pt-2">
-              <span class="fw-bold me-3">Comments:</span> {{ feedback.comments }}
+              <span class="fw-bold me-3">Comments:</span> <span class="feedback-comments">{{ feedback.comments }}</span>
             </span>
           </div>
-          <div class="pt-3">
+          <div class="pt-3 d-flex">
             <form action="/admin/feedback" method="POST">
               <input type="hidden" name="id" value="{{ feedback.id }}">
               <input type="submit" class="btn btn-sm btn-info" name="action" value="Archive"
@@ -50,6 +64,10 @@
               <input type="submit" class="btn btn-sm btn-danger" name="action" value="Delete"
                 title="Completely delete the feedback">
             </form>
+            <button class="btn btn-sm btn-warning btn-modal-edit-open ms-3" feedback_id="{{ feedback.id }}">
+              <i class="bi bi-pencil"></i>
+              Edit ...
+            </button>
           </div>
           <hr>
         {% endif %}
@@ -74,10 +92,10 @@
             <span class="col-2">{{ feedback.rating }}</span>
             <span class="col-2">{{ feedback.created_date|nice_date }}</span>
             <span class="col-12 pt-2">
-              <span class="fw-bold me-3">Comments:</span> {{ feedback.comments }}
+              <span class="fw-bold me-3">Comments:</span> <span class="feedback-comments">{{ feedback.comments }}</span>
             </span>
           </div>
-          <div class="pt-3">
+          <div class="pt-3 d-flex">
             <form action="/admin/feedback" method="POST">
               <input type="hidden" name="id" value="{{ feedback.id }}">
               <input type="submit" class="btn btn-sm btn-success" name="action" value="Post to Discord"
@@ -85,12 +103,52 @@
               <input type="submit" class="btn btn-sm btn-danger" name="action" value="Delete"
                 title="Completely delete the feedback">
             </form>
+            <button class="btn btn-sm btn-warning btn-modal-edit-open ms-3" feedback_id="{{ feedback.id }}">
+              <i class="bi bi-pencil"></i>
+              Edit ...
+            </button>
           </div>
           <hr>
         {% endif %}
       {% endfor %}
     </div>
   </div>
+
+  <dialog id="modalEditFeedback">
+    <h2 class="pb-3">Edit feedback</h2>
+    <form action="/admin/feedback/edited" method="POST">
+      <div class="row">
+        <div class="col">
+          <input type="hidden" name="id">
+          <div class="mb-3">
+            <label for="comments" class="form-label">Comments</label>
+            <textarea class="form-control" name="comments" style="height: 10rem" placeholder="New comments ..." required></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex justify-content-between">
+        <button class="btn btn-warning" role="button" id="btn-modal-edit-close">Close</button>
+        <button class="btn btn-success" role="button" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    document.querySelectorAll('.btn-modal-edit-open').forEach((button) => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = button.getAttribute('feedback_id');
+        const comments = button.parentElement.previousElementSibling.querySelector('span.pt-2 span.feedback-comments').textContent;
+        document.querySelector('#modalEditFeedback form input[type="hidden"]').value = id;
+        document.querySelector('#modalEditFeedback form textarea').value = comments;
+        document.getElementById('modalEditFeedback').showModal();
+      });
+    });
+    document.getElementById('btn-modal-edit-close')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('modalEditFeedback').close();
+    });
+  </script>
 
 {% endif %}
 

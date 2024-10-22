@@ -70,10 +70,10 @@ async fn post_feedback_form_handle(
     State(state): State<Arc<AppState>>,
     session: Session,
     Form(feedback_form): Form<FeedbackReviewForm>,
-) -> Result<Response, AppError> {
+) -> Result<Redirect, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
-        return Ok(redirect.into_response());
+        return Ok(redirect);
     }
     let user_info = user_info.unwrap();
     let db_feedback: Option<Feedback> = sqlx::query_as(sql::GET_FEEDBACK_BY_ID)
@@ -193,7 +193,54 @@ async fn post_feedback_form_handle(
             .await?;
     }
 
-    Ok(Redirect::to("/admin/feedback").into_response())
+    Ok(Redirect::to("/admin/feedback"))
+}
+
+#[derive(Debug, Deserialize)]
+struct FeedbackEditForm {
+    id: u32,
+    comments: String,
+}
+
+async fn post_feedback_edited_form_handle(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Form(edit_form): Form<FeedbackEditForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect);
+    }
+    let user_info = user_info.unwrap();
+    let db_feedback: Option<Feedback> = sqlx::query_as(sql::GET_FEEDBACK_BY_ID)
+        .bind(edit_form.id)
+        .fetch_optional(&state.db)
+        .await?;
+    if db_feedback.is_some() {
+        sqlx::query(sql::UPDATE_FEEDBACK_COMMENTS)
+            .bind(edit_form.id)
+            .bind(&edit_form.comments)
+            .execute(&state.db)
+            .await?;
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Info,
+            "Feedback comments updated",
+        )
+        .await?;
+        info!(
+            "{} updated feedback {} comments",
+            user_info.cid, edit_form.id
+        );
+    } else {
+        flashed_messages::push_flashed_message(session, MessageLevel::Error, "Unknown feedback ID")
+            .await?;
+        warn!(
+            "{} tried to edit unknown feedback {}",
+            user_info.cid, edit_form.id
+        );
+    }
+    Ok(Redirect::to("/admin/feedback"))
 }
 
 /// Page to set email templates and send emails.
@@ -765,8 +812,14 @@ pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
     );
 
     Router::new()
-        .route("/admin/feedback", get(page_feedback))
-        .route("/admin/feedback", post(post_feedback_form_handle))
+        .route(
+            "/admin/feedback",
+            get(page_feedback).post(post_feedback_form_handle),
+        )
+        .route(
+            "/admin/feedback/edited",
+            post(post_feedback_edited_form_handle),
+        )
         .route("/admin/emails", get(page_emails))
         .route("/admin/emails/update", post(post_email_template_update))
         .route("/admin/emails/send", post(post_email_manual_send))
