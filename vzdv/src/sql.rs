@@ -35,7 +35,7 @@ pub struct Certification {
 }
 
 /// Requires joining the `controller` column for the name.
-#[derive(Debug, FromRow, Serialize)]
+#[derive(Debug, FromRow, Serialize, Clone)]
 pub struct Activity {
     pub id: u32,
     pub cid: u32,

@@ -1,0 +1,55 @@
+{% extends "_layout" %}
+
+{% block title %}Activity report | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h2>Activity report</h2>
+<p>
+  Click this button to load the activity report for the facility.<br>
+  It can take a short while to generate.
+</p>
+<p class="pb-3">
+  This report shows rated controllers who have not met the activity requirement in the last 3 months
+  and Observer controllers who have had no training notes added from this facility in the same time frame.
+</p>
+
+<div>
+  <button id="generate-report" class="btn btn-sm btn-primary" hx-get="/admin/activity_report/generate" hx-swap="outerHTML" hx-indicator="#activity-report-retrieve-indicator">
+    <i class="bi bi-search"></i>
+    Retrieve
+  </button>
+  <div class="htmx-indicator pt-2 ps-1" id="activity-report-retrieve-indicator">
+    <svg
+      width="38"
+      height="38"
+      viewBox="0 0 38 38"
+      xmlns="http://www.w3.org/2000/svg"
+      stroke="#fff"
+    >
+      <g fill="none" fill-rule="evenodd">
+        <g transform="translate(1 1)" stroke-width="2">
+          <circle stroke-opacity=".5" cx="18" cy="18" r="18" />
+          <path d="M36 18c0-9.94-8.06-18-18-18">
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0 18 18"
+              to="360 18 18"
+              dur="1s"
+              repeatCount="indefinite"
+            />
+          </path>
+        </g>
+      </g>
+    </svg>
+  </div>
+</div>
+
+<script>
+  document.getElementById('generate-report').addEventListener('click', (e) => {
+    document.getElementById('generate-report').setAttribute('disabled', true);
+  });
+</script>
+
+{% endblock %}

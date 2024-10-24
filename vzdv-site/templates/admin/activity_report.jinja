@@ -1,0 +1,51 @@
+<h3>Rated controller violations</h3>
+<table class="table table-striped table-hover">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th>Hours on scope</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for controller in rated_violations %}
+      <tr>
+        <td>{{ controller.name }}</td>
+        <td>{% if controller.home %}Home{% else %}Visiting{% endif %}</td>
+        <td>{{ controller.minutes_online|minutes_to_hm }}</td>
+        <td>
+          <a href="/controller/{{ controller.cid }}" class="icon-link icon-link-hover text-decoration-none">
+            <i class="bi bi-arrow-right-short"></i>
+          </a>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h3 class="pt-5">Observer controller violations</h3>
+<table class="table table-striped table-hover">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Type</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for controller in unrated_violations %}
+      <tr>
+        <td>{{ controller.name }}</td>
+        <td>{% if controller.home %}Home{% else %}Visiting{% endif %}</td>
+        <td>
+          <a href="/controller/{{ controller.cid }}" class="icon-link icon-link-hover text-decoration-none">
+            <i class="bi bi-arrow-right-short"></i>
+          </a>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p class="pt-3">Generated at: {{ now_utc }}; cached for 6 hours afterwards</p>

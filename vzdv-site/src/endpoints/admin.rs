@@ -4,7 +4,7 @@ use crate::{
     email::{self, send_mail},
     flashed_messages::{self, MessageLevel},
     shared::{
-        is_user_member_of, post_audit, reject_if_not_in, AppError, AppState, UserInfo,
+        is_user_member_of, post_audit, reject_if_not_in, AppError, AppState, CacheEntry, UserInfo,
         SESSION_USER_INFO_KEY,
     },
 };
@@ -14,18 +14,19 @@ use axum::{
     routing::{delete, get, post},
     Form, Router,
 };
-use chrono::Utc;
+use chrono::{Months, Utc};
 use log::{debug, error, info, warn};
 use minijinja::{context, Environment};
 use reqwest::StatusCode;
 use rev_buf_reader::RevBufReader;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{collections::HashMap, io::BufRead, path::Path as FilePath, sync::Arc};
+use std::{collections::HashMap, io::BufRead, path::Path as FilePath, sync::Arc, time::Instant};
 use tower_sessions::Session;
 use uuid::Uuid;
 use vzdv::{
-    sql::{self, Controller, Feedback, FeedbackForReview, Resource, VisitorRequest},
+    get_controller_cids_and_names,
+    sql::{self, Activity, Controller, Feedback, FeedbackForReview, Resource, VisitorRequest},
     vatusa::{self, add_visiting_controller, get_multiple_controller_info},
     ControllerRating, PermissionsGroup, GENERAL_HTTP_CLIENT,
 };
@@ -759,6 +760,164 @@ async fn page_off_roster_list(
     Ok(Html(rendered).into_response())
 }
 
+/// Simple page with controls to render the activity report.
+///
+/// Admin staff members only.
+async fn page_activity_report(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect.into_response());
+    }
+    let template = state
+        .templates
+        .get_template("admin/activity_report_container")?;
+    let rendered = template.render(context! { user_info })?;
+    Ok(Html(rendered).into_response())
+}
+
+/// Page to render the activity report.
+///
+/// May take up to ~30 seconds to load, so will be loaded into the container page
+/// as part of an HTMX action. Cached.
+///
+/// Admin staff members only.
+async fn page_activity_report_generate(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    #[derive(Serialize)]
+    struct CidAndName {
+        cid: u32,
+        name: String,
+        home: bool,
+        minutes_online: u32,
+    }
+
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect.into_response());
+    }
+    let user_info = user_info.unwrap();
+
+    // cache this endpoint's returned data for 6 hours
+    let cache_key = "ACTIVITY_REPORT";
+    if let Some(cached) = state.cache.get(&cache_key) {
+        let elapsed = Instant::now() - cached.inserted;
+        if elapsed.as_secs() < 60 * 60 * 6 {
+            return Ok(Html(cached.data).into_response());
+        }
+        state.cache.invalidate(&cache_key);
+    }
+
+    info!("{} generating activity report", user_info.cid);
+    let now = Utc::now();
+    let months: [String; 3] = [
+        now.format("%Y-%m").to_string(),
+        now.checked_sub_months(Months::new(1))
+            .unwrap()
+            .format("%Y-%m")
+            .to_string(),
+        now.checked_sub_months(Months::new(2))
+            .unwrap()
+            .format("%Y-%m")
+            .to_string(),
+    ];
+    let controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS_ON_ROSTER)
+        .fetch_all(&state.db)
+        .await?;
+    let activity: Vec<Activity> = sqlx::query_as(sql::GET_ALL_ACTIVITY)
+        .fetch_all(&state.db)
+        .await?;
+    let activity_map: HashMap<u32, u32> =
+        activity.iter().fold(HashMap::new(), |mut acc, activity| {
+            if !months.contains(&activity.month) {
+                return acc;
+            }
+            acc.entry(activity.cid)
+                .and_modify(|entry| *entry += activity.minutes)
+                .or_insert(activity.minutes);
+            acc
+        });
+
+    let rated_violations: Vec<CidAndName> = controllers
+        .iter()
+        .filter(|controller| {
+            controller.rating > ControllerRating::OBS.as_id()
+                && activity_map.get(&controller.cid).unwrap_or(&0) < &180
+        })
+        .map(|controller| CidAndName {
+            cid: controller.cid,
+            name: format!(
+                "{} {} ({})",
+                controller.first_name,
+                controller.last_name,
+                match &controller.operating_initials {
+                    Some(oi) => oi,
+                    None => "??",
+                }
+            ),
+            home: controller.home_facility == "ZDV",
+            minutes_online: *activity_map.get(&controller.cid).unwrap_or(&0),
+        })
+        .collect();
+
+    let mut unrated_violations: Vec<CidAndName> = Vec::new();
+    for controller in &controllers {
+        if controller.rating != ControllerRating::OBS.as_id() {
+            continue;
+        }
+        let records =
+            match vatusa::get_training_records(&state.config.vatsim.vatusa_api_key, controller.cid)
+                .await
+            {
+                Ok(t) => t,
+                Err(e) => {
+                    error!(
+                        "Error getting training record data for {}: {e}",
+                        controller.cid
+                    );
+                    continue;
+                }
+            };
+        if records.is_empty() {
+            unrated_violations.push(CidAndName {
+                cid: controller.cid,
+                name: format!(
+                    "{} {} ({})",
+                    controller.first_name,
+                    controller.last_name,
+                    match &controller.operating_initials {
+                        Some(oi) => oi,
+                        None => "??",
+                    }
+                ),
+                home: controller.home_facility == "ZDV",
+                minutes_online: 0,
+            });
+        }
+    }
+
+    let cid_name_map = get_controller_cids_and_names(&state.db)
+        .await
+        .map_err(|err| AppError::GenericFallback("getting cids and names from DB", err))?;
+    let template = state.templates.get_template("admin/activity_report")?;
+    let rendered = template.render(context! {
+        user_info,
+        controllers,
+        rated_violations,
+        unrated_violations,
+        cid_name_map,
+        now_utc => Utc::now().to_rfc2822(),
+    })?;
+    state
+        .cache
+        .insert(cache_key, CacheEntry::new(rendered.clone()));
+    Ok(Html(rendered).into_response())
+}
+
 /// This file's routes and templates.
 pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
     templates
@@ -797,6 +956,19 @@ pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
             include_str!("../../templates/admin/off_roster_list.jinja"),
         )
         .unwrap();
+    templates
+        .add_template(
+            "admin/activity_report_container",
+            include_str!("../../templates/admin/activity_report_container.jinja"),
+        )
+        .unwrap();
+    templates
+        .add_template(
+            "admin/activity_report",
+            include_str!("../../templates/admin/activity_report.jinja"),
+        )
+        .unwrap();
+
     templates.add_filter("nice_date", |date: String| {
         chrono::DateTime::parse_from_rfc3339(&date)
             .unwrap()
@@ -839,4 +1011,9 @@ pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
         .layer(DefaultBodyLimit::disable()) // no upload limit on this endpoint
         .route("/admin/resources/:id", delete(api_delete_resource))
         .route("/admin/off_roster_list", get(page_off_roster_list))
+        .route("/admin/activity_report", get(page_activity_report))
+        .route(
+            "/admin/activity_report/generate",
+            get(page_activity_report_generate),
+        )
 }

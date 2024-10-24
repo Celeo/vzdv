@@ -548,6 +548,9 @@ pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
         )
         .unwrap();
     templates.add_filter("minutes_to_hm", |total_minutes: u32| {
+        if total_minutes == 0 {
+            return String::new();
+        }
         let hours = total_minutes / 60;
         let minutes = total_minutes % 60;
         if hours > 0 || minutes > 0 {
