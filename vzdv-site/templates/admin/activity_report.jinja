@@ -4,6 +4,7 @@
     <tr>
       <th>Name</th>
       <th>Type</th>
+      <th>Join date</th>
       <th>Hours on scope</th>
       <th></th>
     </tr>
@@ -13,6 +14,7 @@
       <tr>
         <td>{{ controller.name }}</td>
         <td>{% if controller.home %}Home{% else %}Visiting{% endif %}</td>
+        <td>{{ controller.join_date }}</td>
         <td>{{ controller.minutes_online|minutes_to_hm }}</td>
         <td>
           <a href="/controller/{{ controller.cid }}" class="icon-link icon-link-hover text-decoration-none">
@@ -30,6 +32,7 @@
     <tr>
       <th>Name</th>
       <th>Type</th>
+      <th>Join date</th>
       <th></th>
     </tr>
   </thead>
@@ -38,6 +41,7 @@
       <tr>
         <td>{{ controller.name }}</td>
         <td>{% if controller.home %}Home{% else %}Visiting{% endif %}</td>
+        <td>{{ controller.join_date }}</td>
         <td>
           <a href="/controller/{{ controller.cid }}" class="icon-link icon-link-hover text-decoration-none">
             <i class="bi bi-arrow-right-short"></i>

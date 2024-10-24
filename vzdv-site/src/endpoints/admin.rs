@@ -14,7 +14,7 @@ use axum::{
     routing::{delete, get, post},
     Form, Router,
 };
-use chrono::{Months, Utc};
+use chrono::{DateTime, Months, Utc};
 use log::{debug, error, info, warn};
 use minijinja::{context, Environment};
 use reqwest::StatusCode;
@@ -789,9 +789,10 @@ async fn page_activity_report_generate(
     session: Session,
 ) -> Result<Response, AppError> {
     #[derive(Serialize)]
-    struct CidAndName {
+    struct BasicInfo {
         cid: u32,
         name: String,
+        join_date: Option<DateTime<Utc>>,
         home: bool,
         minutes_online: u32,
     }
@@ -842,13 +843,13 @@ async fn page_activity_report_generate(
             acc
         });
 
-    let rated_violations: Vec<CidAndName> = controllers
+    let rated_violations: Vec<BasicInfo> = controllers
         .iter()
         .filter(|controller| {
             controller.rating > ControllerRating::OBS.as_id()
                 && activity_map.get(&controller.cid).unwrap_or(&0) < &180
         })
-        .map(|controller| CidAndName {
+        .map(|controller| BasicInfo {
             cid: controller.cid,
             name: format!(
                 "{} {} ({})",
@@ -859,12 +860,13 @@ async fn page_activity_report_generate(
                     None => "??",
                 }
             ),
+            join_date: controller.join_date,
             home: controller.home_facility == "ZDV",
             minutes_online: *activity_map.get(&controller.cid).unwrap_or(&0),
         })
         .collect();
 
-    let mut unrated_violations: Vec<CidAndName> = Vec::new();
+    let mut unrated_violations: Vec<BasicInfo> = Vec::new();
     for controller in &controllers {
         if controller.rating != ControllerRating::OBS.as_id() {
             continue;
@@ -883,7 +885,7 @@ async fn page_activity_report_generate(
                 }
             };
         if records.is_empty() {
-            unrated_violations.push(CidAndName {
+            unrated_violations.push(BasicInfo {
                 cid: controller.cid,
                 name: format!(
                     "{} {} ({})",
@@ -894,6 +896,7 @@ async fn page_activity_report_generate(
                         None => "??",
                     }
                 ),
+                join_date: controller.join_date,
                 home: controller.home_facility == "ZDV",
                 minutes_online: 0,
             });
