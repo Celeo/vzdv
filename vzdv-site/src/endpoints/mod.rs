@@ -144,12 +144,26 @@ async fn page_feedback_form_post(
     Ok(Redirect::to("/feedback"))
 }
 
+/// Changelog.
+///
+/// Manually updated.
 async fn page_changelog(
     State(state): State<Arc<AppState>>,
     session: Session,
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let template = state.templates.get_template("changelog")?;
+    let rendered = template.render(context! { user_info })?;
+    Ok(Html(rendered))
+}
+
+/// Privacy policy.
+async fn page_privacy_policy(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Html<String>, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let template = state.templates.get_template("privacy_policy")?;
     let rendered = template.render(context! { user_info })?;
     Ok(Html(rendered))
 }
@@ -165,11 +179,18 @@ pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
     templates
         .add_template("changelog", include_str!("../../templates/changelog.jinja"))
         .unwrap();
+    templates
+        .add_template(
+            "privacy_policy",
+            include_str!("../../templates/privacy_policy.jinja"),
+        )
+        .unwrap();
 
     Router::new()
         .route("/404", get(page_404))
         .route("/feedback", get(page_feedback_form))
         .route("/feedback", post(page_feedback_form_post))
         .route("/changelog", get(page_changelog))
+        .route("/privacy_policy", get(page_privacy_policy))
         .nest_service("/assets", ServeDir::new("assets"))
 }
