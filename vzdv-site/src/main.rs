@@ -16,12 +16,13 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use thousands::Separable;
 use tokio::signal;
 use tower::ServiceBuilder;
 use tower_http::timeout::TimeoutLayer;
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::SqliteStore;
-use vzdv::general_setup;
+use vzdv::{general_setup, ControllerRating};
 
 mod discord;
 mod email;
@@ -58,25 +59,71 @@ struct Cli {
 /// macro and supply to the minijinja environment.
 fn load_templates() -> Result<Environment<'static>, AppError> {
     let mut env = Environment::new();
-    env.add_template("_layout", include_str!("../templates/_layout.jinja"))?;
+
+    #[cfg(feature = "bundled")]
+    {
+        minijinja_embed::load_templates!(&mut env);
+    }
+
+    #[cfg(not(feature = "bundled"))]
+    {
+        env.set_loader(minijinja::path_loader("vzdv-site/templates"));
+    }
+
+    env.add_filter("minutes_to_hm", |total_minutes: u32| {
+        if total_minutes == 0 {
+            return String::new();
+        }
+        let hours = total_minutes / 60;
+        let minutes = total_minutes % 60;
+        if hours > 0 || minutes > 0 {
+            format!("{hours}h{minutes}m")
+        } else {
+            String::new()
+        }
+    });
+    env.add_filter("simple_date", |date: String| {
+        chrono::DateTime::parse_from_rfc3339(&date)
+            .unwrap()
+            .format("%m/%d/%Y")
+            .to_string()
+    });
+    env.add_function(
+        "includes",
+        |roles: Vec<String>, role: String| -> Result<bool, minijinja::Error> {
+            Ok(roles.contains(&role))
+        },
+    );
+    env.add_filter("format_number", |value: u16| value.separate_with_commas());
+    env.add_filter("nice_date", |date: String| {
+        chrono::DateTime::parse_from_rfc3339(&date)
+            .unwrap()
+            .format("%m/%d/%Y %H:%M:%S")
+            .to_string()
+    });
+    env.add_filter(
+        "rating_str",
+        |rating: i8| match ControllerRating::try_from(rating) {
+            Ok(r) => r.as_str(),
+            Err(_) => "OBS",
+        },
+    );
+
     Ok(env)
 }
 
 /// Create all the endpoints and insert middleware.
-fn load_router(
-    sessions_layer: SessionManagerLayer<SqliteStore>,
-    env: &mut Environment,
-) -> Router<Arc<AppState>> {
+fn load_router(sessions_layer: SessionManagerLayer<SqliteStore>) -> Router<Arc<AppState>> {
     Router::new()
-        .merge(endpoints::router(env))
-        .merge(endpoints::admin::router(env))
-        .merge(endpoints::airspace::router(env))
-        .merge(endpoints::auth::router(env))
-        .merge(endpoints::controller::router(env))
-        .merge(endpoints::events::router(env))
-        .merge(endpoints::facility::router(env))
-        .merge(endpoints::homepage::router(env))
-        .merge(endpoints::user::router(env))
+        .merge(endpoints::router())
+        .merge(endpoints::admin::router())
+        .merge(endpoints::airspace::router())
+        .merge(endpoints::auth::router())
+        .merge(endpoints::controller::router())
+        .merge(endpoints::events::router())
+        .merge(endpoints::facility::router())
+        .merge(endpoints::homepage::router())
+        .merge(endpoints::user::router())
         .layer(
             ServiceBuilder::new()
                 .layer(TimeoutLayer::new(Duration::from_secs(30)))
@@ -135,7 +182,7 @@ async fn main() {
         .with_expiry(Expiry::OnInactivity(time::Duration::hours(
             middleware::SESSION_INACTIVITY_WINDOW,
         )));
-    let mut templates = match load_templates() {
+    let templates = match load_templates() {
         Ok(t) => t,
         Err(e) => {
             error!("Could not load the first templates: {e}");
@@ -145,7 +192,7 @@ async fn main() {
     debug!("Loaded");
 
     debug!("Setting up app");
-    let router = load_router(session_layer, &mut templates);
+    let router = load_router(session_layer);
     let app_state = Arc::new(AppState {
         config,
         db: db.clone(),

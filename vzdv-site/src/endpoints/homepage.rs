@@ -8,7 +8,7 @@ use crate::{
 use axum::{extract::State, response::Html, routing::get, Router};
 use chrono::Utc;
 use log::warn;
-use minijinja::{context, Environment};
+use minijinja::context;
 use serde::Serialize;
 use std::{sync::Arc, time::Instant};
 use tower_sessions::Session;
@@ -26,7 +26,7 @@ async fn page_home(
     session: Session,
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let template = state.templates.get_template("homepage/home")?;
+    let template = state.templates.get_template("homepage/home.jinja")?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
     let rendered = template.render(context! { user_info, flashed_messages })?;
     Ok(Html(rendered))
@@ -51,7 +51,7 @@ async fn snippet_online_controllers(
         .map_err(|error| AppError::GenericFallback("getting online controllers", error))?;
     let template = state
         .templates
-        .get_template("homepage/online_controllers")?;
+        .get_template("homepage/online_controllers.jinja")?;
     let rendered = template.render(context! { online })?;
     state
         .cache
@@ -92,7 +92,7 @@ async fn snippet_weather(State(state): State<Arc<AppState>>) -> Result<Html<Stri
         })
         .collect();
 
-    let template = state.templates.get_template("homepage/weather")?;
+    let template = state.templates.get_template("homepage/weather.jinja")?;
     let rendered = template.render(context! { weather })?;
     state
         .cache
@@ -128,7 +128,7 @@ async fn snippet_flights(State(state): State<Arc<AppState>>) -> Result<Html<Stri
         actually_within: flights.actually_within.len(),
     };
 
-    let template = state.templates.get_template("homepage/flights")?;
+    let template = state.templates.get_template("homepage/flights.jinja")?;
     let rendered = template.render(context! { flights })?;
     state
         .cache
@@ -169,7 +169,7 @@ async fn snippet_cotm(State(state): State<Arc<AppState>>) -> Result<Html<String>
         })
         .collect();
 
-    let template = state.templates.get_template("homepage/cotm")?;
+    let template = state.templates.get_template("homepage/cotm.jinja")?;
     let rendered = template.render(context! { cotm })?;
     state
         .cache
@@ -178,38 +178,7 @@ async fn snippet_cotm(State(state): State<Arc<AppState>>) -> Result<Html<String>
 }
 
 /// This file's routes and templates.
-pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
-    templates
-        .add_template(
-            "homepage/home",
-            include_str!("../../templates/homepage/home.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "homepage/online_controllers",
-            include_str!("../../templates/homepage/online_controllers.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "homepage/weather",
-            include_str!("../../templates/homepage/weather.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "homepage/flights",
-            include_str!("../../templates/homepage/flights.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "homepage/cotm",
-            include_str!("../../templates/homepage/cotm.jinja"),
-        )
-        .unwrap();
-
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(page_home))
         .route("/home/online/controllers", get(snippet_online_controllers))

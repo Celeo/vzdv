@@ -19,7 +19,7 @@ use axum::{
 use axum_extra::extract::WithRejection;
 use chrono::Utc;
 use log::info;
-use minijinja::{context, Environment};
+use minijinja::context;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
@@ -58,7 +58,7 @@ async fn snippet_get_upcoming_events(
     let events = query_for_events(&state.db, show_all).await?;
     let template = state
         .templates
-        .get_template("events/upcoming_events_snippet")?;
+        .get_template("events/upcoming_events_snippet.jinja")?;
     let rendered = template.render(context! { user_info, events })?;
     Ok(Html(rendered))
 }
@@ -74,7 +74,9 @@ async fn get_upcoming_events(
     let show_all = is_user_member_of(&state, &user_info, PermissionsGroup::EventsTeam).await;
     let events = query_for_events(&state.db, show_all).await?;
     let is_event_staff = is_user_member_of(&state, &user_info, PermissionsGroup::EventsTeam).await;
-    let template = state.templates.get_template("events/upcoming_events")?;
+    let template = state
+        .templates
+        .get_template("events/upcoming_events.jinja")?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
     let rendered = template.render(context! {
         user_info,
@@ -211,7 +213,7 @@ async fn page_event(
             )
         })
         .collect();
-    let template = state.templates.get_template("events/event")?;
+    let template = state.templates.get_template("events/event.jinja")?;
     let self_register: Option<EventRegistration> = if let Some(user_info) = &user_info {
         sqlx::query_as(sql::GET_EVENT_REGISTRATION_FOR)
             .bind(id)
@@ -707,26 +709,7 @@ async fn post_set_position(
 }
 
 /// This file's routes and templates.
-pub fn router(template: &mut Environment) -> Router<Arc<AppState>> {
-    template
-        .add_template(
-            "events/upcoming_events_snippet",
-            include_str!("../../templates/events/upcoming_events_snippet.jinja"),
-        )
-        .unwrap();
-    template
-        .add_template(
-            "events/upcoming_events",
-            include_str!("../../templates/events/upcoming_events.jinja"),
-        )
-        .unwrap();
-    template
-        .add_template(
-            "events/event",
-            include_str!("../../templates/events/event.jinja"),
-        )
-        .unwrap();
-
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/events/upcoming", get(snippet_get_upcoming_events))
         .route(

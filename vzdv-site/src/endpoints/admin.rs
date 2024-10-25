@@ -16,7 +16,7 @@ use axum::{
 };
 use chrono::{DateTime, Months, Utc};
 use log::{debug, error, info, warn};
-use minijinja::{context, Environment};
+use minijinja::context;
 use reqwest::StatusCode;
 use rev_buf_reader::RevBufReader;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,7 @@ async fn page_feedback(
     if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
         return Ok(redirect.into_response());
     }
-    let template = state.templates.get_template("admin/feedback")?;
+    let template = state.templates.get_template("admin/feedback.jinja")?;
     let pending_feedback: Vec<FeedbackForReview> =
         sqlx::query_as(sql::GET_PENDING_FEEDBACK_FOR_REVIEW)
             .fetch_all(&state.db)
@@ -258,7 +258,7 @@ async fn page_emails(
     let all_controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS)
         .fetch_all(&state.db)
         .await?;
-    let template = state.templates.get_template("admin/emails")?;
+    let template = state.templates.get_template("admin/emails.jinja")?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
     let email_templates = email::query_templates(&state.db).await?;
     let rendered = template.render(context! {
@@ -442,7 +442,7 @@ async fn page_logs(
         logs.insert(name, buffer.join("<br>"));
     }
 
-    let template = state.templates.get_template("admin/logs")?;
+    let template = state.templates.get_template("admin/logs.jinja")?;
     let rendered = template.render(context! { user_info, logs, line_count })?;
     Ok(Html(rendered).into_response())
 }
@@ -482,7 +482,9 @@ async fn page_visitor_applications(
     });
 
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let template = state.templates.get_template("admin/visitor_applications")?;
+    let template = state
+        .templates
+        .get_template("admin/visitor_applications.jinja")?;
     let rendered = template.render(context! {
         user_info,
         flashed_messages,
@@ -622,7 +624,7 @@ async fn page_resources(
         .await?;
     let categories = &state.config.database.resource_category_ordering;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let template = state.templates.get_template("admin/resources")?;
+    let template = state.templates.get_template("admin/resources.jinja")?;
     let rendered =
         template.render(context! { user_info, flashed_messages, resources, categories })?;
     Ok(Html(rendered).into_response())
@@ -751,7 +753,9 @@ async fn page_off_roster_list(
         .fetch_all(&state.db)
         .await?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let template = state.templates.get_template("admin/off_roster_list")?;
+    let template = state
+        .templates
+        .get_template("admin/off_roster_list.jinja")?;
     let rendered = template.render(context! {
        user_info,
        controllers,
@@ -773,7 +777,7 @@ async fn page_activity_report(
     }
     let template = state
         .templates
-        .get_template("admin/activity_report_container")?;
+        .get_template("admin/activity_report_container.jinja")?;
     let rendered = template.render(context! { user_info })?;
     Ok(Html(rendered).into_response())
 }
@@ -906,7 +910,9 @@ async fn page_activity_report_generate(
     let cid_name_map = get_controller_cids_and_names(&state.db)
         .await
         .map_err(|err| AppError::GenericFallback("getting cids and names from DB", err))?;
-    let template = state.templates.get_template("admin/activity_report")?;
+    let template = state
+        .templates
+        .get_template("admin/activity_report.jinja")?;
     let rendered = template.render(context! {
         user_info,
         controllers,
@@ -922,70 +928,7 @@ async fn page_activity_report_generate(
 }
 
 /// This file's routes and templates.
-pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
-    templates
-        .add_template(
-            "admin/feedback",
-            include_str!("../../templates/admin/feedback.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "admin/emails",
-            include_str!("../../templates/admin/emails.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "admin/logs",
-            include_str!("../../templates/admin/logs.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "admin/visitor_applications",
-            include_str!("../../templates/admin/visitor_applications.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "admin/resources",
-            include_str!("../../templates/admin/resources.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "admin/off_roster_list",
-            include_str!("../../templates/admin/off_roster_list.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "admin/activity_report_container",
-            include_str!("../../templates/admin/activity_report_container.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "admin/activity_report",
-            include_str!("../../templates/admin/activity_report.jinja"),
-        )
-        .unwrap();
-
-    templates.add_filter("nice_date", |date: String| {
-        chrono::DateTime::parse_from_rfc3339(&date)
-            .unwrap()
-            .format("%m/%d/%Y %H:%M:%S")
-            .to_string()
-    });
-    templates.add_filter(
-        "rating_str",
-        |rating: i8| match ControllerRating::try_from(rating) {
-            Ok(r) => r.as_str(),
-            Err(_) => "OBS",
-        },
-    );
-
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route(
             "/admin/feedback",

@@ -1,4 +1,4 @@
-{% extends "_layout" %}
+{% extends "_layout.jinja" %}
 
 {% block title %}Events | {{ super() }}{% endblock %}
 
@@ -32,7 +32,7 @@
   {% endif %}
 </div>
 
-{% include 'events/upcoming_events_snippet' %}
+{% include 'events/upcoming_events_snippet.jinja' %}
 
 <dialog id="modalNewForm">
   <h2 class="pb-3">Create new event</h2>

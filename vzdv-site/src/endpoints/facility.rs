@@ -13,7 +13,7 @@ use axum::{
 use chrono::{DateTime, Months, Utc};
 use itertools::Itertools;
 use log::warn;
-use minijinja::{context, Environment};
+use minijinja::context;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
@@ -204,7 +204,7 @@ async fn page_roster(
         .collect();
 
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let template = state.templates.get_template("facility/roster")?;
+    let template = state.templates.get_template("facility/roster.jinja")?;
     let rendered = template.render(context! {
        user_info,
        controllers => controllers_with_certs,
@@ -239,7 +239,7 @@ async fn page_staff(
         .collect();
 
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let template = state.templates.get_template("facility/staff")?;
+    let template = state.templates.get_template("facility/staff.jinja")?;
     let rendered = template.render(context! { user_info, staff })?;
     Ok(Html(rendered))
 }
@@ -357,7 +357,7 @@ async fn page_activity(
     }
 
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let template = state.templates.get_template("facility/activity")?;
+    let template = state.templates.get_template("facility/activity.jinja")?;
     let rendered = template.render(context! { user_info, activity_data })?;
     Ok(Html(rendered))
 }
@@ -391,7 +391,7 @@ async fn page_resources(
         .collect();
 
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let template = state.templates.get_template("facility/resources")?;
+    let template = state.templates.get_template("facility/resources.jinja")?;
     let rendered = template.render(context! { user_info, resources, categories })?;
     Ok(Html(rendered))
 }
@@ -419,7 +419,7 @@ async fn page_visitor_application(
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
     let template = state
         .templates
-        .get_template("facility/visitor_application")?;
+        .get_template("facility/visitor_application.jinja")?;
     let rendered =
         template.render(context! { user_info, flashed_messages, controller, is_visiting })?;
     Ok(Html(rendered))
@@ -464,7 +464,7 @@ async fn page_visitor_application_form(
 
     let template = state
         .templates
-        .get_template("facility/visitor_application_form")?;
+        .get_template("facility/visitor_application_form.jinja")?;
     let rendered =
         template.render(context! { user_info, pending_request, controller_info, checklist })?;
     Ok(Html(rendered))
@@ -510,62 +510,7 @@ async fn page_visitor_application_form_submit(
     Ok(Redirect::to("/facility/visitor_application"))
 }
 
-pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
-    templates
-        .add_template(
-            "facility/roster",
-            include_str!("../../templates/facility/roster.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "facility/staff",
-            include_str!("../../templates/facility/staff.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "facility/activity",
-            include_str!("../../templates/facility/activity.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "facility/resources",
-            include_str!("../../templates/facility/resources.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "facility/visitor_application",
-            include_str!("../../templates/facility/visitor_application.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "facility/visitor_application_form",
-            include_str!("../../templates/facility/visitor_application_form.jinja"),
-        )
-        .unwrap();
-    templates.add_filter("minutes_to_hm", |total_minutes: u32| {
-        if total_minutes == 0 {
-            return String::new();
-        }
-        let hours = total_minutes / 60;
-        let minutes = total_minutes % 60;
-        if hours > 0 || minutes > 0 {
-            format!("{hours}h{minutes}m")
-        } else {
-            String::new()
-        }
-    });
-    templates.add_filter("simple_date", |date: String| {
-        chrono::DateTime::parse_from_rfc3339(&date)
-            .unwrap()
-            .format("%m/%d/%Y")
-            .to_string()
-    });
-
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/facility/roster", get(page_roster))
         .route("/facility/staff", get(page_staff))
