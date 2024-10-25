@@ -13,11 +13,10 @@ use axum::{
 };
 use itertools::Itertools;
 use log::{info, warn};
-use minijinja::{context, Environment};
+use minijinja::context;
 use serde::Deserialize;
 use serde_json::json;
 use std::{collections::HashSet, sync::Arc, time::Instant};
-use thousands::Separable;
 use tower_sessions::Session;
 use vatsim_utils::live_api::Vatsim;
 use vzdv::{aviation::parse_metar, GENERAL_HTTP_CLIENT};
@@ -28,7 +27,7 @@ async fn page_airports(
     session: Session,
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let template = state.templates.get_template("airspace/airports")?;
+    let template = state.templates.get_template("airspace/airports.jinja")?;
     let airports = &state.config.airports.all;
     let rendered = template.render(context! { user_info, airports })?;
     Ok(Html(rendered))
@@ -66,7 +65,7 @@ async fn page_flights(
     };
 
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let template = state.templates.get_template("airspace/flights")?;
+    let template = state.templates.get_template("airspace/flights.jinja")?;
     let rendered = template.render(context! { user_info, flights })?;
     state
         .cache
@@ -118,7 +117,7 @@ async fn page_weather(
         .collect();
 
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let template = state.templates.get_template("airspace/weather")?;
+    let template = state.templates.get_template("airspace/weather.jinja")?;
     let rendered = template.render(context! { user_info, weather })?;
     state
         .cache
@@ -133,7 +132,9 @@ async fn page_staffing_request(
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let template = state.templates.get_template("airspace/staffing_request")?;
+    let template = state
+        .templates
+        .get_template("airspace/staffing_request.jinja")?;
     let rendered = template.render(context! { user_info, flashed_messages })?;
     Ok(Html(rendered))
 }
@@ -239,33 +240,7 @@ async fn page_staffing_request_post(
 }
 
 /// This file's routes and templates.
-pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
-    templates
-        .add_template(
-            "airspace/airports",
-            include_str!("../../templates/airspace/airports.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "airspace/flights",
-            include_str!("../../templates/airspace/flights.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "airspace/staffing_request",
-            include_str!("../../templates/airspace/staffing_request.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "airspace/weather",
-            include_str!("../../templates/airspace/weather.jinja"),
-        )
-        .unwrap();
-    templates.add_filter("format_number", |value: u16| value.separate_with_commas());
-
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/airspace/airports", get(page_airports))
         .route("/airspace/flights", get(page_flights))

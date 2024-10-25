@@ -11,7 +11,7 @@ use axum::{
     Form, Router,
 };
 use log::{error, info};
-use minijinja::{context, Environment};
+use minijinja::context;
 use serde::Deserialize;
 use serde_json::json;
 use std::sync::Arc;
@@ -35,7 +35,7 @@ pub mod user;
 ///
 /// Redirected to whenever the router cannot find a valid handler for the requested path.
 pub async fn page_404(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
-    let template = state.templates.get_template("404")?;
+    let template = state.templates.get_template("404.jinja")?;
     let rendered = template.render(context! { no_links => true })?;
     Ok(Html(rendered))
 }
@@ -62,7 +62,7 @@ async fn page_feedback_form(
             )
         })
         .collect();
-    let template = state.templates.get_template("feedback")?;
+    let template = state.templates.get_template("feedback.jinja")?;
     let rendered = template.render(context! { user_info, flashed_messages, all_controllers })?;
     Ok(Html(rendered))
 }
@@ -152,7 +152,7 @@ async fn page_changelog(
     session: Session,
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let template = state.templates.get_template("changelog")?;
+    let template = state.templates.get_template("changelog.jinja")?;
     let rendered = template.render(context! { user_info })?;
     Ok(Html(rendered))
 }
@@ -163,29 +163,13 @@ async fn page_privacy_policy(
     session: Session,
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let template = state.templates.get_template("privacy_policy")?;
+    let template = state.templates.get_template("privacy_policy.jinja")?;
     let rendered = template.render(context! { user_info })?;
     Ok(Html(rendered))
 }
 
 /// This file's routes and templates.
-pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
-    templates
-        .add_template("404", include_str!("../../templates/404.jinja"))
-        .unwrap();
-    templates
-        .add_template("feedback", include_str!("../../templates/feedback.jinja"))
-        .unwrap();
-    templates
-        .add_template("changelog", include_str!("../../templates/changelog.jinja"))
-        .unwrap();
-    templates
-        .add_template(
-            "privacy_policy",
-            include_str!("../../templates/privacy_policy.jinja"),
-        )
-        .unwrap();
-
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/404", get(page_404))
         .route("/feedback", get(page_feedback_form))

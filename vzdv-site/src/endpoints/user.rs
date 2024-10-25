@@ -12,7 +12,7 @@ use axum::{
 };
 use chrono::NaiveDateTime;
 use log::{debug, info, warn};
-use minijinja::{context, Environment};
+use minijinja::context;
 use std::{collections::HashMap, sync::Arc};
 use tower_sessions::Session;
 use vzdv::{
@@ -55,7 +55,7 @@ async fn page_training_notes(
         date_b.cmp(&date_a) // sort newest first
     });
 
-    let template = state.templates.get_template("user/training_notes")?;
+    let template = state.templates.get_template("user/training_notes.jinja")?;
     let rendered = template.render(context! { user_info, training_records })?;
     Ok(Html(rendered).into_response())
 }
@@ -75,7 +75,7 @@ async fn page_discord(
         .bind(user_info.cid)
         .fetch_one(&state.db)
         .await?;
-    let template = state.templates.get_template("user/discord")?;
+    let template = state.templates.get_template("user/discord.jinja")?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
     let rendered: String = template.render(context! {
         user_info,
@@ -141,20 +141,7 @@ async fn page_discord_callback(
     Ok(Redirect::to("/user/discord"))
 }
 
-pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
-    templates
-        .add_template(
-            "user/training_notes",
-            include_str!("../../templates/user/training_notes.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "user/discord",
-            include_str!("../../templates/user/discord.jinja"),
-        )
-        .unwrap();
-
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/user/training_notes", get(page_training_notes))
         .route("/user/discord", get(page_discord))

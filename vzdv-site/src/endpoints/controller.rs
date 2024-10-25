@@ -16,7 +16,7 @@ use axum::{
 use chrono::{DateTime, NaiveDateTime, Utc};
 use itertools::Itertools;
 use log::{error, info, warn};
-use minijinja::{context, Environment};
+use minijinja::context;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
@@ -187,7 +187,9 @@ async fn page_controller(
     settable_roles.sort();
 
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let template = state.templates.get_template("controller/controller")?;
+    let template = state
+        .templates
+        .get_template("controller/controller.jinja")?;
     let rendered: String = template.render(context! {
         user_info,
         controller,
@@ -450,7 +452,9 @@ async fn snippet_get_training_records(
         .copied()
         .collect();
     let instructors = get_multiple_controller_names(&instructor_cids).await;
-    let template = state.templates.get_template("controller/training_notes")?;
+    let template = state
+        .templates
+        .get_template("controller/training_notes.jinja")?;
     let rendered: String =
         template.render(context! { user_info, training_records, instructors })?;
     Ok(Html(rendered).into_response())
@@ -679,26 +683,7 @@ async fn post_remove_controller(
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
-pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
-    templates
-        .add_template(
-            "controller/controller",
-            include_str!("../../templates/controller/controller.jinja"),
-        )
-        .unwrap();
-    templates
-        .add_template(
-            "controller/training_notes",
-            include_str!("../../templates/controller/training_notes.jinja"),
-        )
-        .unwrap();
-    templates.add_function(
-        "includes",
-        |roles: Vec<String>, role: String| -> Result<bool, minijinja::Error> {
-            Ok(roles.contains(&role))
-        },
-    );
-
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/controller/:cid", get(page_controller))
         .route("/controller/:cid/discord/unlink", post(api_unlink_discord))

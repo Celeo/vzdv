@@ -8,7 +8,7 @@ use axum::{
     Router,
 };
 use log::{debug, info};
-use minijinja::{context, Environment};
+use minijinja::context;
 use std::sync::Arc;
 use tower_sessions::Session;
 use vzdv::{
@@ -83,7 +83,7 @@ async fn page_auth_callback(
         .await?;
 
     info!("Completed log in for {}", session_user_info.data.cid);
-    let template = state.templates.get_template("admin/login_complete")?;
+    let template = state.templates.get_template("auth/login_complete.jinja")?;
     let rendered = template.render(context! { user_info => to_session })?;
     Ok(Html(rendered))
 }
@@ -96,14 +96,7 @@ async fn page_auth_logout(session: Session) -> Result<Redirect, AppError> {
 }
 
 /// This file's routes and templates.
-pub fn router(templates: &mut Environment) -> Router<Arc<AppState>> {
-    templates
-        .add_template(
-            "admin/login_complete",
-            include_str!("../../templates/auth/login_complete.jinja"),
-        )
-        .unwrap();
-
+pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/auth/log_in", get(page_auth_login))
         .route("/auth/logout", get(page_auth_logout))
