@@ -485,15 +485,20 @@ async fn post_register_for_event(
     } else {
         Some(register_data.choice_3)
     };
-    // upsert the registration
 
+    // upsert the registration
+    let notes = if register_data.notes.len() > 500 {
+        &register_data.notes[0..500]
+    } else {
+        &register_data.notes
+    };
     sqlx::query(sql::UPSERT_EVENT_REGISTRATION)
         .bind(id)
         .bind(cid)
         .bind(c_1)
         .bind(c_2)
         .bind(c_3)
-        .bind(&register_data.notes[0..500])
+        .bind(notes)
         .execute(&state.db)
         .await?;
     info!(
