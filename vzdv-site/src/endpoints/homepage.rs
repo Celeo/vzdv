@@ -161,7 +161,7 @@ async fn snippet_cotm(State(state): State<Arc<AppState>>) -> Result<Html<String>
         .await?;
     let cotm: Vec<_> = activity
         .iter()
-        .take(3)
+        .take(5)
         .map(|activity| CotmEntry {
             name: format!("{} {}", activity.first_name, activity.last_name),
             hours: activity.minutes / 60,
