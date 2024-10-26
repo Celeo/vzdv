@@ -398,6 +398,14 @@ ON CONFLICT DO UPDATE SET
     choice_2=$4,
     choice_3=$5,
     notes=$6";
+pub const CLEAR_REGISTRATIONS_FOR_POSITION_1: &str =
+    "UPDATE event_registration SET choice_1=NULL WHERE choice_1=$1";
+pub const CLEAR_REGISTRATIONS_FOR_POSITION_2: &str =
+    "UPDATE event_registration SET choice_2=NULL WHERE choice_2=$1";
+pub const CLEAR_REGISTRATIONS_FOR_POSITION_3: &str =
+    "UPDATE event_registration SET choice_3=NULL WHERE choice_3=$1";
+pub const DELETE_REGISTRATIONS_NOW_EMPTY: &str =
+    "DELETE from event_registration WHERE event_id=$1 AND choice_1 is NULL AND choice_2 is NULL AND choice_3 is NULL";
 
 pub const GET_EVENT_POSITIONS: &str = "SELECT * FROM event_position WHERE event_id=$1";
 pub const INSERT_EVENT_POSITION: &str =

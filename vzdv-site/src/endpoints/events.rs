@@ -620,14 +620,40 @@ async fn post_delete_position(
         .fetch_optional(&state.db)
         .await?;
     if event.is_some() {
+        // Need to clear out any existing registrations that are using that position
+        // and then delete any registrations that are now empty.
+        let mut tx = state.db.begin().await?;
+        sqlx::query(sql::CLEAR_REGISTRATIONS_FOR_POSITION_1)
+            .bind(pos_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query(sql::CLEAR_REGISTRATIONS_FOR_POSITION_2)
+            .bind(pos_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query(sql::CLEAR_REGISTRATIONS_FOR_POSITION_3)
+            .bind(pos_id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query(sql::DELETE_REGISTRATIONS_NOW_EMPTY)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query(sql::DELETE_EVENT_POSITION)
+            .bind(pos_id)
+            .execute(&mut *tx)
+            .await?;
+        tx.commit().await?;
         info!(
             "{} removed position {pos_id} from {id}",
             user_info.unwrap().cid,
         );
-        sqlx::query(sql::DELETE_EVENT_POSITION)
-            .bind(pos_id)
-            .execute(&state.db)
-            .await?;
+        flashed_messages::push_flashed_message(
+            session,
+            flashed_messages::MessageLevel::Info,
+            "Position deleted",
+        )
+        .await?;
         Ok(Redirect::to(&format!("/events/{id}")))
     } else {
         Ok(Redirect::to("/"))
