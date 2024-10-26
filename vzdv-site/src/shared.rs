@@ -92,9 +92,9 @@ impl AppError {
 /// Try to construct the error page.
 fn try_build_error_page(error: AppError) -> Result<String, AppError> {
     let mut env = Environment::new();
-    env.add_template("_layout", include_str!("../templates/_layout.jinja"))?;
-    env.add_template("_error", include_str!("../templates/_error.jinja"))?;
-    let template = env.get_template("_error")?;
+    env.add_template("_layout.jinja", include_str!("../templates/_layout.jinja"))?;
+    env.add_template("_error.jinja", include_str!("../templates/_error.jinja"))?;
+    let template = env.get_template("_error.jinja")?;
     let rendered = template.render(context! {
         error => error.friendly_message(),
         no_links => true,
@@ -133,10 +133,12 @@ impl IntoResponse for AppError {
         });
 
         // attempt to construct the error page, falling back to simple plain text if anything failed
-        if let Ok(body) = try_build_error_page(self) {
-            (status, Html(body)).into_response()
-        } else {
-            (status, "Something went very wrong").into_response()
+        match try_build_error_page(self) {
+            Ok(body) => (status, Html(body)).into_response(),
+            Err(e) => {
+                error!("Error building error page: {e}");
+                (status, "Something went very wrong").into_response()
+            }
         }
     }
 }
