@@ -33,7 +33,9 @@ async fn page_training_notes(
     let all_training_records =
         vatusa::get_training_records(&state.config.vatsim.vatusa_api_key, user_info.cid)
             .await
-            .map_err(|e| AppError::GenericFallback("getting VATUSA training records", e))?;
+            .map_err(|e| {
+                AppError::GenericFallback("getting VATUSA training records by controller", e)
+            })?;
     let mut training_records: Vec<_> = all_training_records
         .iter()
         .filter(|record| record.facility_id == "ZDV")
