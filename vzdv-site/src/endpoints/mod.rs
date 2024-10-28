@@ -29,6 +29,7 @@ pub mod controller;
 pub mod events;
 pub mod facility;
 pub mod homepage;
+pub mod training;
 pub mod user;
 
 /// 404 not found page.

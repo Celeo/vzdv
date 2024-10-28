@@ -124,6 +124,7 @@ fn load_router(sessions_layer: SessionManagerLayer<SqliteStore>) -> Router<Arc<A
         .merge(endpoints::facility::router())
         .merge(endpoints::homepage::router())
         .merge(endpoints::user::router())
+        .merge(endpoints::training::router())
         .layer(
             ServiceBuilder::new()
                 .layer(TimeoutLayer::new(Duration::from_secs(30)))
