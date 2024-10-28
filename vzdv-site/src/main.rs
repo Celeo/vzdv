@@ -57,7 +57,7 @@ struct Cli {
 
 /// Load all template files into the binary via the stdlib `include_str!`
 /// macro and supply to the minijinja environment.
-fn load_templates() -> Result<Environment<'static>, AppError> {
+pub fn load_templates() -> Result<Environment<'static>, AppError> {
     let mut env = Environment::new();
 
     #[cfg(feature = "bundled")]
