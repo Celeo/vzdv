@@ -19,16 +19,19 @@
 {% block body %}
 
 <div class="row">
-  <div class="col" id="event-">
+  <div class="col">
     <h2>
       {{ event.name }}
       {% if event.published %}{% else %}(unpublished){% endif %}
     </h2>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-12 col-lg-6">
     <h5 class="pt-3"><strong>Start:</strong> <span class="d-none event-time" updateTarget="editFormStart">{{ event.start }}</span></h5>
     <h5><strong>End:</strong> <span class="d-none event-time" updateTarget="editFormEnd">{{ event.end }}</span></h5>
-
     <p class="pt-3">{{ event.description }}</p>
-
     {% if event_not_over %}
       <div class="d-flex justify-content-between">
         {% if user_info and user_info.is_some_staff or is_on_roster %}
@@ -53,7 +56,7 @@
       </div>
     {% endif %}
   </div>
-  <div class="col">
+  <div class="col-12 col-lg-6">
     <img src="{{ event.image_url }}" alt="Event banner" class="img-fluid" />
   </div>
 </div>
