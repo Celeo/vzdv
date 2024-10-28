@@ -31,7 +31,7 @@ use vzdv::{
 };
 
 /// Get a list of upcoming events optionally with unpublished events.
-async fn query_for_events(db: &Pool<Sqlite>, show_all: bool) -> sqlx::Result<Vec<Event>> {
+pub async fn query_for_events(db: &Pool<Sqlite>, show_all: bool) -> sqlx::Result<Vec<Event>> {
     if show_all {
         sqlx::query_as(sql::GET_ALL_UPCOMING_EVENTS)
             .bind(Utc::now())
