@@ -15,11 +15,7 @@
     </p>
     <div class="card shadow mb-2">
       <div class="card-body">
-        <div
-          id="events"
-          hx-get="/events/upcoming"
-          hx-trigger="load"
-        ></div>
+        {% include 'events/upcoming_events_snippet.jinja' %}
       </div>
     </div>
   </div>

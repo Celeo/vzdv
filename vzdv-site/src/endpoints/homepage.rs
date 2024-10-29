@@ -3,7 +3,7 @@
 use crate::{
     flashed_messages,
     flights::get_relevant_flights,
-    shared::{AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{is_user_member_of, AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{extract::State, response::Html, routing::get, Router};
 use chrono::Utc;
@@ -17,8 +17,10 @@ use vzdv::{
     aviation::parse_metar,
     sql::{self, Activity},
     vatsim::get_online_facility_controllers,
-    GENERAL_HTTP_CLIENT,
+    PermissionsGroup, GENERAL_HTTP_CLIENT,
 };
+
+use super::events::query_for_events;
 
 /// Homepage.
 async fn page_home(
@@ -26,9 +28,15 @@ async fn page_home(
     session: Session,
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let show_all_events = is_user_member_of(&state, &user_info, PermissionsGroup::EventsTeam).await;
+    let events = query_for_events(&state.db, show_all_events).await?;
     let template = state.templates.get_template("homepage/home.jinja")?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let rendered = template.render(context! { user_info, flashed_messages })?;
+    let rendered = template.render(context! {
+        user_info,
+        flashed_messages,
+        events
+    })?;
     Ok(Html(rendered))
 }
 
