@@ -2,12 +2,97 @@
 
 {% block title %}Home | Training | {{ super() }}{% endblock %}
 
+{% block head_extra %}
+<style>
+  .btn-no-cursor {
+    cursor: default !important;
+  }
+</style>
+{% endblock %}
+
 {% block body %}
 
-<h2 class="pb-3">Training home</h2>
+<h2 class="pb-4">Training home</h2>
 
-<p>
-  TODO
-</p>
+<h4>Your progress</h4>
+<div class="d-flex justify-content-center">
+  <div class="btn-group" role="group" aria-label="Certs and ratings">
+    <button type="button" class="btn btn-no-cursor btn-outline-success">S1</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-success">Ground T2 EGE</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-success">Ground T2 ASE</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-success">Ground T1 DEN</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-success">S2</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-success">Local T2 EGE</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-success">Local T2 ASE</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-success">Local T1 DEN</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-warning">S3</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-light">APP T2 GTJ</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-light">APP T2 ASE</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-light">APP T1 DEN</button>
+    <button type="button" class="btn btn-no-cursor btn-outline-light">C1</button>
+  </div>
+</div>
+
+<div class="pt-2 d-flex justify-content-center">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a href="#" class="text-decoration-none" target="_blank">
+        <i class="bi bi-diagram-3"></i>
+        Home controller flowchart
+      </a></li>
+      <li class="breadcrumb-item"><a href="#" class="text-decoration-none" target="_blank">
+        <i class="bi bi-diagram-3"></i>
+        Visiting controller flowchart
+      </a></li>
+      <li class="breadcrumb-item"><a href="/training/my_notes" class="text-decoration-none" target="_blank">
+        <i class="bi bi-clipboard-check"></i>
+        Your training notes
+      </a></li>
+      <li class="breadcrumb-item"><a href="https://academy.vatusa.net/" class="text-decoration-none" target="_blank">
+        <i class="bi bi-book"></i>
+        VATUSA Academy
+      </a></li>
+    </ol>
+  </nav>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/bootstrap5@6.1.15/index.global.min.js"></script>
+
+<div class="row mb-3" style="border-bottom: 1px solid white">
+  <h4 class="pt-3">Schedule Training</h4>
+</div>
+<div class="row">
+  <div class="col-8">
+    <div id="calendar"></div>
+  </div>
+  <div class="col">
+    <h4 class="pt-5">Your upcoming sessions</h4>
+    <ul>
+      <li>10/31/24 @ 10am: S3 conceptual review</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const calendarEl = document.getElementById("calendar");
+  const calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: "dayGridMonth",
+    themeSystem: "bootstrap5",
+    headerToolbar: {
+      left: "prev,next",
+      center: "title",
+      right: "today,dayGridMonth,timeGridWeek,timeGridDay"
+    },
+    events: [
+      {
+        title: "S3 conceptual review",
+        start: "2024-10-31T10:00:00-08:00",
+        end: "2024-10-31T11:00:00-08:00",
+      }
+    ]
+  });
+  calendar.render();
+</script>
 
 {% endblock %}
