@@ -14,22 +14,12 @@
 
 <h2 class="pb-4">Training home</h2>
 
-<h4>Your progress</h4>
+<h4 class="pb-1">Your progress</h4>
 <div class="d-flex justify-content-center">
   <div class="btn-group" role="group" aria-label="Certs and ratings">
-    <button type="button" class="btn btn-no-cursor btn-outline-success">S1</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-success">Ground T2 EGE</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-success">Ground T2 ASE</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-success">Ground T1 DEN</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-success">S2</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-success">Local T2 EGE</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-success">Local T2 ASE</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-success">Local T1 DEN</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-warning">S3</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-light">APP T2 GTJ</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-light">APP T2 ASE</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-light">APP T1 DEN</button>
-    <button type="button" class="btn btn-no-cursor btn-outline-light">C1</button>
+    {% for item in progress_strip %}
+      <button type="button" class="btn btn-no-cursor btn-outline-{{ item.style }}">{{ item.name }}</button>
+    {% endfor %}
   </div>
 </div>
 

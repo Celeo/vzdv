@@ -1,5 +1,6 @@
 use crate::{
-    flashed_messages, load_templates,
+    flashed_messages::{self, MessageLevel},
+    load_templates,
     shared::{strip_some_tags, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
@@ -10,22 +11,216 @@ use axum::{
 };
 use chrono::NaiveDateTime;
 use minijinja::context;
-use std::sync::Arc;
+use serde::Serialize;
+use std::{cmp::Ordering, sync::Arc};
 use tower_sessions::Session;
-use vzdv::vatusa::{self, TrainingRecord};
+use vzdv::{
+    sql::{self, Certification, Controller},
+    vatusa::{self, TrainingRecord},
+    ControllerRating,
+};
 
-async fn training_home(session: Session) -> Result<Response, AppError> {
+#[derive(Debug, Serialize)]
+struct CertForTmpl {
+    name: String,
+    style: &'static str,
+    order: usize,
+}
+
+/// Construct a list of certs for the overall controller's progress list.
+fn progress_part_certs(
+    starting_index: usize,
+    controller_certs: &[String],
+    config_certs: &[String],
+    prefix: &str,
+    out_of_reach: bool,
+) -> (Vec<CertForTmpl>, bool) {
+    let mut out_of_reach = out_of_reach;
+    let mut ret = Vec::new();
+    for (index, cert) in config_certs
+        .iter()
+        .filter(|name| name.starts_with(prefix))
+        .enumerate()
+    {
+        let has = controller_certs.contains(cert);
+        if has {
+            ret.push(CertForTmpl {
+                name: cert.to_string(),
+                style: "success",
+                order: starting_index + index + 1,
+            });
+        } else if out_of_reach {
+            ret.push(CertForTmpl {
+                name: cert.to_string(),
+                style: "light",
+                order: starting_index + index + 1,
+            });
+        } else {
+            out_of_reach = true;
+            ret.push(CertForTmpl {
+                name: cert.to_string(),
+                style: "warning",
+                order: starting_index + index + 1,
+            });
+        }
+    }
+    (ret, out_of_reach)
+}
+
+/// Construct a list of ratings and cert levels that reflect the controller's learning progress.
+///
+/// The first rating or cert that they don't have will be marked specifically, denoting
+/// that step as next in the controller's learning journey. All following non-held ratings/certs
+/// will be marked as out of reach.
+fn progress_list(
+    rating: i8,
+    controller_certs: &[String],
+    config_certs: &[String],
+) -> Vec<CertForTmpl> {
+    let mut ret = Vec::new();
+    let mut out_of_reach = false;
+    // ~~~ ground
+    ret.push(CertForTmpl {
+        name: String::from("S1"),
+        style: match rating.cmp(&ControllerRating::S1.as_id()) {
+            Ordering::Less => "warning",
+            _ => "success",
+        },
+        order: 10,
+    });
+    let ground_certs = progress_part_certs(10, controller_certs, config_certs, "GC", out_of_reach);
+    out_of_reach = ground_certs.1;
+    ret.extend(ground_certs.0);
+    // ~~~ tower
+    if rating >= ControllerRating::S2.as_id() {
+        ret.push(CertForTmpl {
+            name: String::from("S2"),
+            style: "success",
+            order: 20,
+        });
+    } else if out_of_reach {
+        ret.push(CertForTmpl {
+            name: String::from("S2"),
+            style: "light",
+            order: 20,
+        });
+    } else {
+        out_of_reach = true;
+        ret.push(CertForTmpl {
+            name: String::from("S2"),
+            style: "warning",
+            order: 20,
+        });
+    }
+    let tower_certs = progress_part_certs(20, controller_certs, config_certs, "LC", out_of_reach);
+    out_of_reach = tower_certs.1;
+    ret.extend(tower_certs.0);
+    // ~~~ approach
+    if rating >= ControllerRating::S3.as_id() {
+        ret.push(CertForTmpl {
+            name: String::from("S3"),
+            style: "success",
+            order: 30,
+        });
+    } else if out_of_reach {
+        ret.push(CertForTmpl {
+            name: String::from("S3"),
+            style: "light",
+            order: 30,
+        });
+    } else {
+        out_of_reach = true;
+        ret.push(CertForTmpl {
+            name: String::from("S3"),
+            style: "warning",
+            order: 30,
+        });
+    }
+    let approach_certs =
+        progress_part_certs(30, controller_certs, config_certs, "APP", out_of_reach);
+    out_of_reach = approach_certs.1;
+    ret.extend(approach_certs.0);
+    // ~~~ center
+    if rating >= ControllerRating::C1.as_id() {
+        ret.push(CertForTmpl {
+            name: String::from("C1"),
+            style: "success",
+            order: 40,
+        });
+    } else if out_of_reach {
+        ret.push(CertForTmpl {
+            name: String::from("C1"),
+            style: "light",
+            order: 40,
+        });
+    } else {
+        ret.push(CertForTmpl {
+            name: String::from("C1"),
+            style: "warning",
+            order: 40,
+        });
+    }
+    // done
+    ret.sort_by(|a, b| a.order.cmp(&b.order));
+    ret
+}
+
+/// Training center homepage.
+async fn page_training_home(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let user_info = match user_info {
         Some(ui) => ui,
         None => {
+            flashed_messages::push_flashed_message(
+                session,
+                MessageLevel::Error,
+                "You must be logged in to view this page",
+            )
+            .await?;
             return Ok(Redirect::to("/").into_response());
         }
     };
+
+    let controller: Controller = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(user_info.cid)
+        .fetch_one(&state.db)
+        .await?;
+
+    if !controller.is_on_roster {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "Training is for home and visiting controllers",
+        )
+        .await?;
+        return Ok(Redirect::to("/").into_response());
+    }
+
+    let controller_certs: Vec<Certification> = sqlx::query_as(sql::GET_ALL_CERTIFICATIONS_FOR)
+        .bind(user_info.cid)
+        .fetch_all(&state.db)
+        .await?;
+    let progress_strip = progress_list(
+        controller.rating,
+        &controller_certs
+            .iter()
+            .filter(|c| c.value == "trained")
+            .map(|c| c.name.clone())
+            .collect::<Vec<_>>(),
+        &state.config.training.certifications,
+    );
+
     let env = load_templates().unwrap();
     let template = env.get_template("training/home.jinja")?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let rendered = template.render(context! { user_info, flashed_messages })?;
+    let rendered = template.render(context! {
+        user_info,
+        flashed_messages,
+        progress_strip
+    })?;
     Ok(Html(rendered).into_response())
 }
 /// Retrieve and show the user their training records from VATUSA.
@@ -72,6 +267,92 @@ async fn page_training_notes(
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/training", get(training_home))
+        .route("/training", get(page_training_home))
         .route("/training/my_notes", get(page_training_notes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::progress_list;
+    use vzdv::ControllerRating;
+
+    #[test]
+    fn test_progress_list_s1() {
+        let rating = ControllerRating::S1.as_id();
+        let certs = progress_list(rating, &[], &[]);
+
+        assert_eq!(certs.len(), 4);
+        assert_eq!(certs.get(0).unwrap().style, "success");
+        assert_eq!(certs.get(1).unwrap().style, "warning");
+        assert_eq!(certs.get(2).unwrap().style, "light");
+        assert_eq!(certs.get(3).unwrap().style, "light");
+    }
+
+    #[test]
+    fn test_progress_list_s3() {
+        let rating = ControllerRating::S3.as_id();
+        let certs = progress_list(rating, &[], &[]);
+
+        assert_eq!(certs.len(), 4);
+        assert_eq!(certs.get(0).unwrap().style, "success");
+        assert_eq!(certs.get(1).unwrap().style, "success");
+        assert_eq!(certs.get(2).unwrap().style, "success");
+        assert_eq!(certs.get(3).unwrap().style, "warning");
+    }
+
+    #[test]
+    fn test_progress_list_s2_missing_ground_extra() {
+        let rating = ControllerRating::S2.as_id();
+        let certs = progress_list(
+            rating,
+            &[String::from("GC EGE T2")],
+            &[String::from("GC EGE T2"), String::from("GC ASE T2")],
+        );
+
+        assert_eq!(certs.len(), 6);
+        assert_eq!(certs.get(0).unwrap().style, "success");
+        assert_eq!(certs.get(1).unwrap().style, "success");
+        assert_eq!(certs.get(2).unwrap().style, "warning");
+        assert_eq!(certs.get(3).unwrap().style, "success");
+        assert_eq!(certs.get(4).unwrap().style, "light");
+        assert_eq!(certs.get(5).unwrap().style, "light");
+    }
+
+    #[test]
+    fn test_progress_fresh_new_c1() {
+        let rating = ControllerRating::C1.as_id();
+        let certs = progress_list(
+            rating,
+            &[],
+            &[
+                String::from("GC T2 EGE"),
+                String::from("GC T2 ASE"),
+                String::from("GC T1"),
+                String::from("LC T2 EGE"),
+                String::from("LC T2 ASE"),
+                String::from("LC T1"),
+                String::from("APP T2 GJT"),
+                String::from("APP T2 ASE"),
+                String::from("APP T1"),
+            ],
+        );
+
+        assert_eq!(certs.len(), 13);
+        #[rustfmt::skip]
+        assert_eq!(certs.iter().map(|c| c.style).collect::<Vec<_>>(), vec![
+            "success", // S1
+            "warning", // first training to do
+            "light", // first out of reach; all other non-rating certs should be "light"
+            "light",
+            "success", // S2
+            "light",
+            "light",
+            "light",
+            "success", // S3
+            "light",
+            "light",
+            "light",
+            "success" // C1
+        ]);
+    }
 }
