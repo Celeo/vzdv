@@ -141,6 +141,45 @@ pub struct EmailTemplate {
     pub body: String,
 }
 
+#[derive(Debug, FromRow, Serialize)]
+pub struct TrainingSession {
+    pub id: u32,
+    pub schedule_id: Option<u32>,
+    pub trainer_cid: u32,
+    pub student_cid: Option<u32>,
+    pub position: String,
+    pub date: DateTime<Utc>,
+    pub status: String,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, FromRow, Serialize)]
+pub struct TrainingSchedule {
+    pub id: u32,
+    pub cid: u32,
+    pub day_of_week: u8,
+    pub time_of_day: u16,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, FromRow, Serialize)]
+pub struct TrainingScheduleException {
+    pub id: u32,
+    pub schedule_id: u32,
+    pub date: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, FromRow, Serialize)]
+pub struct TrainingRestriction {
+    pub id: u32,
+    pub cid: u32,
+    pub position: String,
+    pub rated: bool,
+    pub created_at: DateTime<Utc>,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -268,6 +307,51 @@ CREATE table email_template (
     name TEXT NOT NULL,
     subject TEXT NOT NULL,
     body TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE training_session (
+    id INTEGER PRIMARY KEY NOT NULL,
+    schedule_id INTEGER,
+    trainer_cid INTEGER NOT NULL,
+    student_cid INTEGER,
+    position TEXT NOT NULL,
+    date TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    notes TEXT,
+    created_at TEXT NOT NULL,
+
+    FOREIGN KEY (schedule_id) REFERENCES training_schedule(id),
+    FOREIGN KEY (trainer_cid) REFERENCES controller(cid),
+    FOREIGN KEY (student_cid) REFERENCES controller(cid)
+) STRICT;
+
+CREATE TABLE training_schedule (
+    id INTEGER PRIMARY KEY NOT NULL,
+    cid INTEGER NOT NULL,
+    day_of_week INTEGER NOT NULL,
+    time_of_day INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+
+    FOREIGN KEY (cid) REFERENCES controller(cid)
+) STRICT;
+
+CREATE TABLE training_schedule_exception (
+    id INTEGER PRIMARY KEY NOT NULL,
+    schedule_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+
+    FOREIGN KEY (schedule_id) REFERENCES training_schedule(id)
+) STRICT;
+
+CREATE TABLE training_restriction (
+    id INTEGER PRIMARY KEY NOT NULL,
+    cid INTEGER NOT NULL,
+    position TEXT NOT NULL,
+    rated INTEGER NOT NULL DEFAULT FALSE,
+    created_at TEXT NOT NULL,
+
+    FOREIGN KEY (cid) REFERENCES controller(cid)
 ) STRICT;
 "#;
 
