@@ -41,7 +41,7 @@ pub struct RosterMember {
     pub last_name: String,
     pub email: Option<String>,
     pub facility: String,
-    pub rating: u8,
+    pub rating: i8,
     pub created_at: String,
     pub updated_at: String,
     #[serde(rename = "flag_needbasic")]

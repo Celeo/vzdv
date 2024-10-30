@@ -1,7 +1,7 @@
 //! Endpoints for getting information on the facility.
 
 use crate::{
-    flashed_messages,
+    email, flashed_messages,
     shared::{AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
@@ -12,7 +12,7 @@ use axum::{
 };
 use chrono::{DateTime, Months, Utc};
 use itertools::Itertools;
-use log::warn;
+use log::{info, warn};
 use minijinja::context;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -440,7 +440,8 @@ async fn page_visitor_application_form(
         .bind(user_info.cid)
         .fetch_optional(&state.db)
         .await?;
-    // check rating
+
+    // get controller info
     let controller_info = match vatusa::get_controller_info(user_info.cid, None).await {
         Ok(info) => Some(info),
         Err(e) => {
@@ -448,6 +449,33 @@ async fn page_visitor_application_form(
             None
         }
     };
+
+    /*
+     * ZLC bypass
+     *
+     * Any ZLC home controller at S1+ can visit without meeting
+     * the other VATSIM/VATUSA visiting controller requirements.
+     */
+    if pending_request.is_none() {
+        let home_facility = controller_info
+            .as_ref()
+            .map(|c| c.facility.clone())
+            .unwrap_or_default();
+        let rating = controller_info
+            .as_ref()
+            .map(|c| c.rating)
+            .unwrap_or_default();
+        if home_facility == "ZLC" && rating >= ControllerRating::S1.as_id() {
+            // ZLC bypass conditions met
+            let template = state
+                .templates
+                .get_template("facility/visitor_application_form_zlc.jinja")?;
+            let rendered =
+                template.render(context! { user_info, pending_request, controller_info })?;
+            return Ok(Html(rendered));
+        }
+    }
+
     // check VATUSA checklist
     let checklist = match vatusa::transfer_checklist(
         &state.config.vatsim.vatusa_api_key,
@@ -474,6 +502,7 @@ async fn page_visitor_application_form(
 struct VisitorApplicationForm {
     rating: u8,
     facility: String,
+    zlc_bypass: Option<bool>,
 }
 
 /// Submit the request to join as a visitor.
@@ -483,30 +512,74 @@ async fn page_visitor_application_form_submit(
     Form(application_form): Form<VisitorApplicationForm>,
 ) -> Result<Redirect, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    if let Some(user_info) = user_info {
-        sqlx::query(sql::INSERT_INTO_VISITOR_REQ)
-            .bind(user_info.cid)
-            .bind(&user_info.first_name)
-            .bind(&user_info.last_name)
-            .bind(application_form.facility)
-            .bind(application_form.rating)
-            .bind(Utc::now())
-            .execute(&state.db)
+    let user_info = match user_info {
+        Some(ui) => ui,
+        None => {
+            flashed_messages::push_flashed_message(
+                session,
+                flashed_messages::MessageLevel::Error,
+                "You must be logged in to submit a visitor request.",
+            )
             .await?;
+            return Ok(Redirect::to("/"));
+        }
+    };
+
+    // ZLC bypass
+    if application_form.zlc_bypass.is_some() {
+        let controller_info =
+            vatusa::get_controller_info(user_info.cid, Some(&state.config.vatsim.vatusa_api_key))
+                .await
+                .map_err(|err| AppError::GenericFallback("getting controller info", err))?;
+        vatusa::add_visiting_controller(user_info.cid, &state.config.vatsim.vatusa_api_key)
+            .await
+            .map_err(|err| {
+                AppError::GenericFallback("could not add ZLC visiting controller", err)
+            })?;
+        // inform if possible
+        if let Some(email_address) = controller_info.email {
+            email::send_mail(
+                &state.config,
+                &state.db,
+                &format!(
+                    "{} {}",
+                    controller_info.first_name, controller_info.last_name
+                ),
+                &email_address,
+                email::templates::VISITOR_ACCEPTED,
+            )
+            .await?;
+        } else {
+            warn!("No email address found for ZLC visitor {}", user_info.cid);
+        }
         flashed_messages::push_flashed_message(
             session,
-            flashed_messages::MessageLevel::Success,
-            "Request submitted, thank you!",
+            flashed_messages::MessageLevel::Info,
+            "Welcome to the visiting roster!",
         )
         .await?;
-    } else {
-        flashed_messages::push_flashed_message(
-            session,
-            flashed_messages::MessageLevel::Error,
-            "You must be logged in to submit a visitor request.",
-        )
-        .await?;
+        info!(
+            "Controller {} is joining the visiting roster from ZLC",
+            user_info.cid
+        );
+        return Ok(Redirect::to("/"));
     }
+
+    sqlx::query(sql::INSERT_INTO_VISITOR_REQ)
+        .bind(user_info.cid)
+        .bind(&user_info.first_name)
+        .bind(&user_info.last_name)
+        .bind(application_form.facility)
+        .bind(application_form.rating)
+        .bind(Utc::now())
+        .execute(&state.db)
+        .await?;
+    flashed_messages::push_flashed_message(
+        session,
+        flashed_messages::MessageLevel::Success,
+        "Request submitted, thank you!",
+    )
+    .await?;
     Ok(Redirect::to("/facility/visitor_application"))
 }
 
