@@ -25,7 +25,7 @@
             {{ request.first_name }} {{ request.last_name }} ({{ request.cid }})
           </a>
         </td>
-        <td>{{ request.rating }}</td>
+        <td>{{ request.rating|rating_str }}</td>
         <td>{{ request.home_facility }}</td>
         <td>{{ already_visiting[request.cid] }}</td>
         <td>{{ request.date|nice_date }}</td>
