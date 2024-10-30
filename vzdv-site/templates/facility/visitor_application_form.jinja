@@ -8,7 +8,7 @@
   {% else %}
     {% if checklist.visiting and controller_info.rating >= 4 %}
       <p>It looks like you're cleared to visit. Click the button below to submit the request.</p>
-      <form action="/facility/visitor_application_form" method="POST">
+      <form action="/facility/visitor_application/form" method="POST">
         <input type="hidden" name="rating" value="{{ controller_info.rating }}">
         <input type="hidden" name="facility" value="{{ controller_info.facility }}">
         <button type="submit" class="btn btn-primary">Request visitor status</button>
