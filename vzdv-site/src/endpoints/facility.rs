@@ -1,7 +1,7 @@
 //! Endpoints for getting information on the facility.
 
 use crate::{
-    email, flashed_messages,
+    flashed_messages,
     shared::{AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
@@ -470,8 +470,7 @@ async fn page_visitor_application_form(
             let template = state
                 .templates
                 .get_template("facility/visitor_application_form_zlc.jinja")?;
-            let rendered =
-                template.render(context! { user_info, pending_request, controller_info })?;
+            let rendered = template.render(context! { user_info, controller_info })?;
             return Ok(Html(rendered));
         }
     }
@@ -527,42 +526,10 @@ async fn page_visitor_application_form_submit(
 
     // ZLC bypass
     if application_form.zlc_bypass.is_some() {
-        let controller_info =
-            vatusa::get_controller_info(user_info.cid, Some(&state.config.vatsim.vatusa_api_key))
-                .await
-                .map_err(|err| AppError::GenericFallback("getting controller info", err))?;
-        vatusa::add_visiting_controller(user_info.cid, &state.config.vatsim.vatusa_api_key)
-            .await
-            .map_err(|err| {
-                AppError::GenericFallback("could not add ZLC visiting controller", err)
-            })?;
-        // inform if possible
-        if let Some(email_address) = controller_info.email {
-            email::send_mail(
-                &state.config,
-                &state.db,
-                &format!(
-                    "{} {}",
-                    controller_info.first_name, controller_info.last_name
-                ),
-                &email_address,
-                email::templates::VISITOR_ACCEPTED,
-            )
-            .await?;
-        } else {
-            warn!("No email address found for ZLC visitor {}", user_info.cid);
-        }
-        flashed_messages::push_flashed_message(
-            session,
-            flashed_messages::MessageLevel::Info,
-            "Welcome to the visiting roster!",
-        )
-        .await?;
         info!(
-            "Controller {} is joining the visiting roster from ZLC",
+            "Controller {} is using ZLC visitor requirements bypass",
             user_info.cid
         );
-        return Ok(Redirect::to("/"));
     }
 
     sqlx::query(sql::INSERT_INTO_VISITOR_REQ)
