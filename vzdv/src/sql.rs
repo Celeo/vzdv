@@ -412,6 +412,8 @@ pub const INSERT_EVENT_POSITION: &str =
     "INSERT INTO event_position VALUES (NULL, $1, $2, $3, NULL);";
 pub const DELETE_EVENT_POSITION: &str = "DELETE FROM event_position WHERE id=$1";
 pub const UPDATE_EVENT_POSITION_CONTROLLER: &str = "UPDATE event_position SET cid=$2 WHERE id=$1";
+pub const CLEAR_CID_FROM_EVENT_POSITIONS: &str =
+    "UPDATE event_position SET cid=NULL WHERE event_id=$1 AND cid=$2";
 
 pub const GET_STAFF_NOTES_FOR: &str = "SELECT * FROM staff_note WHERE cid=$1";
 pub const GET_STAFF_NOTE: &str = "SELECT * FROM staff_note WHERE id=$1";
