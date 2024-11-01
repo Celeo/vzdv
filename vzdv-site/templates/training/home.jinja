@@ -55,7 +55,7 @@
   <h4 class="pt-3">Schedule Training</h4>
 </div>
 <div class="row">
-  <div class="col-8">
+  <div class="col-9">
     <div id="calendar"></div>
   </div>
   <div class="col">
@@ -67,24 +67,79 @@
 </div>
 
 <script>
-const calendarEl = document.getElementById("calendar");
-  const calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: "dayGridMonth",
-    themeSystem: "bootstrap5",
-    headerToolbar: {
-      left: "prev,next",
-      center: "title",
-      right: "today,dayGridMonth,timeGridWeek,timeGridDay"
+const events = [
+    {
+      id: "19231",
+      title: "S3 conceptual review",
+      start: "2024-11-05T10:00:00-08:00",
+      end: "2024-11-05T11:00:00-08:00",
+      editable: false,
+      backgroundColor: "cyan",
+      textColor: "black"
     },
-    events: [
-      {
-        title: "S3 conceptual review",
-        start: "2024-10-31T10:00:00-08:00",
-        end: "2024-10-31T11:00:00-08:00",
-      }
-    ]
-  });
-  calendar.render();
+    {
+      id: "24981",
+      title: "Trainer Availability: GC Un/T2/T1 | LC Un/T2",
+      start: "2024-11-04T14:00:00-08:00",
+      end: "2024-11-04T20:00:00-08:00",
+      editable: false,
+      backgroundColor: "green",
+      textColor: "white"
+    },
+    {
+      id: "24981",
+      title: "Trainer Availability: GC Un/T2/T1 | LC Un/T2",
+      start: "2024-11-06T14:00:00-08:00",
+      end: "2024-11-06T20:00:00-08:00",
+      editable: false,
+      backgroundColor: "green",
+      textColor: "white"
+    },
+    {
+      id: "24981",
+      title: "Trainer Availability: GC Un/T2/T1 | LC Un/T2",
+      start: "2024-11-08T14:00:00-08:00",
+      end: "2024-11-08T20:00:00-08:00",
+      editable: false,
+      backgroundColor: "green",
+      textColor: "white"
+    }
+  ];
+  const calendarEl = document.getElementById("calendar");
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: "dayGridMonth",
+      themeSystem: "bootstrap5",
+      headerToolbar: {
+        left: "prev,next",
+        center: "title",
+        right: "today,dayGridMonth,timeGridWeek,timeGridDay"
+      },
+      events,
+      selectable: true,
+      select: (e) => {
+        if (e.allDay) {
+          calendar.unselect();
+          return;
+        }
+        // restrict time that goes past the midnight boundary? what about max time slot length? it'll be from trainers, so maybe don't bother.
+        const res = window.prompt('Enter a new event name');
+        if (res) {
+          calendar.addEvent({
+            title: res,
+            start: e.start,
+            end: e.end
+          });
+          // add to external source ...
+        }
+        calendar.unselect();
+      },
+      eventClick: (e) => {
+        e.jsEvent.preventDefault();
+        console.log('event click', e);
+        console.log(JSON.stringify(e));
+      },
+    });
+    calendar.render();
 </script>
 
 {% endblock %}
