@@ -525,6 +525,7 @@ async fn api_register_unregister(
     } else {
         return Ok(StatusCode::UNAUTHORIZED);
     };
+    // get the registration ID from event ID & CID
     let existing_registration: Option<EventRegistration> =
         sqlx::query_as(sql::GET_EVENT_REGISTRATION_FOR)
             .bind(id)
@@ -537,6 +538,12 @@ async fn api_register_unregister(
             .execute(&state.db)
             .await?;
     }
+    // remove the controller from any positions in this event
+    sqlx::query(sql::CLEAR_CID_FROM_EVENT_POSITIONS)
+        .bind(id)
+        .bind(cid)
+        .execute(&state.db)
+        .await?;
     info!("{cid} removed their registration to event {id}");
     Ok(StatusCode::ACCEPTED)
 }
