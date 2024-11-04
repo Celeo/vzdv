@@ -676,7 +676,9 @@ async fn post_new_resource(
     mut form: Multipart,
 ) -> Result<Redirect, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+    if let Some(redirect) =
+        reject_if_not_in(&state, &user_info, PermissionsGroup::NamedPosition).await
+    {
         return Ok(redirect);
     }
     let user_info = user_info.unwrap();
