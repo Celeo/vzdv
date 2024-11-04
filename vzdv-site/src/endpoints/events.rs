@@ -297,6 +297,7 @@ struct EventRegistrationDisplay {
     choice_2: String,
     choice_3: String,
     notes: String,
+    is_assigned: bool,
 }
 
 /// Supply event registration data with controller and position names.
@@ -324,12 +325,12 @@ async fn event_registrations_extra(
             .iter()
             .find(|pos| pos.id == registration.choice_3)
             .map(|pos| pos.name.clone());
-        let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        let controller_db: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
             .bind(registration.cid)
             .fetch_optional(db)
             .await?;
-        let controller = match controller {
-            Some(c) => format!(
+        let controller = match controller_db {
+            Some(ref c) => format!(
                 "{} {} ({}) - {}",
                 c.first_name,
                 c.last_name,
@@ -353,6 +354,13 @@ async fn event_registrations_extra(
             choice_2: c_2.unwrap_or_default(),
             choice_3: c_3.unwrap_or_default(),
             notes,
+            is_assigned: if let Some(record) = controller_db {
+                positions
+                    .iter()
+                    .any(|p| p.cid.unwrap_or_default() == record.cid)
+            } else {
+                false
+            },
         });
     }
 

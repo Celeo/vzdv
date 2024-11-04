@@ -150,11 +150,18 @@
     <tbody>
       {% for registration in registrations %}
         <tr>
-          <td>{{ registration.controller }}</td>
-          <td>{{ registration.choice_1 }}</td>
-          <td>{{ registration.choice_2 }}</td>
-          <td>{{ registration.choice_3 }}</td>
-          <td>{{ registration.notes }}</td>
+          {% if registration.is_assigned %}
+            <td class="text-info">
+              <i class="bi bi-check" title="Assigned to a position"></i>
+              {{ registration.controller }}
+            </td>
+          {% else %}
+            <td>{{ registration.controller }}</td>
+          {% endif %}
+          <td class="{% if registration.is_assigned %}text-info{% endif %}">{{ registration.choice_1 }}</td>
+          <td class="{% if registration.is_assigned %}text-info{% endif %}">{{ registration.choice_2 }}</td>
+          <td class="{% if registration.is_assigned %}text-info{% endif %}">{{ registration.choice_3 }}</td>
+          <td class="{% if registration.is_assigned %}text-info{% endif %}">{{ registration.notes }}</td>
         </tr>
       {% endfor %}
     </tbody>
