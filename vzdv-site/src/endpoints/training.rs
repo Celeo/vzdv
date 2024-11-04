@@ -4,21 +4,45 @@ use crate::{
     shared::{strip_some_tags, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
-    extract::State,
+    extract::{Query, State},
     response::{Html, IntoResponse, Redirect, Response},
     routing::get,
-    Router,
+    Json, Router,
 };
 use chrono::NaiveDateTime;
 use minijinja::context;
-use serde::Serialize;
-use std::{cmp::Ordering, sync::Arc};
+use serde::{Deserialize, Serialize};
+use std::{cmp::Ordering, collections::HashMap, sync::Arc};
 use tower_sessions::Session;
 use vzdv::{
+    controller_can_see,
     sql::{self, Certification, Controller},
     vatusa::{self, TrainingRecord},
     ControllerRating,
 };
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CalendarEventExtra {
+    cid: u32,
+    schedule: Option<u32>,
+    taken: bool,
+    taken_by: Option<u32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CalendarEvent {
+    id: String,
+    title: String,
+    start: String,
+    end: String,
+    editable: bool,
+    #[serde(rename = "backgroundColor")]
+    background_color: String,
+    #[serde(rename = "textColor")]
+    text_color: String,
+    #[serde(rename = "extendedProps")]
+    extended_props: CalendarEventExtra,
+}
 
 #[derive(Debug, Serialize)]
 struct CertForTmpl {
@@ -219,7 +243,9 @@ async fn page_training_home(
     let rendered = template.render(context! {
         user_info,
         flashed_messages,
-        progress_strip
+        progress_strip,
+        controller,
+        is_training_staff => controller_can_see(&Some(controller), vzdv::PermissionsGroup::TrainingTeam),
     })?;
     Ok(Html(rendered).into_response())
 }
@@ -265,10 +291,121 @@ async fn page_training_notes(
     Ok(Html(rendered).into_response())
 }
 
+/// Return a set of events for the calendar UI that the user has access to.
+///
+/// Depending on the user's role, they will have additional access:
+///     - Most users can only see available sessions
+///     - A trainer can see all of their sessions
+///     - The TA can see all sessions, available and not
+///
+/// All sessions go from today to 60 days in the future. The calendar app will
+/// send a date range in the query string, but I'll probably just ignore that.
+/// Could get the user's timezone offset from those, though.
+async fn api_get_training_sessions(
+    State(_state): State<Arc<AppState>>,
+    session: Session,
+    Query(_params): Query<HashMap<String, String>>,
+) -> Result<Json<Vec<CalendarEvent>>, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let _user_info = match user_info {
+        Some(info) => info,
+        None => return Ok(Json(Vec::new())),
+    };
+
+    /*
+     * Color legend:
+     *  - Red = self as student
+     *  - Green = available
+     *  - Gray = unavailable
+     *  - Blue = self as trainer, open
+     *  - Yellow = self as trainer, taken
+     */
+
+    // TODO
+    Ok(Json(vec![
+        CalendarEvent {
+            id: String::from("19231"),
+            title: String::from("S3 conceptual review"),
+            start: String::from("2024-11-05T10:00:00"),
+            end: String::from("2024-11-05T11:00:00"),
+            editable: false,
+            background_color: String::from("red"),
+            text_color: String::from("white"),
+            extended_props: CalendarEventExtra {
+                cid: 811918,
+                schedule: None,
+                taken: true,
+                taken_by: Some(10000005),
+            },
+        },
+        CalendarEvent {
+            id: String::from("24981"),
+            title: String::from("Trainer Availability: GC Un/T2/T1 | LC Un/T2"),
+            start: String::from("2024-11-04T22:00:00"),
+            end: String::from("2024-11-05T02:00:00"),
+            editable: false,
+            background_color: String::from("green"),
+            text_color: String::from("black"),
+            extended_props: CalendarEventExtra {
+                cid: 811918,
+                schedule: None,
+                taken: false,
+                taken_by: None,
+            },
+        },
+        CalendarEvent {
+            id: String::from("24981"),
+            title: String::from("Trainer Availability: GC Un/T2/T1 | LC Un/T2"),
+            start: String::from("2024-11-06T14:00:00"),
+            end: String::from("2024-11-06T20:00:00"),
+            editable: false,
+            background_color: String::from("green"),
+            text_color: String::from("black"),
+            extended_props: CalendarEventExtra {
+                cid: 811918,
+                schedule: None,
+                taken: false,
+                taken_by: None,
+            },
+        },
+        CalendarEvent {
+            id: String::from("24981"),
+            title: String::from("Trainer Availability: GC Un/T2/T1 | LC Un/T2"),
+            start: String::from("2024-11-08T22:00:00"),
+            end: String::from("2024-11-09T02:00:00"),
+            editable: false,
+            background_color: String::from("gray"),
+            text_color: String::from("black"),
+            extended_props: CalendarEventExtra {
+                cid: 811918,
+                schedule: None,
+                taken: true,
+                taken_by: Some(10000003),
+            },
+        },
+        CalendarEvent {
+            id: String::from("24981"),
+            title: String::from("Trainer Availability: GC Un/T2/T1 | LC Un/T2"),
+            start: String::from("2024-11-08T22:00:00"),
+            end: String::from("2024-11-09T02:00:00"),
+            editable: false,
+            background_color: String::from("green"),
+            text_color: String::from("black"),
+            extended_props: CalendarEventExtra {
+                cid: 811918,
+                schedule: None,
+                taken: false,
+                taken_by: None,
+            },
+        },
+    ]))
+}
+
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/training", get(page_training_home))
         .route("/training/my_notes", get(page_training_notes))
+        .route("/training/sessions", get(api_get_training_sessions))
 }
 
 #[cfg(test)]

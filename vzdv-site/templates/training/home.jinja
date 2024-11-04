@@ -4,6 +4,15 @@
 
 {% block head_extra %}
 <style>
+  dialog::backdrop {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+  dialog {
+    background-color: var(--bs-body-bg);
+    width: 30%;
+    border: none;
+    border-radius: 1.5rem;
+  }
   .btn-no-cursor {
     cursor: default !important;
   }
@@ -16,7 +25,9 @@
 
 <p class="text-danger d-sm-block d-md-block d-lg-none d-xl-none d-xxl-none">This page does not work well on mobile.</p>
 
-<h4 class="pb-1">Your progress</h4>
+<div class="d-flex justify-content-center">
+  <h4 class="pb-1">Your progress</h4>
+</div>
 <div class="d-flex justify-content-center">
   <div class="btn-group" role="group" aria-label="Certs and ratings">
     {% for item in progress_strip %}
@@ -52,13 +63,26 @@
 <script src="https://cdn.jsdelivr.net/npm/@fullcalendar/bootstrap5@6.1.15/index.global.min.js"></script>
 
 <div class="row mb-3" style="border-bottom: 1px solid white">
-  <h4 class="pt-3">Schedule Training</h4>
+  <h4 class="pt-3">
+    {% if is_training_staff %}
+      Schedule Training and Availability
+    {% else %}
+      Schedule Training
+    {% endif %}
+  </h4>
 </div>
+
 <div class="row">
   <div class="col-9">
     <div id="calendar"></div>
   </div>
   <div class="col">
+    <div class="clearfix">
+      <button role="button" class="float-end btn btn-outline-light" onclick="modalLegend.showModal()">
+        <i class="bi bi-info-circle"></i>
+        Legend
+      </button>
+    </div>
     <h4 class="pt-5">Your upcoming sessions</h4>
     <ul>
       <li>10/31/24 @ 10am: S3 conceptual review</li>
@@ -66,45 +90,67 @@
   </div>
 </div>
 
+<dialog id="modalLegend">
+  <h2 class="pb-3">Legend</h2>
+  <ul>
+    <li>Sessions in <span class="text-danger">red</span> are sessions that you are the student for. Please come to your sessions prepared.</li>
+    <li>Sessions in <span class="text-success">green</span> are available training slots. Be sure to pick one that supports the rating or certification you're looking for!</li>
+    <li>Sessions in <span class="text-body-tertiary">gray</span> are unavailable (taken) training slots.</li>
+    <li>For <strong>trainers</strong>, sessions in <span class="text-primary">blue</span> are your open (unaccepted) sessions, and sessions in <span class="text-warning">yellow</span> are sessions that a student has accepted.</li>
+  </ul>
+  <div class="d-flex justify-content-end">
+    <button class="btn btn-warning" role="button" id="btnModalLegendClose">Close</button>
+  </div>
+</dialog>
+
+<dialog id="modalDeleteAvailability">
+  TODO
+</dialog>
+
+<dialog id="modalCancelSession">
+  TODO
+</dialog>
+
+<dialog id="modalAcceptSession">
+  <h2 class="pb-3">Accept the session</h2>
+  <div class="row mb-3">
+    <div class="col"><strong>Start</strong>: <span id="sessionEnd"></span></div>
+    <div class="col"><strong>End</strong>: <span id="sessionStart"></span></div>
+  </div>
+  <form action="/training/session/accept" method="POST">
+    <div class="row mb-3">
+      <div class="col">
+        <input type="hidden" name="session" value="0">
+        <label class="form-label" for="position">Position</label>
+        <select class="form-control" name="position" required>
+          <option value="" disabled>None</option>
+        </select>
+      </div>
+    </div>
+    <div class="d-flex justify-content-between">
+      <button class="btn btn-warning" role="button" id="btnMOdalAcceptClose">Close</button>
+      <button class="btn btn-success" role="button" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<span class="d-none" id="cid">{{ controller.cid }}</span>
+<span class="d-none" id="is_training_staff">{{ is_training_staff }}</span>
+
 <script>
-const events = [
-    {
-      id: "19231",
-      title: "S3 conceptual review",
-      start: "2024-11-05T10:00:00-08:00",
-      end: "2024-11-05T11:00:00-08:00",
-      editable: false,
-      backgroundColor: "cyan",
-      textColor: "black"
-    },
-    {
-      id: "24981",
-      title: "Trainer Availability: GC Un/T2/T1 | LC Un/T2",
-      start: "2024-11-04T14:00:00-08:00",
-      end: "2024-11-04T20:00:00-08:00",
-      editable: false,
-      backgroundColor: "green",
-      textColor: "white"
-    },
-    {
-      id: "24981",
-      title: "Trainer Availability: GC Un/T2/T1 | LC Un/T2",
-      start: "2024-11-06T14:00:00-08:00",
-      end: "2024-11-06T20:00:00-08:00",
-      editable: false,
-      backgroundColor: "green",
-      textColor: "white"
-    },
-    {
-      id: "24981",
-      title: "Trainer Availability: GC Un/T2/T1 | LC Un/T2",
-      start: "2024-11-08T14:00:00-08:00",
-      end: "2024-11-08T20:00:00-08:00",
-      editable: false,
-      backgroundColor: "green",
-      textColor: "white"
-    }
-  ];
+  const cid = Number(document.getElementById('cid').textContent);
+  const isTrainingStaff = document.getElementById('is_training_staff').textContent === 'true';
+
+  document.getElementById('btnModalLegendClose').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('modalLegend').close();
+  });
+
+  document.getElementById('btnMOdalAcceptClose').addEventListener('click', (e) => {
+    e.preventDefault();
+    document.getElementById('modalAcceptSession').close();
+  });
+
   const calendarEl = document.getElementById("calendar");
     const calendar = new FullCalendar.Calendar(calendarEl, {
       initialView: "dayGridMonth",
@@ -114,18 +160,21 @@ const events = [
         center: "title",
         right: "today,dayGridMonth,timeGridWeek,timeGridDay"
       },
-      events,
-      selectable: true,
-      select: (e) => {
+      events: "/training/sessions",
+      selectable: isTrainingStaff,
+      select(e) {
+        e.jsEvent.preventDefault();
+        if (!isTrainingStaff) {
+          return;
+        }
         if (e.allDay) {
           calendar.unselect();
           return;
         }
-        // restrict time that goes past the midnight boundary? what about max time slot length? it'll be from trainers, so maybe don't bother.
-        const res = window.prompt('Enter a new event name');
+        const res = window.confirm("Create a new availability at this time?");
         if (res) {
           calendar.addEvent({
-            title: res,
+            title: "Trainer availability: ??",
             start: e.start,
             end: e.end
           });
@@ -133,10 +182,25 @@ const events = [
         }
         calendar.unselect();
       },
-      eventClick: (e) => {
+      eventClick(e) {
         e.jsEvent.preventDefault();
-        console.log('event click', e);
-        console.log(JSON.stringify(e));
+        const event = e.event;
+        console.log(JSON.stringify(event, null, 2));
+        if (event.extendedProps.taken) {
+          if (event.extendedProps.cid === cid) {
+            console.log("do something");
+            return;
+          } if (event.extendedProps.taken_by === cid) {
+            console.log("do something");
+            return;
+          }
+        } else {
+          const modalAcceptSession = document.getElementById("modalAcceptSession");
+          modalAcceptSession.querySelector("input[name='session']").value = e.event.id;
+          modalAcceptSession.querySelector("#sessionStart").textContent = event.start;
+          modalAcceptSession.querySelector("#sessionEnd").textContent = event.end;
+          modalAcceptSession.showModal();
+        }
       },
     });
     calendar.render();
