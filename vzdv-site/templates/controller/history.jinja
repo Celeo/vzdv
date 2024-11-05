@@ -1,0 +1,94 @@
+<h4 class="pb-3">VATSIM basic info</h4>
+
+<table class="table table-striped table-hover">
+  <thead>
+    <tr>
+      <th>What</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ID</td>
+      <td>{{ vatsim_info.id }}</td>
+    </tr>
+    <tr>
+      <td>Rating</td>
+      <td>{{ vatsim_info.rating }}</td>
+    </tr>
+    <tr>
+      <td>Pilot rating</td>
+      <td>{{ vatsim_info.pilot_rating }}</td>
+    </tr>
+    <tr>
+      <td>Military rating</td>
+      <td>{{ vatsim_info.military_rating }}</td>
+    </tr>
+    <tr>
+      <td>Registration date</td>
+      <td>{{ vatsim_info.reg_date }}</td>
+    </tr>
+    <tr>
+      <td>Last rating change</td>
+      <td>{{ vatsim_info.last_rating_change }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4 class="pb-3">VATUSA controller info</h4>
+
+<p>
+  <strong>Last activity</strong>: {{ controller_info.last_activity }}
+  <br>
+  <strong>Name privacy flag</strong>: {{ controller_info.flag_name_privacy }}
+  <br>
+  <strong>Last competency date</strong>: {{ controller_info.last_competency_date }}
+  <br>
+  <strong>Promotion eligible</strong>: {{ controller_info.promotion_eligible }}
+  <br>
+  <strong>Transfer eligible</strong>: {{ controller_info.transfer_eligible }}
+  <br>
+  <strong>Is mentor</strong>: {{ controller_info.is_mentor }}
+  <br>
+  <strong>Is "sup ins"</strong>: {{ controller_info.is_sup_ins }}
+  <br>
+  <strong>Last promotion</strong>: {{ controller_info.last_promotion }}
+</p>
+
+<strong>Roles</strong>
+<br>
+<ul>
+  {% for role in controller_info.roles %}
+    <li>{{ role.role }} at {{ role.facility }} from {{ role.created_at }}</li>
+  {% endfor %}
+</ul>
+
+<strong>Visiting facilities</strong>
+<br>
+<ul>
+  {% for visiting in controller_info.visiting_facilities %}
+    <li>{{ visiting.facility }} from {{ visiting.created_at }}</li>
+  {% endfor %}
+</ul>
+
+<h4 class="pb-3">Rating history</h4>
+<table class="table table-striped table-hover">
+  <thead>
+    <tr>
+      <th>Grantor</th>
+      <th>Date</th>
+      <th>Rating from</th>
+      <th>Rating to</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in rating_history %}
+      <tr>
+        <td>{{ entry.grantor }}</td>
+        <td>{{ entry.created_at }}</td>
+        <td>{{ entry.from }}</td>
+        <td>{{ entry.to }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

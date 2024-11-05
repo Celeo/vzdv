@@ -1,12 +1,14 @@
-use std::collections::HashMap;
-
-use crate::{config::Config, get_controller_cids_and_names, position_in_facility_airspace};
+use crate::{
+    config::Config, get_controller_cids_and_names, position_in_facility_airspace,
+    GENERAL_HTTP_CLIENT,
+};
 use anyhow::{bail, Result};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use log::error;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 use vatsim_utils::live_api::Vatsim;
 
 /// Parse a VATSIM timestamp into a `chrono::DateTime`.
@@ -138,8 +140,7 @@ pub fn oauth_redirect_start(config: &Config) -> String {
 
 /// Exchange the code from VATSIM OAuth for an access token.
 pub async fn code_to_tokens(code: &str, config: &Config) -> Result<TokenResponse> {
-    let client = reqwest::ClientBuilder::new().build()?;
-    let resp = client
+    let resp = GENERAL_HTTP_CLIENT
         .post(format!("{}oauth/token", config.vatsim.oauth_url_base))
         .json(&json!({
             "grant_type": "authorization_code",
@@ -162,8 +163,7 @@ pub async fn code_to_tokens(code: &str, config: &Config) -> Result<TokenResponse
 
 /// Using the user's access token, get their VATSIM info.
 pub async fn get_user_info(access_token: &str, config: &Config) -> Result<UserInfoResponse> {
-    let client = reqwest::ClientBuilder::new().build()?;
-    let resp = client
+    let resp = GENERAL_HTTP_CLIENT
         .get(format!("{}api/user", config.vatsim.oauth_url_base))
         .header("Authorization", &format!("Bearer {}", access_token))
         .send()
@@ -171,6 +171,39 @@ pub async fn get_user_info(access_token: &str, config: &Config) -> Result<UserIn
     if !resp.status().is_success() {
         bail!(
             "Got status code {} from VATSIM OAuth user info",
+            resp.status().as_u16()
+        );
+    }
+    let data = resp.json().await?;
+    Ok(data)
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct VatsimMemberInfo {
+    id: u32,
+    rating: i8,
+    #[serde(rename = "pilotrating")]
+    pilot_rating: i8,
+    #[serde(rename = "militaryrating")]
+    military_rating: i8,
+    susp_date: Option<serde_json::Value>,
+    reg_date: String,
+    region_id: Option<String>,
+    division_id: Option<String>,
+    subdivision_id: Option<String>,
+    #[serde(rename = "lastratingchange")]
+    last_rating_change: String,
+}
+
+/// Get basic VATSIM info for a controller.
+pub async fn get_member_info(cid: u32) -> Result<VatsimMemberInfo> {
+    let resp = GENERAL_HTTP_CLIENT
+        .get(format!("https://api.vatsim.net/v2/members/{cid}"))
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        bail!(
+            "Got status code {} from VATSIM basic member info",
             resp.status().as_u16()
         );
     }
