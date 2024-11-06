@@ -12,9 +12,10 @@ use axum::{
 };
 use chrono::{DateTime, Months, Utc};
 use itertools::Itertools;
-use log::{info, warn};
+use log::{error, info, warn};
 use minijinja::context;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
@@ -24,7 +25,7 @@ use vzdv::{
     config::Config,
     determine_staff_positions,
     sql::{self, Activity, Certification, Controller, Resource, VisitorRequest},
-    vatusa, ControllerRating,
+    vatusa, ControllerRating, GENERAL_HTTP_CLIENT,
 };
 
 #[derive(Debug, Serialize)]
@@ -536,7 +537,7 @@ async fn page_visitor_application_form_submit(
         .bind(user_info.cid)
         .bind(&user_info.first_name)
         .bind(&user_info.last_name)
-        .bind(application_form.facility)
+        .bind(&application_form.facility)
         .bind(application_form.rating)
         .bind(Utc::now())
         .execute(&state.db)
@@ -547,6 +548,25 @@ async fn page_visitor_application_form_submit(
         "Request submitted, thank you!",
     )
     .await?;
+    let notification_webhook = state.config.discord.webhooks.new_visitor_app.clone();
+    let notification_content = format!(
+        "New visitor app from {} {}, CID {}, rating {}, visiting from {}",
+        user_info.first_name,
+        user_info.last_name,
+        user_info.cid,
+        application_form.rating,
+        application_form.facility
+    );
+    tokio::spawn(async move {
+        let res = GENERAL_HTTP_CLIENT
+            .post(&notification_webhook)
+            .json(&json!({ "content": notification_content }))
+            .send()
+            .await;
+        if let Err(e) = res {
+            error!(":Could not send info to new visitor app webhook: {e}");
+        }
+    });
     Ok(Redirect::to("/facility/visitor_application"))
 }
 
