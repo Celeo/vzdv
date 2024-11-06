@@ -28,6 +28,7 @@ use tower_sessions::Session;
 use vzdv::{
     controller_can_see, get_controller_cids_and_names, retrieve_all_in_use_ois,
     sql::{self, Certification, Controller, Feedback, StaffNote},
+    vatsim,
     vatusa::{
         self, get_multiple_controller_names, get_training_records, save_training_record,
         NewTrainingRecord, TrainingRecord,
@@ -462,6 +463,43 @@ async fn snippet_get_training_records(
     Ok(Html(rendered).into_response())
 }
 
+/// Render a page snippet that contains the controller's history.
+///
+/// Data sourced from VATSIM, VATUSA, and this site's own DB.
+///
+/// For admin staff members.
+async fn snippet_get_history(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(cid): Path<u32>,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect.into_response());
+    }
+
+    let vatsim_info = vatsim::get_member_info(cid)
+        .await
+        .map_err(|e| AppError::GenericFallback("getting VATSIM member info", e))?;
+    let controller_info =
+        vatusa::get_controller_info(cid, Some(&state.config.vatsim.vatusa_api_key))
+            .await
+            .map_err(|e| AppError::GenericFallback("getting VATUSA controller info", e))?;
+    let rating_history =
+        vatusa::get_controller_rating_history(cid, &state.config.vatsim.vatusa_api_key)
+            .await
+            .map_err(|e| AppError::GenericFallback("getting VATUSA rating history", e))?;
+
+    let template = state.templates.get_template("controller/history.jinja")?;
+    let rendered: String = template.render(context! {
+        user_info,
+        vatsim_info,
+        controller_info,
+        rating_history,
+    })?;
+    Ok(Html(rendered).into_response())
+}
+
 #[derive(Debug, Deserialize)]
 struct NewTrainingRecordForm {
     date: String,
@@ -700,6 +738,7 @@ pub fn router() -> Router<Arc<AppState>> {
             "/controller/:cid/training_records",
             get(snippet_get_training_records).post(post_add_training_note),
         )
+        .route("/controller/:cid/history", get(snippet_get_history))
         .route("/controller/:cid/roles", post(post_set_roles))
         .route("/controller/:cid/remove", post(post_remove_controller))
 }

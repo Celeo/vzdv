@@ -349,3 +349,40 @@ pub async fn remove_visiting_controller(cid: u32, reason: &str, api_key: &str) -
     }
     Ok(())
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RatingHistory {
+    pub id: u32,
+    pub cid: u32,
+    pub grantor: u32,
+    pub to: i8,
+    pub from: i8,
+    pub created_at: String,
+    pub exam: String,
+    pub examiner: u32,
+    pub position: String,
+    pub eval_id: Option<serde_json::Value>,
+}
+
+/// Get a controller's rating history.
+pub async fn get_controller_rating_history(cid: u32, api_key: &str) -> Result<Vec<RatingHistory>> {
+    #[derive(Deserialize)]
+    pub struct Wrapper {
+        pub data: Vec<RatingHistory>,
+    }
+
+    let resp = GENERAL_HTTP_CLIENT
+        .get(format!("{BASE_URL}user/{cid}/rating/history"))
+        .query(&[("apikey", api_key)])
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        // not including the URL since it'll have the API key in it
+        bail!(
+            "Got status {} from VATUSA controller rating history API",
+            resp.status().as_u16()
+        );
+    }
+    let data: Wrapper = resp.json().await?;
+    Ok(data.data)
+}
