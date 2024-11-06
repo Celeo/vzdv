@@ -27,6 +27,7 @@ struct CalendarEventExtra {
     schedule: Option<u32>,
     taken: bool,
     taken_by: Option<u32>,
+    positions: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -336,6 +337,7 @@ async fn api_get_training_sessions(
                 schedule: None,
                 taken: true,
                 taken_by: Some(10000005),
+                positions: vec![],
             },
         },
         CalendarEvent {
@@ -351,6 +353,7 @@ async fn api_get_training_sessions(
                 schedule: None,
                 taken: false,
                 taken_by: None,
+                positions: vec![],
             },
         },
         CalendarEvent {
@@ -366,6 +369,7 @@ async fn api_get_training_sessions(
                 schedule: None,
                 taken: false,
                 taken_by: None,
+                positions: vec![],
             },
         },
         CalendarEvent {
@@ -381,6 +385,7 @@ async fn api_get_training_sessions(
                 schedule: None,
                 taken: true,
                 taken_by: Some(10000003),
+                positions: vec![],
             },
         },
         CalendarEvent {
@@ -396,6 +401,7 @@ async fn api_get_training_sessions(
                 schedule: None,
                 taken: false,
                 taken_by: None,
+                positions: vec![],
             },
         },
     ]))
