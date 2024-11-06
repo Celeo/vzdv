@@ -554,7 +554,9 @@ async fn page_visitor_application_form_submit(
         user_info.first_name,
         user_info.last_name,
         user_info.cid,
-        application_form.rating,
+        ControllerRating::try_from(application_form.rating as i8)
+            .map(|cr| cr.as_str())
+            .unwrap_or("?"),
         application_form.facility
     );
     tokio::spawn(async move {
