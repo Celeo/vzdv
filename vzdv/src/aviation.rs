@@ -25,7 +25,14 @@ pub struct AirportWeather<'a> {
 /// Parse a METAR into a struct of data.
 pub fn parse_metar(line: &str) -> Result<AirportWeather> {
     let parts: Vec<_> = line.split(' ').collect();
-    let airport = parts.first().ok_or_else(|| anyhow!("Blank metar?"))?;
+    let airport = {
+        let s = parts.first().ok_or_else(|| anyhow!("Blank metar?"))?;
+        if s.len() == 4 {
+            &s[1..]
+        } else {
+            s
+        }
+    };
     let mut ceiling = 3_456;
     for part in &parts {
         if part.starts_with("BKN") || part.starts_with("OVC") {
@@ -82,7 +89,7 @@ pub mod tests {
     #[test]
     fn test_parse_metar_standard() {
         let ret = parse_metar("KDEN 030253Z 22013KT 10SM SCT100 BKN160 13/M12 A2943 RMK AO2 PK WND 21036/0211 SLP924 T01331117 58005").unwrap();
-        assert_eq!(ret.name, "KDEN");
+        assert_eq!(ret.name, "DEN");
         assert_eq!(ret.conditions, WeatherConditions::VFR);
 
         let ret = parse_metar("KDEN 2SM BNK005").unwrap();

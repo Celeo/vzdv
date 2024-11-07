@@ -97,7 +97,14 @@ async fn page_weather(
     let resp = GENERAL_HTTP_CLIENT
         .get(format!(
             "https://metar.vatsim.net/{}",
-            state.config.weather.all.iter().sorted().join(",")
+            state
+                .config
+                .weather
+                .all
+                .iter()
+                .map(|s| format!("K{s}"))
+                .sorted()
+                .join(",")
         ))
         .send()
         .await?;

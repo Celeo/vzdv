@@ -7,6 +7,7 @@ use crate::{
 };
 use axum::{extract::State, response::Html, routing::get, Router};
 use chrono::Utc;
+use itertools::Itertools;
 use log::warn;
 use minijinja::context;
 use serde::Serialize;
@@ -81,7 +82,13 @@ async fn snippet_weather(State(state): State<Arc<AppState>>) -> Result<Html<Stri
     let resp = GENERAL_HTTP_CLIENT
         .get(format!(
             "https://metar.vatsim.net/{}",
-            state.config.weather.overview.join(",")
+            state
+                .config
+                .weather
+                .overview
+                .iter()
+                .map(|s| format!("K{s}"))
+                .join(",")
         ))
         .send()
         .await?;
