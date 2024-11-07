@@ -118,7 +118,7 @@ all = [
   { code = "KCO1", name = "LAKE MEREDITH", location = "ORDWAY, CO", towered = false, class = "" },
   { code = "KCO4", name = "COLORADO SPRINGS EAST", location = "ELLICOTT, CO", towered = false, class = "" },
   { code = "KCOS", name = "CITY OF COLORADO SPRINGS MUNI", location = "COLORADO SPRINGS, CO", towered = true, class = "C" },
-  { code = "KCPR", name = "CASPER/NATRONA COUNTY INTL", location = "CASPER, WY", towered = true, class = "" },
+  { code = "KCPR", name = "CASPER/NATRONA COUNTY INTL", location = "CASPER, WY", towered = true, class = "D" },
   { code = "KCSB", name = "CAMBRIDGE MUNI", location = "CAMBRIDGE, NE", towered = false, class = "" },
   { code = "KCUT", name = "CUSTER COUNTY", location = "CUSTER, SD", towered = false, class = "" },
   { code = "KCYS", name = "CHEYENNE RGNL/JERRY OLSON FLD", location = "CHEYENNE, WY", towered = true, class = "D" },
