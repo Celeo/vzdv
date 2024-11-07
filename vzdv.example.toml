@@ -214,7 +214,6 @@ all = [
   { code = "KW43", name = "HULETT MUNI", location = "HULETT, WY", towered = false }
 ]
 
-
 [weather]
 overview = [
   "KDEN",
