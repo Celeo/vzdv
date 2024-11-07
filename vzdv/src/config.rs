@@ -14,6 +14,7 @@ pub struct Config {
     pub vatsim: ConfigVatsim,
     pub training: ConfigTraining,
     pub airports: ConfigAirports,
+    pub weather: ConfigWeather,
     pub stats: ConfigStats,
     pub discord: ConfigDiscord,
     pub email: ConfigEmail,
@@ -47,7 +48,12 @@ pub struct ConfigTraining {
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct ConfigAirports {
     pub all: Vec<Airport>,
-    pub weather_for: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ConfigWeather {
+    pub overview: Vec<String>,
+    pub all: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]

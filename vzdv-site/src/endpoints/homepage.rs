@@ -81,7 +81,7 @@ async fn snippet_weather(State(state): State<Arc<AppState>>) -> Result<Html<Stri
     let resp = GENERAL_HTTP_CLIENT
         .get(format!(
             "https://metar.vatsim.net/{}",
-            state.config.airports.weather_for.join(",")
+            state.config.weather.overview.join(",")
         ))
         .send()
         .await?;

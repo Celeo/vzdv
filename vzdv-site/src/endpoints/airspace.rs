@@ -28,7 +28,13 @@ async fn page_airports(
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let template = state.templates.get_template("airspace/airports.jinja")?;
-    let airports = &state.config.airports.all;
+    let airports: Vec<_> = state
+        .config
+        .airports
+        .all
+        .iter()
+        .sorted_by(|a, b| a.code.cmp(&b.code))
+        .collect();
     let rendered = template.render(context! { user_info, airports })?;
     Ok(Html(rendered))
 }
@@ -91,13 +97,7 @@ async fn page_weather(
     let resp = GENERAL_HTTP_CLIENT
         .get(format!(
             "https://metar.vatsim.net/{}",
-            state
-                .config
-                .airports
-                .all
-                .iter()
-                .map(|airport| &airport.code)
-                .join(",")
+            state.config.weather.all.iter().sorted().join(",")
         ))
         .send()
         .await?;

@@ -19,7 +19,10 @@ certifications = []
 
 [airports]
 all = []
-weather_for = []
+
+[weather]
+overview = []
+all = []
 
 [stats]
 position_prefixes = []
