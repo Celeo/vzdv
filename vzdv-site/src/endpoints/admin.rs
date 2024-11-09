@@ -138,7 +138,13 @@ async fn post_feedback_form_handle(
                             },
                             {
                                 "name": "Rating",
-                                "value": feedback.rating
+                                "value": match feedback.rating.as_str() {
+                                    "excellent" => "Excellent",
+                                    "good" => "Good",
+                                    "fair" => "Fair",
+                                    "poor" => "Poor",
+                                    _ => "?"
+                                }
                             },
                             {
                                 "name": "Comments",
