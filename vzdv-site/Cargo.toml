@@ -42,7 +42,7 @@ tower-http = { version = "0.5.2", features = ["fs", "timeout"] }
 tower-sessions = "0.12.0"
 tower-sessions-sqlx-store = { version = "0.13.0", features = ["sqlite"] }
 uuid = { version = "1.10.0", features = ["v4", "fast-rng"] }
-vatsim_utils = "0.5.0"
+vatsim_utils = "0.5.2"
 regex = "1.11.0"
 
 [build-dependencies]
