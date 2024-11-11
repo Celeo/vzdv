@@ -32,22 +32,24 @@
   <div class="tab-content pt-3" id="nav-tabContent">
     <div class="tab-pane fade show active" id="nav-pending" role="tabpanel" aria-labelledby="nav-pending-tab" tabindex="0">
       <div class="d-flex pb-3">
-        <span class="col-3 fw-bold text-decoration-underline">Submitter CID</span>
-        <span class="col-3 fw-bold text-decoration-underline">Controller</span>
+        <span class="col-2 fw-bold text-decoration-underline">Submitter CID</span>
+        <span class="col-2 fw-bold text-decoration-underline">Controller</span>
         <span class="col-2 fw-bold text-decoration-underline">Position</span>
         <span class="col-2 fw-bold text-decoration-underline">Rating</span>
         <span class="col-2 fw-bold text-decoration-underline">Date</span>
+        <span class="col-2 fw-bold text-decoration-underline">Contact?</span>
       </div>
       {% for feedback in pending_feedback %}
         {% if feedback.reviewer_action == "pending" %}
           <div class="d-flex flex-wrap">
-            <span class="col-3">
+            <span class="col-2">
               <a href="https://stats.vatsim.net/stats/{{ feedback.submitter_cid }}" target="_blank">{{ feedback.submitter_cid }}</a>
             </span>
-            <span class="col-3">{{ feedback.first_name }} {{ feedback.last_name }}</span>
+            <span class="col-2">{{ feedback.first_name }} {{ feedback.last_name }}</span>
             <span class="col-2">{{ feedback.position }}</span>
             <span class="col-2">{{ feedback.rating }}</span>
             <span class="col-2">{{ feedback.created_date|nice_date }}</span>
+            <span class="col-2">{% if feedback.contact_me %}<a href="mailto:{{ feedback.email }}">{{ feedback.email }}</a>{% else %}No{% endif %}</span>
             <span class="col-12 pt-2">
               <span class="fw-bold me-3">Comments:</span> <span class="feedback-comments">{{ feedback.comments }}</span>
             </span>
@@ -74,23 +76,25 @@
       {% endfor %}
     </div>
     <div class="tab-pane fade" id="nav-archived" role="tabpanel" aria-labelledby="nav-archived-tab" tabindex="0">
-      <div class="d-flex">
-        <span class="col-3 fw-bold">Submitter CID</span>
-        <span class="col-3 fw-bold">Controller</span>
+      <div class="d-flex pb-3">
+        <span class="col-2 fw-bold">Submitter CID</span>
+        <span class="col-2 fw-bold">Controller</span>
         <span class="col-2 fw-bold">Position</span>
         <span class="col-2 fw-bold">Rating</span>
         <span class="col-2 fw-bold">Date</span>
+        <span class="col-2 fw-bold">Contact?</span>
       </div>
       {% for feedback in pending_feedback %}
         {% if feedback.reviewer_action == "archive" %}
           <div class="d-flex flex-wrap">
-            <span class="col-3">
+            <span class="col-2">
               <a href="https://stats.vatsim.net/stats/{{ feedback.submitter_cid }}" target="_blank">{{ feedback.submitter_cid }}</a>
             </span>
-            <span class="col-3">{{ feedback.controller }}</span>
+            <span class="col-2">{{ feedback.controller }}</span>
             <span class="col-2">{{ feedback.position }}</span>
             <span class="col-2">{{ feedback.rating }}</span>
             <span class="col-2">{{ feedback.created_date|nice_date }}</span>
+            <span class="col-2">{% if feedback.contact_me %}<a href="mailto:{{ feedback.email }}">{{ feedback.email }}</a>{% else %}No{% endif %}</span>
             <span class="col-12 pt-2">
               <span class="fw-bold me-3">Comments:</span> <span class="feedback-comments">{{ feedback.comments }}</span>
             </span>

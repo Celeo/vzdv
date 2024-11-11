@@ -44,12 +44,12 @@ async fn page_feedback(
     if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
         return Ok(redirect.into_response());
     }
-    let template = state.templates.get_template("admin/feedback.jinja")?;
     let pending_feedback: Vec<FeedbackForReview> =
         sqlx::query_as(sql::GET_PENDING_FEEDBACK_FOR_REVIEW)
             .fetch_all(&state.db)
             .await?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let template = state.templates.get_template("admin/feedback.jinja")?;
     let rendered = template.render(context! {
         user_info,
         flashed_messages,

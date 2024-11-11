@@ -57,6 +57,8 @@ pub struct Feedback {
     pub reviewed_by_cid: u32,
     pub reviewer_action: String,
     pub posted_to_discord: bool,
+    pub contact_me: bool,
+    pub email: Option<String>,
 }
 
 #[derive(Debug, FromRow, Serialize)]
@@ -70,6 +72,8 @@ pub struct FeedbackForReview {
     pub created_date: DateTime<Utc>,
     pub submitter_cid: u32,
     pub reviewer_action: String,
+    pub contact_me: bool,
+    pub email: Option<String>,
 }
 
 #[derive(Debug, FromRow, Serialize, Default)]
@@ -180,7 +184,9 @@ CREATE TABLE feedback (
     submitter_cid INTEGER NOT NULL,
     reviewed_by_cid INTEGER,
     reviewer_action TEXT NOT NULL DEFAULT 'pending',
-    posted_to_discord INTEGER NOT NULL DEFAULT FALSE
+    posted_to_discord INTEGER NOT NULL DEFAULT FALSE,
+    contact_me INTEGER DEFAULT FALSE,
+    email TEXT
 ) STRICT;
 
 CREATE TABLE activity (
@@ -347,9 +353,9 @@ pub const UPDATE_ACTIVITY: &str = "UPDATE activity SET minutes=$3 WHERE cid=$1 A
 
 pub const INSERT_FEEDBACK: &str = "
 INSERT INTO feedback
-    (id, controller, position, rating, comments, created_date, submitter_cid)
+    (id, controller, position, rating, comments, created_date, submitter_cid, contact_me, email)
 VALUES
-    (NULL, $1, $2, $3, $4, $5, $6)
+    (NULL, $1, $2, $3, $4, $5, $6, $7, $8)
 ";
 pub const GET_ALL_PENDING_FEEDBACK: &str =
     "SELECT * FROM feedback WHERE reviewed_by_cid IS NULL OR reviewer_action='archive'";

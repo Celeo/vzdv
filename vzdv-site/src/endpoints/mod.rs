@@ -73,6 +73,8 @@ struct FeedbackForm {
     position: String,
     rating: String,
     comments: String,
+    email: String,
+    contact_me: Option<String>,
 }
 
 /// Submit the feedback form.
@@ -90,6 +92,8 @@ async fn page_feedback_form_post(
             .bind(&feedback.comments)
             .bind(sqlx::types::chrono::Utc::now())
             .bind(user_info.cid)
+            .bind(feedback.contact_me.is_some())
+            .bind(&feedback.email)
             .execute(&state.db)
             .await?;
         flashed_messages::push_flashed_message(
