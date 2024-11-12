@@ -28,7 +28,7 @@ pub struct Certification {
     pub id: u32,
     pub cid: u32,
     pub name: String,
-    /// "Training", "Solo", "Certified"
+    /// "none", "training", "solo", "certified"
     pub value: String,
     pub changed_on: DateTime<Utc>,
     pub set_by: u32,
@@ -143,6 +143,16 @@ pub struct EmailTemplate {
     pub name: String,
     pub subject: String,
     pub body: String,
+}
+
+#[derive(Debug, FromRow, Serialize)]
+pub struct SoloCert {
+    pub id: u32,
+    pub cid: u32,
+    pub issued_by: u32,
+    pub position: String,
+    pub created_date: String,
+    pub expiration_date: String,
 }
 
 /// Statements to create tables. Only ran when the DB file does not exist,
@@ -274,6 +284,18 @@ CREATE table email_template (
     name TEXT NOT NULL,
     subject TEXT NOT NULL,
     body TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE solo_cert (
+    id INTEGER PRIMARY KEY NOT NULL,
+    cid INTEGER NOT NULL,
+    issued_by INTEGER NOT NULL,
+    position TEXT NOT NULL,
+    created_date TEXT NOT NULL,
+    expiration_date TEXT NOT NULL,
+
+    FOREIGN KEY (cid) REFERENCES controller(cid),
+    FOREIGN KEY (issued_by) REFERENCES controller(cid)
 ) STRICT;
 "#;
 
@@ -429,3 +451,7 @@ pub const CREATE_STAFF_NOTE: &str = "INSERT INTO staff_note VALUES (NULL, $1, $2
 pub const GET_EMAIL_TEMPLATE: &str = "SELECT * FROM email_template WHERE name=$1";
 pub const UPDATE_EMAIL_TEMPLATE: &str =
     "UPDATE email_template SET subject=$2, body=$3 WHERE name=$1";
+
+pub const GET_ALL_SOLO_CERTS_FOR: &str = "SELECT * FROM solo_cert WHERE cid=$1";
+pub const CREATE_SOLO_CERT: &str = "INSERT INTO solo_cert VALUES (NULL, $1, $2, $3, $4, $5);";
+pub const DELETE_SOLO_CERT: &str = "DELETE FROM solo_cert WHERE id=$1";

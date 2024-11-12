@@ -2,9 +2,10 @@
 
 use crate::{
     flashed_messages::{self, MessageLevel},
+    load_templates,
     shared::{
-        is_user_member_of, js_timestamp_to_utc, post_audit, reject_if_not_in, strip_some_tags,
-        AppError, AppState, UserInfo, SESSION_USER_INFO_KEY,
+        js_timestamp_to_utc, post_audit, reject_if_not_in, strip_some_tags, AppError, AppState,
+        UserInfo, SESSION_USER_INFO_KEY,
     },
 };
 use axum::{
@@ -27,7 +28,7 @@ use std::{
 use tower_sessions::Session;
 use vzdv::{
     controller_can_see, get_controller_cids_and_names, retrieve_all_in_use_ois,
-    sql::{self, Certification, Controller, Feedback, StaffNote},
+    sql::{self, Certification, Controller, Feedback, SoloCert, StaffNote},
     vatsim,
     vatusa::{
         self, get_multiple_controller_names, get_training_records, save_training_record,
@@ -79,6 +80,25 @@ async fn roles_to_set(
         .iter()
         .map(|position| position.as_str().to_owned())
         .collect::<HashSet<String>>())
+}
+
+async fn user_is_training_special(
+    user_info: &Option<UserInfo>,
+    db: &Pool<Sqlite>,
+) -> Result<(bool, bool), AppError> {
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(user_info.as_ref().map(|ui| ui.cid).unwrap_or_default())
+        .fetch_optional(db)
+        .await?;
+    let is_admin = controller_can_see(&controller, PermissionsGroup::Admin);
+    let roles: Vec<_> = controller
+        .as_ref()
+        .map(|c| c.roles.split(',').collect())
+        .unwrap_or_default();
+    Ok((
+        is_admin,
+        is_admin || roles.contains(&"TA") || roles.contains(&"INS"),
+    ))
 }
 
 /// Overview page for a user.
@@ -141,9 +161,10 @@ async fn page_controller(
         };
         certifications.push(CertNameValue { name, value });
     }
-    let roles: Vec<_> = controller.roles.split_terminator(',').collect();
 
-    let is_admin = is_user_member_of(&state, &user_info, PermissionsGroup::Admin).await;
+    let roles: Vec<_> = controller.roles.split_terminator(',').collect();
+    let (is_admin, can_grant_solo) = user_is_training_special(&user_info, &state.db).await?;
+
     let viewing_themselves = user_info.as_ref().map(|info| info.cid).unwrap_or_default() == cid;
     let feedback: Vec<Feedback> = if is_admin {
         sqlx::query_as(sql::GET_ALL_FEEDBACK_FOR)
@@ -158,19 +179,20 @@ async fn page_controller(
     } else {
         Vec::new()
     };
+
+    let all_controllers = get_controller_cids_and_names(&state.db)
+        .await
+        .map_err(|e| AppError::GenericFallback("getting names and CIDs from DB", e))?;
     let staff_notes: Vec<StaffNoteDisplay> = if is_admin {
         let notes: Vec<StaffNote> = sqlx::query_as(sql::GET_STAFF_NOTES_FOR)
             .bind(cid)
             .fetch_all(&state.db)
             .await?;
-        let controllers = get_controller_cids_and_names(&state.db)
-            .await
-            .map_err(|e| AppError::GenericFallback("getting names and CIDs from DB", e))?;
         notes
             .iter()
             .map(|note| StaffNoteDisplay {
                 id: note.id,
-                by: controllers
+                by: all_controllers
                     .iter()
                     .find(|c| *c.0 == note.by)
                     .map(|c| format!("{} {} ({})", c.1 .0, c.1 .1, c.0))
@@ -187,20 +209,27 @@ async fn page_controller(
     let mut settable_roles: Vec<_> = settable_roles_set.iter().collect();
     settable_roles.sort();
 
+    let solo_certs: Vec<SoloCert> = sqlx::query_as(sql::GET_ALL_SOLO_CERTS_FOR)
+        .bind(cid)
+        .fetch_all(&state.db)
+        .await?;
+
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let template = state
-        .templates
-        .get_template("controller/controller.jinja")?;
+    let env = load_templates().unwrap(); // FIXME
+    let template = env.get_template("controller/controller.jinja")?;
     let rendered: String = template.render(context! {
         user_info,
         controller,
         roles,
+        can_grant_solo,
         rating_str,
         certifications,
         settable_roles,
         feedback,
         staff_notes,
         is_admin,
+        solo_certs,
+        all_controllers,
         flashed_messages
     })?;
     Ok(Html(rendered).into_response())
@@ -341,6 +370,114 @@ async fn post_change_certs(
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Updated certifications")
         .await?;
     Ok(Redirect::to(&format!("/controller/{cid}")))
+}
+
+#[derive(Deserialize)]
+struct NewSoloCertForm {
+    position: String,
+}
+
+/// Post a new solo cert for the controller.
+///
+/// For training staff members, but not Mentors.
+async fn post_new_solo_cert(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(cid): Path<u32>,
+    Form(new_solo_form): Form<NewSoloCertForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let (_, can_grant_solo) = user_is_training_special(&user_info, &state.db).await?;
+    if !can_grant_solo {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "Issuance of solo certs is for Instructors",
+        )
+        .await?;
+        return Ok(Redirect::to(&format!("/controller/{cid}")));
+    }
+    let user_info: UserInfo = user_info.unwrap();
+
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(cid)
+        .fetch_optional(&state.db)
+        .await?;
+    if controller.is_none() {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "Controller not found",
+        )
+        .await?;
+        return Ok(Redirect::to("/facility/roster"));
+    }
+
+    let now = Utc::now();
+    let expiration = now.checked_add_months(chrono::Months::new(1)).unwrap();
+    let position = new_solo_form.position.to_uppercase();
+    sqlx::query(sql::CREATE_SOLO_CERT)
+        .bind(cid)
+        .bind(user_info.cid)
+        .bind(&position)
+        .bind(now)
+        .bind(expiration)
+        .execute(&state.db)
+        .await?;
+    flashed_messages::push_flashed_message(session, MessageLevel::Info, "New solo cert issued")
+        .await?;
+    info!(
+        "{} added solo cert of {} to {}",
+        user_info.cid, position, cid
+    );
+    Ok(Redirect::to(&format!("/controller/{cid}")))
+}
+
+/// API endpoint for deleting a solo cert.
+///
+/// For training staff members, but not Mentors.
+async fn api_delete_solo_cert(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path((cid, cert_id)): Path<(u32, u32)>,
+) -> Result<StatusCode, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let (_, can_grant_solo) = user_is_training_special(&user_info, &state.db).await?;
+    if !can_grant_solo {
+        return Ok(StatusCode::FORBIDDEN);
+    }
+    let user_info: UserInfo = user_info.unwrap();
+
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(cid)
+        .fetch_optional(&state.db)
+        .await?;
+    if controller.is_none() {
+        return Ok(StatusCode::NOT_FOUND);
+    }
+    let solo_certs: Vec<SoloCert> = sqlx::query_as(sql::GET_ALL_SOLO_CERTS_FOR)
+        .bind(cid)
+        .fetch_all(&state.db)
+        .await?;
+    let matching = match solo_certs.iter().find(|c| c.id == cert_id) {
+        Some(m) => m,
+        None => {
+            return Ok(StatusCode::NOT_FOUND);
+        }
+    };
+
+    sqlx::query(sql::DELETE_SOLO_CERT)
+        .bind(matching.id)
+        .execute(&state.db)
+        .await?;
+    flashed_messages::push_flashed_message(session, MessageLevel::Info, "Solo cert deleted")
+        .await?;
+    info!(
+        "{} deleted solo cert {} for {} of {}",
+        user_info.cid, matching.id, matching.cid, matching.position
+    );
+
+    Ok(StatusCode::OK)
 }
 
 #[derive(Deserialize)]
@@ -729,6 +866,11 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/controller/:cid/discord/unlink", post(api_unlink_discord))
         .route("/controller/:cid/ois", post(post_change_ois))
         .route("/controller/:cid/certs", post(post_change_certs))
+        .route("/controller/:cid/certs/solo", post(post_new_solo_cert))
+        .route(
+            "/controller/:cid/certs/solo/:cert_id",
+            delete(api_delete_solo_cert),
+        )
         .route("/controller/:cid/note", post(post_new_staff_note))
         .route(
             "/controller/:cid/note/:note_id",
