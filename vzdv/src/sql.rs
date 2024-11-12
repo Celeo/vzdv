@@ -151,6 +151,7 @@ pub struct SoloCert {
     pub cid: u32,
     pub issued_by: u32,
     pub position: String,
+    pub reported: bool,
     pub created_date: String,
     pub expiration_date: String,
 }
@@ -291,6 +292,7 @@ CREATE TABLE solo_cert (
     cid INTEGER NOT NULL,
     issued_by INTEGER NOT NULL,
     position TEXT NOT NULL,
+    reported INTEGER NOT NULL DEFAULT FALSE,
     created_date TEXT NOT NULL,
     expiration_date TEXT NOT NULL,
 
@@ -453,5 +455,5 @@ pub const UPDATE_EMAIL_TEMPLATE: &str =
     "UPDATE email_template SET subject=$2, body=$3 WHERE name=$1";
 
 pub const GET_ALL_SOLO_CERTS_FOR: &str = "SELECT * FROM solo_cert WHERE cid=$1";
-pub const CREATE_SOLO_CERT: &str = "INSERT INTO solo_cert VALUES (NULL, $1, $2, $3, $4, $5);";
+pub const CREATE_SOLO_CERT: &str = "INSERT INTO solo_cert VALUES (NULL, $1, $2, $3, $4, $5, $6);";
 pub const DELETE_SOLO_CERT: &str = "DELETE FROM solo_cert WHERE id=$1";

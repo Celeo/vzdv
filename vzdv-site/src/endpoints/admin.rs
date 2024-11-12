@@ -884,7 +884,7 @@ async fn page_activity_report_generate(
             continue;
         }
         let records =
-            match vatusa::get_training_records(&state.config.vatsim.vatusa_api_key, controller.cid)
+            match vatusa::get_training_records(controller.cid, &state.config.vatsim.vatusa_api_key)
                 .await
             {
                 Ok(t) => t,

@@ -1,6 +1,6 @@
 use crate::GENERAL_HTTP_CLIENT;
 use anyhow::{bail, Result};
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -146,7 +146,6 @@ pub async fn transfer_checklist(api_key: &str, cid: u32) -> Result<TransferCheck
         .send()
         .await?;
     if !resp.status().is_success() {
-        // not including the URL since it'll have the API key in it
         bail!(
             "Got status {} from VATUSA transfer checklist API",
             resp.status().as_u16()
@@ -241,7 +240,7 @@ pub struct TrainingRecord {
 }
 
 /// Get the controller's training records.
-pub async fn get_training_records(api_key: &str, cid: u32) -> Result<Vec<TrainingRecord>> {
+pub async fn get_training_records(cid: u32, api_key: &str) -> Result<Vec<TrainingRecord>> {
     #[derive(Deserialize)]
     pub struct Wrapper {
         pub data: Vec<TrainingRecord>,
@@ -253,7 +252,6 @@ pub async fn get_training_records(api_key: &str, cid: u32) -> Result<Vec<Trainin
         .send()
         .await?;
     if !resp.status().is_success() {
-        // not including the URL since it'll have the API key in it
         bail!(
             "Got status {} from VATUSA training records API",
             resp.status().as_u16()
@@ -303,7 +301,6 @@ pub async fn save_training_record(api_key: &str, cid: u32, data: &NewTrainingRec
         .send()
         .await?;
     if !resp.status().is_success() {
-        // not including the URL since it'll have the API key in it
         bail!(
             "Got status {} from VATUSA training record submit API",
             resp.status().as_u16()
@@ -321,7 +318,6 @@ pub async fn remove_home_controller(cid: u32, by: &str, reason: &str, api_key: &
         .send()
         .await?;
     if !resp.status().is_success() {
-        // not including the URL since it'll have the API key in it
         bail!(
             "Got status {} from VATUSA home controller removal API",
             resp.status().as_u16()
@@ -341,7 +337,6 @@ pub async fn remove_visiting_controller(cid: u32, reason: &str, api_key: &str) -
         .send()
         .await?;
     if !resp.status().is_success() {
-        // not including the URL since it'll have the API key in it
         bail!(
             "Got status {} from VATUSA visiting controller removal API",
             resp.status().as_u16()
@@ -377,7 +372,6 @@ pub async fn get_controller_rating_history(cid: u32, api_key: &str) -> Result<Ve
         .send()
         .await?;
     if !resp.status().is_success() {
-        // not including the URL since it'll have the API key in it
         bail!(
             "Got status {} from VATUSA controller rating history API",
             resp.status().as_u16()
@@ -385,4 +379,80 @@ pub async fn get_controller_rating_history(cid: u32, api_key: &str) -> Result<Ve
     }
     let data: Wrapper = resp.json().await?;
     Ok(data.data)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SoloCertification {
+    pub id: u32,
+    pub cid: u32,
+    pub position: String,
+    pub expires: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Get a list of solo certifications from VATUSA for the facility.
+pub async fn get_facility_solo_certs() -> Result<Vec<SoloCertification>> {
+    #[derive(Deserialize)]
+    pub struct Wrapper {
+        pub data: Vec<SoloCertification>,
+    }
+
+    let resp = GENERAL_HTTP_CLIENT
+        .get(format!("{BASE_URL}solo"))
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        bail!(
+            "Got status {} from VATUSA solo certification list API",
+            resp.status().as_u16()
+        );
+    }
+    let data: Wrapper = resp.json().await?;
+    Ok(data.data)
+}
+
+/// Report a new solo cert to VATUSA.
+pub async fn report_solo_cert(
+    cid: u32,
+    position: &str,
+    expiration: DateTime<Utc>,
+    api_key: &str,
+) -> Result<()> {
+    let data = HashMap::from([
+        ("cid", cid.to_string()),
+        ("position", position.to_owned()),
+        ("expDate", expiration.format("%Y-%m-%d").to_string()),
+    ]);
+    let resp = GENERAL_HTTP_CLIENT
+        .post(format!("{BASE_URL}solo"))
+        .query(&[("apikey", api_key)])
+        .form(&data)
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        bail!(
+            "Got status {} from VATUSA solo certification create API",
+            resp.status().as_u16()
+        );
+    }
+    Ok(())
+}
+
+/// Delete a solo cert from VATUSA.
+pub async fn delete_solo_cert(cid: u32, position: &str, api_key: &str) -> Result<()> {
+    let data = HashMap::from([("cid", cid.to_string()), ("position", position.to_owned())]);
+    let resp = GENERAL_HTTP_CLIENT
+        .delete(format!("{BASE_URL}solo"))
+        .query(&[("apikey", api_key)])
+        .form(&data)
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        bail!(
+            "Got status {} from VATUSA solo certification delete API",
+            resp.status().as_u16()
+        );
+    }
+    Ok(())
 }

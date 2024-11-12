@@ -379,9 +379,16 @@
   <hr>
   <h3 class="pb-3">Add a new solo cert</h4>
   <form action="/controller/{{ controller.cid }}/certs/solo" method="POST">
-    <div class="mb-3">
+    <div class="mb-2">
       <label for="position" class="form-label">Position</label>
-      <input type="text" class="form-control" name="position" style="text-transform: uppercase">
+      <input type="text" class="form-control" name="position" style="text-transform: uppercase" required>
+    </div>
+    <p class="mb-1">You should report this to VATUSA if it's a student getting a solo for a position they don't have the rating for, like an S1 getting a solo Tower cert.</p>
+    <div class="form-check mb-5">
+      <input class="form-check-input" type="checkbox" value="" name="report">
+      <label class="form-check-label" for="report">
+        Report to VATUSA?
+      </label>
     </div>
     <div class="d-flex justify-content-between">
       <button class="btn btn-warning" role="button" id="btn-modal-solo-certs-close">Close</button>

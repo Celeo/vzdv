@@ -2,7 +2,6 @@
 
 use crate::{
     flashed_messages::{self, MessageLevel},
-    load_templates,
     shared::{
         js_timestamp_to_utc, post_audit, reject_if_not_in, strip_some_tags, AppError, AppState,
         UserInfo, SESSION_USER_INFO_KEY,
@@ -16,7 +15,7 @@ use axum::{
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use itertools::Itertools;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use minijinja::context;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -215,8 +214,9 @@ async fn page_controller(
         .await?;
 
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let env = load_templates().unwrap(); // FIXME
-    let template = env.get_template("controller/controller.jinja")?;
+    let template = state
+        .templates
+        .get_template("controller/controller.jinja")?;
     let rendered: String = template.render(context! {
         user_info,
         controller,
@@ -372,9 +372,10 @@ async fn post_change_certs(
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct NewSoloCertForm {
     position: String,
+    report: Option<String>,
 }
 
 /// Post a new solo cert for the controller.
@@ -420,10 +421,24 @@ async fn post_new_solo_cert(
         .bind(cid)
         .bind(user_info.cid)
         .bind(&position)
+        .bind(new_solo_form.report.is_some())
         .bind(now)
         .bind(expiration)
         .execute(&state.db)
         .await?;
+
+    if new_solo_form.report.is_some() {
+        debug!("Reporting new solo cert to VATUSA");
+        vatusa::report_solo_cert(
+            cid,
+            &position,
+            expiration,
+            &state.config.vatsim.vatusa_api_key,
+        )
+        .await
+        .map_err(|err| AppError::GenericFallback("creating solo cert on VATUSA", err))?;
+    }
+
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "New solo cert issued")
         .await?;
     info!(
@@ -470,6 +485,13 @@ async fn api_delete_solo_cert(
         .bind(matching.id)
         .execute(&state.db)
         .await?;
+    if matching.reported {
+        debug!("Deleting solo cert from VATUSA");
+        vatusa::delete_solo_cert(cid, &matching.position, &state.config.vatsim.vatusa_api_key)
+            .await
+            .map_err(|err| AppError::GenericFallback("deleting solo cert from VATUSA", err))?;
+    }
+
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Solo cert deleted")
         .await?;
     info!(
@@ -558,7 +580,7 @@ async fn snippet_get_training_records(
     {
         return Ok(redirect.into_response());
     }
-    let all_training_records = get_training_records(&state.config.vatsim.vatusa_api_key, cid)
+    let all_training_records = get_training_records(cid, &state.config.vatsim.vatusa_api_key)
         .await
         .map_err(|e| {
             AppError::GenericFallback("getting VATUSA training records by training staff", e)

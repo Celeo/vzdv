@@ -31,7 +31,7 @@ async fn page_training_notes(
         None => return Ok(Redirect::to("/").into_response()),
     };
     let all_training_records =
-        vatusa::get_training_records(&state.config.vatsim.vatusa_api_key, user_info.cid)
+        vatusa::get_training_records(user_info.cid, &state.config.vatsim.vatusa_api_key)
             .await
             .map_err(|e| {
                 AppError::GenericFallback("getting VATUSA training records by controller", e)
