@@ -454,6 +454,7 @@ pub const GET_EMAIL_TEMPLATE: &str = "SELECT * FROM email_template WHERE name=$1
 pub const UPDATE_EMAIL_TEMPLATE: &str =
     "UPDATE email_template SET subject=$2, body=$3 WHERE name=$1";
 
+pub const GET_ALL_SOLO_CERTS: &str = "SELECT * FROM solo_cert";
 pub const GET_ALL_SOLO_CERTS_FOR: &str = "SELECT * FROM solo_cert WHERE cid=$1";
 pub const CREATE_SOLO_CERT: &str = "INSERT INTO solo_cert VALUES (NULL, $1, $2, $3, $4, $5, $6);";
 pub const DELETE_SOLO_CERT: &str = "DELETE FROM solo_cert WHERE id=$1";

@@ -26,7 +26,9 @@ use tower_sessions::Session;
 use uuid::Uuid;
 use vzdv::{
     get_controller_cids_and_names,
-    sql::{self, Activity, Controller, Feedback, FeedbackForReview, Resource, VisitorRequest},
+    sql::{
+        self, Activity, Controller, Feedback, FeedbackForReview, Resource, SoloCert, VisitorRequest,
+    },
     vatusa::{self, add_visiting_controller, get_multiple_controller_info},
     ControllerRating, PermissionsGroup, GENERAL_HTTP_CLIENT,
 };
@@ -747,7 +749,7 @@ async fn post_new_resource(
 
 /// Page for controllers that are not on the roster but have controller DB entries.
 ///
-/// Named staff members only.
+/// Any staff members only.
 async fn page_off_roster_list(
     State(state): State<Arc<AppState>>,
     session: Session,
@@ -935,6 +937,36 @@ async fn page_activity_report_generate(
     Ok(Html(rendered).into_response())
 }
 
+/// Page to centrally view all active solo certs.
+///
+/// All staff members only.
+async fn page_solo_cert_list(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::SomeStaff).await
+    {
+        return Ok(redirect.into_response());
+    }
+    let user_info = user_info.unwrap();
+    let solo_certs: Vec<SoloCert> = sqlx::query_as(sql::GET_ALL_SOLO_CERTS)
+        .fetch_all(&state.db)
+        .await?;
+    let cids_and_names = get_controller_cids_and_names(&state.db)
+        .await
+        .map_err(|err| AppError::GenericFallback("getting cids and names from DB", err))?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let template = state.templates.get_template("admin/solo_cert_list.jinja")?;
+    let rendered = template.render(context! {
+        user_info,
+        flashed_messages,
+        solo_certs,
+        cids_and_names
+    })?;
+    Ok(Html(rendered).into_response())
+}
+
 /// This file's routes and templates.
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -970,4 +1002,5 @@ pub fn router() -> Router<Arc<AppState>> {
             "/admin/activity_report/generate",
             get(page_activity_report_generate),
         )
+        .route("/admin/solo_cert_list", get(page_solo_cert_list))
 }
