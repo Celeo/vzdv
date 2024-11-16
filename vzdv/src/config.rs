@@ -83,6 +83,7 @@ pub struct ConfigDiscord {
     pub webhooks: ConfigDiscordWebhooks,
     pub roles: ConfigDiscordRoles,
     pub owner_id: u64,
+    pub solo_cert_expiration_channel: u64,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

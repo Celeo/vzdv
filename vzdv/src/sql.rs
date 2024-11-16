@@ -152,8 +152,8 @@ pub struct SoloCert {
     pub issued_by: u32,
     pub position: String,
     pub reported: bool,
-    pub created_date: String,
-    pub expiration_date: String,
+    pub created_date: DateTime<Utc>,
+    pub expiration_date: DateTime<Utc>,
 }
 
 /// Statements to create tables. Only ran when the DB file does not exist,

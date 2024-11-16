@@ -345,6 +345,7 @@ online_channel = 0
 # online_message = 0
 off_roster_channel = 0
 owner_id = 0
+solo_cert_expiration_channel = 0
 
 [discord.auth]
 client_id = ""
