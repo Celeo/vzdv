@@ -1,4 +1,4 @@
 example.com {
-	root * /srv/vzdv/assets/
+	root * /srv/vzdv/static/
 	file_server
 }
