@@ -2,20 +2,6 @@
 
 {% block title %}{{ event.name }} | {{ super() }}{% endblock %}
 
-{% block head_extra %}
-<style>
-  dialog::backdrop {
-    background-color: rgba(255, 255, 255, 0.2);
-  }
-  dialog {
-    background-color: var(--bs-body-bg);
-    width: 30%;
-    border: none;
-    border-radius: 1.5rem;
-  }
-</style>
-{% endblock %}
-
 {% block body %}
 
 <div class="row">

@@ -1,0 +1,29 @@
+.navbar-collapse {
+  flex-grow: 0 !important;
+}
+
+dialog::backdrop {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+dialog {
+  background-color: var(--bs-body-bg);
+  width: 30%;
+  border: none;
+  border-radius: 1.5rem;
+}
+
+.rank-1 {
+  font-weight: bolder;
+  color: gold;
+}
+
+.rank-2 {
+  font-weight: bolder;
+  color: #a8b7e6;
+}
+
+.rank-3 {
+  font-weight: bolder;
+  color: #8c7853;
+}
