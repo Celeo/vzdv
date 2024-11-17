@@ -156,6 +156,16 @@ pub struct SoloCert {
     pub expiration_date: DateTime<Utc>,
 }
 
+#[derive(Debug, FromRow, Serialize)]
+pub struct NoShow {
+    pub id: u32,
+    pub cid: u32,
+    pub reported_by: u32,
+    pub entry_type: String,
+    pub created_date: DateTime<Utc>,
+    pub notes: Option<String>,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -298,6 +308,18 @@ CREATE TABLE solo_cert (
 
     FOREIGN KEY (cid) REFERENCES controller(cid),
     FOREIGN KEY (issued_by) REFERENCES controller(cid)
+) STRICT;
+
+CREATE TABLE no_show (
+    id INTEGER PRIMARY KEY NOT NULL,
+    cid INTEGER NOT NULL,
+    reported_by INTEGER NOT NULL,
+    entry_type TEXT NOT NULL,
+    created_date TEXT NOT NULL,
+    notes TEXT,
+
+    FOREIGN KEY (cid) REFERENCES controller(cid),
+    FOREIGN KEY (reported_by) REFERENCES controller(cid)
 ) STRICT;
 "#;
 
@@ -459,3 +481,8 @@ pub const GET_ALL_SOLO_CERTS: &str = "SELECT * FROM solo_cert";
 pub const GET_ALL_SOLO_CERTS_FOR: &str = "SELECT * FROM solo_cert WHERE cid=$1";
 pub const CREATE_SOLO_CERT: &str = "INSERT INTO solo_cert VALUES (NULL, $1, $2, $3, $4, $5, $6);";
 pub const DELETE_SOLO_CERT: &str = "DELETE FROM solo_cert WHERE id=$1";
+
+pub const GET_NO_SHOW_BY_ID: &str = "SELECT * FROM no_show WHERE id=$1";
+pub const GET_ALL_NO_SHOW: &str = "SELECT * FROM no_show";
+pub const CREATE_NEW_NO_SHOW_ENTRY: &str = "INSERT INTO no_show VALUES (NULL, $1, $2, $3, $4, $5);";
+pub const DELETE_NO_SHOW_ENTRY: &str = "DELETE FROM no_show WHERE id=$1";

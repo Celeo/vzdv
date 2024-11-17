@@ -1,0 +1,112 @@
+{% extends "_layout.jinja" %}
+
+{% block title %}No show list | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h2 class="pb-3">No show list</h2>
+
+<p>
+  This page lists no-show events from students and event controllers to maintain a record for SOP and facility policy adherence.
+  <br>
+  To add a new no-show, use the form below. A user can remove no-show entries they've added, and Sr. Staff can remove any
+  listed here.
+</p>
+
+<form action="/admin/no_show_list" method="POST">
+  <div class="row">
+    <div class="col">
+      <div class="mb-1">
+        <label for="controller">Controller</label>
+        <select name="controller" id="controller" class="form-control" required>
+          <option selected disabled>Controller</option>
+          {% for (cid, name) in all_controllers %}
+            <option value="{{ cid }}">{{ name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="col">
+      <div class="mb-1">
+        <label for="entry_type">Type (event or training)</label>
+        <select name="entry_type" id="entry_type" class="form-control" required>
+          <option selected disabled>Type</option>
+          <option value="event">Event</option>
+          <option value="training">Training</option>
+        </select>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col">
+      <label for="notes">Notes (optional)</label>
+      <textarea name="notes" id="notes" class="form-control" style="height: 5rem"></textarea>
+    </div>
+  </div>
+  <button class="btn btn-primary mt-3" role="button" type="submit">
+    <i class="bi bi-floppy2-fill"></i>
+    Save
+  </button>
+</form>
+
+<hr>
+
+<table class="table table-striped table-hover sortable">
+  <thead>
+    <tr>
+      <th>Controller</th>
+      <th>Reporter</th>
+      <th>Type</th>
+      <th>Created</th>
+      <th>Notes</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in no_shows %}
+      <tr>
+        <td>
+          {{ cid_name_name[entry.cid][0] }} {{ cid_name_name[entry.cid][1] }}
+          <a href="/controller/{{ entry.cid }}" class="icon-link icon-link-hover text-decoration-none">
+            <i class="bi bi-arrow-right-short"></i>
+          </a>
+        </td>
+        <td>{{ cid_name_name[entry.reported_by][0] }} {{ cid_name_name[entry.reported_by][1] }}</td>
+        <td>{{ entry.entry_type|capitalize_first }}</td>
+        <td>{{ entry.created_date|nice_date }}z</td>
+        <td>{{ entry.notes }}</td>
+        <td>
+          {% if entry.reported_by == user_info.cid or user_info.is_admin %}
+          <button role="button" class="btn btn-danger btn-sm btn-delete-entry" entry-id="{{ entry.id }}">
+            <i class="bi bi-trash"></i>
+          </button>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<script src="/static/sorttable.js"></script>
+
+<script>
+  document.querySelectorAll('.btn-delete-entry').forEach((button) => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      const res = window.confirm('Do you want to delete this entry?');
+      if (res) {
+        const entryId = button.getAttribute('entry-id');
+        fetch(`/admin/no_show_list/${entryId}`, { method: 'DELETE' })
+          .then((response) => {
+            window.location.reload();
+          })
+          .catch((error) => {
+            console.error(error);
+            window.alert(`Something went wrong: ${error}`);
+          });
+      }
+    });
+  });
+</script>
+
+{% endblock %}

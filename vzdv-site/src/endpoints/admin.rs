@@ -27,7 +27,8 @@ use uuid::Uuid;
 use vzdv::{
     get_controller_cids_and_names,
     sql::{
-        self, Activity, Controller, Feedback, FeedbackForReview, Resource, SoloCert, VisitorRequest,
+        self, Activity, Controller, Feedback, FeedbackForReview, NoShow, Resource, SoloCert,
+        VisitorRequest,
     },
     vatusa::{self, add_visiting_controller, get_multiple_controller_info},
     ControllerRating, PermissionsGroup, GENERAL_HTTP_CLIENT,
@@ -924,9 +925,6 @@ async fn page_activity_report_generate(
         }
     }
 
-    let cid_name_map = get_controller_cids_and_names(&state.db)
-        .await
-        .map_err(|err| AppError::GenericFallback("getting cids and names from DB", err))?;
     let template = state
         .templates
         .get_template("admin/activity_report.jinja")?;
@@ -935,7 +933,6 @@ async fn page_activity_report_generate(
         controllers,
         rated_violations,
         unrated_violations,
-        cid_name_map,
         now_utc => Utc::now().to_rfc2822(),
     })?;
     state
@@ -974,6 +971,181 @@ async fn page_solo_cert_list(
     Ok(Html(rendered).into_response())
 }
 
+/// Page for listing and adding no-shows for training and events.
+///
+/// For any staff member.
+async fn page_no_show_list(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::SomeStaff).await
+    {
+        return Ok(redirect.into_response());
+    }
+    let no_shows: Vec<NoShow> = sqlx::query_as(sql::GET_ALL_NO_SHOW)
+        .fetch_all(&state.db)
+        .await?;
+    let all_controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS)
+        .fetch_all(&state.db)
+        .await?;
+    let all_controllers: Vec<(u32, String)> = all_controllers
+        .iter()
+        .map(|controller| {
+            (
+                controller.cid,
+                format!(
+                    "{} {} ({})",
+                    controller.first_name,
+                    controller.last_name,
+                    match controller.operating_initials.as_ref() {
+                        Some(oi) => {
+                            if oi.is_empty() {
+                                "??"
+                            } else {
+                                oi
+                            }
+                        }
+                        None => "??",
+                    }
+                ),
+            )
+        })
+        .collect();
+    let cid_name_name = get_controller_cids_and_names(&state.db)
+        .await
+        .map_err(|err| AppError::GenericFallback("getting cids and names from DB", err))?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let template = state.templates.get_template("admin/no_show_list.jinja")?;
+    let rendered = template.render(context! {
+        user_info,
+        flashed_messages,
+        all_controllers,
+        cid_name_name,
+        no_shows
+    })?;
+    Ok(Html(rendered).into_response())
+}
+
+#[derive(Debug, Deserialize)]
+struct NewNoShowForm {
+    controller: Option<u32>,
+    entry_type: Option<String>,
+    notes: Option<String>,
+}
+
+/// Submit a new no-show entry.
+///
+/// For any staff member.
+async fn post_new_no_show(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Form(new_entry_form): Form<NewNoShowForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::SomeStaff).await
+    {
+        return Ok(redirect);
+    }
+    let user_info = user_info.unwrap();
+
+    if new_entry_form.controller.is_none() {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "Controller not selected",
+        )
+        .await?;
+        return Ok(Redirect::to("/admin/no_show_list"));
+    }
+    if new_entry_form.entry_type.is_none() {
+        flashed_messages::push_flashed_message(session, MessageLevel::Error, "Type not selected")
+            .await?;
+        return Ok(Redirect::to("/admin/no_show_list"));
+    }
+
+    let matching_controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(new_entry_form.controller)
+        .fetch_optional(&state.db)
+        .await?;
+    if matching_controller.is_none() {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "No matching controller found",
+        )
+        .await?;
+        return Ok(Redirect::to("/admin/no_show_list"));
+    }
+
+    sqlx::query(sql::CREATE_NEW_NO_SHOW_ENTRY)
+        .bind(new_entry_form.controller.unwrap())
+        .bind(user_info.cid)
+        .bind(&new_entry_form.entry_type)
+        .bind(Utc::now())
+        .bind(&new_entry_form.notes)
+        .execute(&state.db)
+        .await?;
+    flashed_messages::push_flashed_message(session, MessageLevel::Success, "Entry added").await?;
+    info!(
+        "{} added new no-show entry for {} of {}",
+        user_info.cid,
+        new_entry_form.controller.unwrap(),
+        new_entry_form.entry_type.unwrap()
+    );
+    Ok(Redirect::to("/admin/no_show_list"))
+}
+
+/// API endpoint to delete a no-show entry.
+///
+/// For any staff member.
+async fn api_delete_no_show_entry(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(id): Path<u32>,
+) -> Result<StatusCode, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if reject_if_not_in(&state, &user_info, PermissionsGroup::SomeStaff)
+        .await
+        .is_some()
+    {
+        return Ok(StatusCode::FORBIDDEN);
+    }
+    let user_info = user_info.unwrap();
+
+    let no_show_entry: Option<NoShow> = sqlx::query_as(sql::GET_NO_SHOW_BY_ID)
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?;
+    let no_show_entry = match no_show_entry {
+        Some(e) => e,
+        None => {
+            flashed_messages::push_flashed_message(
+                session,
+                MessageLevel::Error,
+                "No entry with that ID found",
+            )
+            .await?;
+            warn!(
+                "{} tried to delete unknown no-show entry {}",
+                user_info.cid, id
+            );
+            return Ok(StatusCode::NOT_FOUND);
+        }
+    };
+    sqlx::query(sql::DELETE_NO_SHOW_ENTRY)
+        .bind(id)
+        .execute(&state.db)
+        .await?;
+    flashed_messages::push_flashed_message(session, MessageLevel::Success, "Entry deleted").await?;
+    info!(
+        "{} deleted no-show entry #{} of {} from {}",
+        user_info.cid, id, no_show_entry.entry_type, no_show_entry.reported_by
+    );
+
+    Ok(StatusCode::OK)
+}
+
 /// This file's routes and templates.
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -1010,4 +1182,9 @@ pub fn router() -> Router<Arc<AppState>> {
             get(page_activity_report_generate),
         )
         .route("/admin/solo_cert_list", get(page_solo_cert_list))
+        .route(
+            "/admin/no_show_list",
+            get(page_no_show_list).post(post_new_no_show),
+        )
+        .route("/admin/no_show_list/:id", delete(api_delete_no_show_entry))
 }

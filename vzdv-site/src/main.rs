@@ -108,6 +108,13 @@ fn load_templates() -> Result<Environment<'static>, AppError> {
             Err(_) => "OBS",
         },
     );
+    env.add_filter("capitalize_first", |s: String| {
+        let mut c = s.chars();
+        match c.next() {
+            None => String::new(),
+            Some(f) => f.to_uppercase().chain(c).collect(),
+        }
+    });
 
     Ok(env)
 }
