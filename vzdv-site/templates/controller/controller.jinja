@@ -333,6 +333,7 @@
             <select name="{{ cert.name }}" id="cert-{{ cert.name }}" class="form-select" required>
               <option value="none"{% if cert.value == "none" %} selected{% endif %}>None</option>
               <option value="training"{% if cert.value == "training" %} selected{% endif %}>Training</option>
+              <option value="solo"{% if cert.value == "solo" %} selected{% endif %}>Solo</option>
               <option value="certified"{% if cert.value == "certified" %} selected{% endif %}>Certified</option>
             </select>
           </div>
