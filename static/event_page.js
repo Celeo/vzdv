@@ -26,7 +26,9 @@ document.getElementById("input-timezone").value =
 
 document.getElementById("button-delete")?.addEventListener("click", (e) => {
   e.preventDefault();
-  const eventId = e.target.getAttribute("event-id");
+  const eventId = document
+    .getElementById("button-delete")
+    .getAttribute("event-id");
   const result = window.confirm("Are you sure you want to delete this event?");
   if (result) {
     fetch(`/events/${eventId}`, { method: "DELETE" })
