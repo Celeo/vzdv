@@ -547,10 +547,17 @@ async fn post_visitor_application_action(
     );
 
     if action_form.action == "accept" {
-        // add to roster
+        // add to roster in VATUSA
         add_visiting_controller(request.cid, &state.config.vatsim.vatusa_api_key)
             .await
             .map_err(|err| AppError::GenericFallback("could not add visitor", err))?;
+
+        // update controller record now rather than waiting for the task sync
+        sqlx::query(sql::SET_CONTROLLER_ON_ROSTER)
+            .bind(request.cid)
+            .bind(true)
+            .execute(&state.db)
+            .await?;
 
         // inform if possible
         if let Some(email_address) = controller_info.email {

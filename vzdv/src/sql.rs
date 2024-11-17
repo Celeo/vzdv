@@ -354,6 +354,7 @@ pub const GET_CONTROLLER_BY_DISCORD_ID: &str = "SELECT * FROM controller WHERE d
 pub const SET_CONTROLLER_DISCORD_ID: &str = "UPDATE controller SET discord_id=$2 WHERE cid=$1";
 pub const UNSET_CONTROLLER_DISCORD_ID: &str = "UPDATE controller SET discord_id=NULL WHERE cid=$1";
 pub const SET_CONTROLLER_ROLES: &str = "UPDATE controller SET roles=$2 WHERE cid=$1";
+pub const SET_CONTROLLER_ON_ROSTER: &str = "UPDATE controller SET is_on_roster=$2 WHERE cid=$1";
 
 pub const GET_ALL_CERTIFICATIONS: &str = "SELECT * FROM certification";
 pub const GET_ALL_CERTIFICATIONS_FOR: &str = "SELECT * FROM certification WHERE cid=$1";
