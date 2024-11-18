@@ -1,10 +1,10 @@
 {% extends "_layout.jinja" %}
 
-{% block title %}No show list | {{ super() }}{% endblock %}
+{% block title %}No-show list | {{ super() }}{% endblock %}
 
 {% block body %}
 
-<h2 class="pb-3">No show list</h2>
+<h2 class="pb-3">No-show list</h2>
 
 <p>
   This page lists no-show events from students and event controllers to maintain a record for SOP and facility policy adherence.
@@ -31,8 +31,12 @@
         <label for="entry_type">Type (event or training)</label>
         <select name="entry_type" id="entry_type" class="form-control" required>
           <option selected disabled>Type</option>
-          <option value="event">Event</option>
-          <option value="training">Training</option>
+          {% if user_info.is_event_staff %}
+            <option value="event">Event</option>
+          {% endif %}
+          {% if user_info.is_training_staff %}
+            <option value="training">Training</option>
+          {% endif %}
         </select>
       </div>
     </div>
@@ -51,6 +55,7 @@
 
 <hr>
 
+<p class="mb-0">Showing: {{ filtering }} no-shows</p>
 <table class="table table-striped table-hover sortable">
   <thead>
     <tr>

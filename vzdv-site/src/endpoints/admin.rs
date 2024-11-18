@@ -983,9 +983,34 @@ async fn page_no_show_list(
     {
         return Ok(redirect.into_response());
     }
-    let no_shows: Vec<NoShow> = sqlx::query_as(sql::GET_ALL_NO_SHOW)
-        .fetch_all(&state.db)
-        .await?;
+    let user_info = user_info.unwrap();
+
+    let (filtering, no_shows) = {
+        let no_shows: Vec<NoShow> = sqlx::query_as(sql::GET_ALL_NO_SHOW)
+            .fetch_all(&state.db)
+            .await?;
+
+        if user_info.is_admin || (user_info.is_event_staff && user_info.is_training_staff) {
+            ("all", no_shows)
+        } else {
+            let filter = if user_info.is_event_staff {
+                "event"
+            } else if user_info.is_training_staff {
+                "training"
+            } else {
+                "none"
+            };
+            (
+                filter,
+                no_shows
+                    .iter()
+                    .filter(|ns| ns.entry_type == filter)
+                    .map(|ns| ns.to_owned())
+                    .collect(),
+            )
+        }
+    };
+
     let all_controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS)
         .fetch_all(&state.db)
         .await?;
@@ -1022,6 +1047,7 @@ async fn page_no_show_list(
         flashed_messages,
         all_controllers,
         cid_name_name,
+        filtering,
         no_shows
     })?;
     Ok(Html(rendered).into_response())

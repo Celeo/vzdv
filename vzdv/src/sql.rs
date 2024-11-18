@@ -156,7 +156,7 @@ pub struct SoloCert {
     pub expiration_date: DateTime<Utc>,
 }
 
-#[derive(Debug, FromRow, Serialize)]
+#[derive(Debug, Clone, FromRow, Serialize)]
 pub struct NoShow {
     pub id: u32,
     pub cid: u32,
