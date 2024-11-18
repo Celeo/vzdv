@@ -163,6 +163,7 @@ pub struct NoShow {
     pub reported_by: u32,
     pub entry_type: String,
     pub created_date: DateTime<Utc>,
+    pub notified: bool,
     pub notes: Option<String>,
 }
 
@@ -316,6 +317,7 @@ CREATE TABLE no_show (
     reported_by INTEGER NOT NULL,
     entry_type TEXT NOT NULL,
     created_date TEXT NOT NULL,
+    notified INTEGER NOT NULL DEFAULT FALSE,
     notes TEXT,
 
     FOREIGN KEY (cid) REFERENCES controller(cid),
@@ -484,5 +486,7 @@ pub const DELETE_SOLO_CERT: &str = "DELETE FROM solo_cert WHERE id=$1";
 
 pub const GET_NO_SHOW_BY_ID: &str = "SELECT * FROM no_show WHERE id=$1";
 pub const GET_ALL_NO_SHOW: &str = "SELECT * FROM no_show";
-pub const CREATE_NEW_NO_SHOW_ENTRY: &str = "INSERT INTO no_show VALUES (NULL, $1, $2, $3, $4, $5);";
+pub const CREATE_NEW_NO_SHOW_ENTRY: &str =
+    "INSERT INTO no_show VALUES (NULL, $1, $2, $3, $4, FALSE, $5);";
 pub const DELETE_NO_SHOW_ENTRY: &str = "DELETE FROM no_show WHERE id=$1";
+pub const UPDATE_NO_SHOW_NOTIFIED: &str = "UPDATE no_show SET notified=TRUE where id=$1";
