@@ -66,7 +66,7 @@ async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Re
                 send_dm(
                     http,
                     discord_user_id,
-                    &create_message(&entry, &cid_name_map, occurrence_count, config),
+                    &create_message(entry, &cid_name_map, occurrence_count, config),
                 )
                 .await?;
                 sqlx::query(sql::UPDATE_NO_SHOW_NOTIFIED)
@@ -80,7 +80,7 @@ async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Re
                     } else {
                         "EC"
                     };
-                    let staff_member = get_staff_member_by_role(db, &staff_role).await?;
+                    let staff_member = get_staff_member_by_role(db, staff_role).await?;
                     if let Some(staff_member) = staff_member.first() {
                         if let Some(ref discord_user_id) = staff_member.discord_id {
                             send_dm(
