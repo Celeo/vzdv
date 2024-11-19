@@ -10,6 +10,7 @@ pub async fn check_expired(db: &Pool<Sqlite>) -> Result<()> {
         .fetch_all(db)
         .await?;
     let now = Utc::now();
+
     for cert in solo_certs {
         if cert.expiration_date < now {
             info!(
