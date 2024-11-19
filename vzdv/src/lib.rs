@@ -10,6 +10,7 @@ use fern::{
     colors::{Color, ColoredLevelConfig},
     Dispatch,
 };
+use itertools::Itertools;
 use log::{debug, error};
 use reqwest::ClientBuilder;
 use sql::Controller;
@@ -510,6 +511,18 @@ pub fn generate_operating_initials_for(
 
     // should never hit this
     bail!("Apparently there are no OIs available")
+}
+
+/// Get controllers from the DB with that role.
+pub async fn get_staff_member_by_role(db: &Pool<Sqlite>, role: &str) -> Result<Vec<Controller>> {
+    let with_roles: Vec<Controller> = sqlx::query_as(sql::GET_CONTROLLERS_WITH_ROLES)
+        .fetch_all(db)
+        .await?;
+    Ok(with_roles
+        .iter()
+        .filter(|c| c.roles.split_terminator(',').contains(&role))
+        .cloned()
+        .collect())
 }
 
 #[cfg(test)]
