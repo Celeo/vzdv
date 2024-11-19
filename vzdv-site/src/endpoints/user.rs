@@ -2,7 +2,7 @@
 
 use crate::{
     discord, flashed_messages,
-    shared::{strip_some_tags, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{record_log, strip_some_tags, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
     extract::{Query, State},
@@ -11,7 +11,7 @@ use axum::{
     Router,
 };
 use chrono::NaiveDateTime;
-use log::{debug, info, warn};
+use log::{debug, warn};
 use minijinja::context;
 use std::{collections::HashMap, sync::Arc};
 use tower_sessions::Session;
@@ -124,10 +124,15 @@ async fn page_discord_callback(
             "Discord account linked",
         )
         .await?;
-        info!(
-            "Set Discord ID for controller {} to {}",
-            user_info.cid, discord_user_id
-        );
+        record_log(
+            format!(
+                "Set Discord ID for controller {} to {}",
+                user_info.cid, discord_user_id,
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
     } else {
         warn!(
             "Discord callback page hit by {} without code param",

@@ -2,7 +2,7 @@
 
 use crate::{
     flashed_messages,
-    shared::{AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{record_log, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
     extract::State,
@@ -10,7 +10,7 @@ use axum::{
     routing::{get, post},
     Form, Router,
 };
-use log::{error, info};
+use log::error;
 use minijinja::context;
 use serde::Deserialize;
 use serde_json::json;
@@ -102,10 +102,15 @@ async fn page_feedback_form_post(
             "Feedback submitted, thank you!",
         )
         .await?;
-        info!(
-            "{} submitted feedback for {}",
-            user_info.cid, feedback.controller
-        );
+        record_log(
+            format!(
+                "{} submitted feedback for {}",
+                user_info.cid, feedback.controller
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
         let notification_webhook = state.config.discord.webhooks.new_feedback.clone();
         let for_controller: Controller = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
             .bind(feedback.controller)

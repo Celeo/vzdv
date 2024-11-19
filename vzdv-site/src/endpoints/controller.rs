@@ -3,8 +3,8 @@
 use crate::{
     flashed_messages::{self, MessageLevel},
     shared::{
-        js_timestamp_to_utc, post_audit, reject_if_not_in, strip_some_tags, AppError, AppState,
-        UserInfo, SESSION_USER_INFO_KEY,
+        js_timestamp_to_utc, post_audit, record_log, reject_if_not_in, strip_some_tags, AppError,
+        AppState, UserInfo, SESSION_USER_INFO_KEY,
     },
 };
 use axum::{
@@ -252,10 +252,15 @@ async fn api_unlink_discord(
         .execute(&state.db)
         .await?;
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Discord unlinked").await?;
-    info!(
-        "{} unlinked Discord account from {cid}",
-        user_info.unwrap().cid
-    );
+    record_log(
+        format!(
+            "{} unlinked Discord account from {cid}",
+            user_info.unwrap().cid
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
     Ok(Redirect::to(&format!("/controllers/{cid}")))
 }
 
@@ -308,10 +313,15 @@ async fn post_change_ois(
         "Operating initials updated",
     )
     .await?;
-    info!(
-        "{} updated OIs for {cid} to: '{initials}'",
-        user_info.unwrap().cid,
-    );
+    record_log(
+        format!(
+            "{} updated OIs for {cid} to: '{initials}'",
+            user_info.unwrap().cid,
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
@@ -366,6 +376,12 @@ async fn post_change_certs(
             }
         }
     }
+    record_log(
+        format!("{by_cid} updated certs for {cid}"),
+        &state.db,
+        false,
+    )
+    .await?;
 
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Updated certifications")
         .await?;
@@ -441,10 +457,15 @@ async fn post_new_solo_cert(
 
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "New solo cert issued")
         .await?;
-    info!(
-        "{} added solo cert of {} to {}",
-        user_info.cid, position, cid
-    );
+    record_log(
+        format!(
+            "{} added solo cert of {} to {}",
+            user_info.cid, position, cid
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
@@ -494,10 +515,15 @@ async fn api_delete_solo_cert(
 
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Solo cert deleted")
         .await?;
-    info!(
-        "{} deleted solo cert {} for {} of {}",
-        user_info.cid, matching.id, matching.cid, matching.position
-    );
+    record_log(
+        format!(
+            "{} deleted solo cert {} for {} of {}",
+            user_info.cid, matching.id, matching.cid, matching.position
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
 
     Ok(StatusCode::OK)
 }
@@ -522,7 +548,12 @@ async fn post_new_staff_note(
         return Ok(redirect);
     }
     let user_info = user_info.unwrap();
-    info!("{} added staff note to {cid}", user_info.cid);
+    record_log(
+        format!("{} added staff note to {cid}", user_info.cid),
+        &state.db,
+        true,
+    )
+    .await?;
     sqlx::query(sql::CREATE_STAFF_NOTE)
         .bind(cid)
         .bind(user_info.cid)
@@ -560,7 +591,12 @@ async fn api_delete_staff_note(
                 .bind(note_id)
                 .execute(&state.db)
                 .await?;
-            info!("{} removed their note #{}", user_info.cid, note_id);
+            record_log(
+                format!("{} removed their note #{}", user_info.cid, note_id),
+                &state.db,
+                true,
+            )
+            .await?;
         }
     }
     Ok(StatusCode::OK)
@@ -702,7 +738,12 @@ async fn post_add_training_note(
                 "New training record saved",
             )
             .await?;
-            info!("{} submitted new training record for {cid}", user_info.cid);
+            record_log(
+                format!("{} submitted new training record for {cid}", user_info.cid),
+                &state.db,
+                true,
+            )
+            .await?;
         }
         Err(e) => {
             error!("Error saving new training record for {cid}: {e}");
@@ -796,7 +837,7 @@ async fn post_set_roles(
         "{} is setting roles for {cid} to '{}'; was '{}'",
         user_info.cid, new_roles, controller.roles
     );
-    info!("{message}");
+    record_log(message.clone(), &state.db, true).await?;
     post_audit(&state.config, message);
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
@@ -854,10 +895,15 @@ async fn post_remove_controller(
         )
         .await
         .map_err(|e| AppError::GenericFallback("removing home controller", e))?;
-        info!(
-            "{} removed home controller {cid}, reason: {}",
-            user_info.cid, &removal_form.reason
-        );
+        record_log(
+            format!(
+                "{} removed home controller {cid}, reason: {}",
+                user_info.cid, &removal_form.reason
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
     } else {
         // visiting
         vatusa::remove_visiting_controller(
@@ -867,10 +913,15 @@ async fn post_remove_controller(
         )
         .await
         .map_err(|e| AppError::GenericFallback("removing visiting controller", e))?;
-        info!(
-            "{} removed visiting controller {cid}, reason: {}",
-            user_info.cid, &removal_form.reason
-        );
+        record_log(
+            format!(
+                "{} removed visiting controller {cid}, reason: {}",
+                user_info.cid, &removal_form.reason
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
     }
     flashed_messages::push_flashed_message(
         session,

@@ -1,13 +1,13 @@
 //! HTTP endpoints for logging in and out.
 
-use crate::shared::{AppError, AppState, UserInfo, SESSION_USER_INFO_KEY};
+use crate::shared::{record_log, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY};
 use axum::{
     extract::{Query, State},
     response::{Html, Redirect},
     routing::get,
     Router,
 };
-use log::{debug, info};
+use log::debug;
 use minijinja::context;
 use std::sync::Arc;
 use tower_sessions::Session;
@@ -82,7 +82,12 @@ async fn page_auth_callback(
         .execute(&state.db)
         .await?;
 
-    info!("Completed log in for {}", session_user_info.data.cid);
+    record_log(
+        format!("Completed log in for {}", session_user_info.data.cid),
+        &state.db,
+        true,
+    )
+    .await?;
     let template = state.templates.get_template("auth/login_complete.jinja")?;
     let rendered = template.render(context! { user_info => to_session })?;
     Ok(Html(rendered))

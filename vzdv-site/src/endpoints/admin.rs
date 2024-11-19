@@ -4,8 +4,8 @@ use crate::{
     email::{self, send_mail},
     flashed_messages::{self, MessageLevel},
     shared::{
-        is_user_member_of, post_audit, reject_if_not_in, AppError, AppState, CacheEntry, UserInfo,
-        SESSION_USER_INFO_KEY,
+        is_user_member_of, post_audit, record_log, reject_if_not_in, AppError, AppState,
+        CacheEntry, UserInfo, SESSION_USER_INFO_KEY,
     },
 };
 use axum::{
@@ -15,7 +15,7 @@ use axum::{
     Form, Router,
 };
 use chrono::{DateTime, Months, Utc};
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use minijinja::context;
 use reqwest::StatusCode;
 use rev_buf_reader::RevBufReader;
@@ -93,7 +93,12 @@ async fn post_feedback_form_handle(
                 .bind(feedback_form.id)
                 .execute(&state.db)
                 .await?;
-            info!("{} archived feedback {}", user_info.cid, feedback.id);
+            record_log(
+                format!("{} archived feedback {}", user_info.cid, feedback.id),
+                &state.db,
+                true,
+            )
+            .await?;
             flashed_messages::push_flashed_message(
                 session,
                 MessageLevel::Success,
@@ -105,14 +110,19 @@ async fn post_feedback_form_handle(
                 .bind(feedback_form.id)
                 .execute(&state.db)
                 .await?;
-            info!(
-                "{} deleted {} feedback {} for {} by {}",
-                user_info.cid,
-                feedback.rating,
-                feedback.id,
-                feedback.controller,
-                feedback.submitter_cid
-            );
+            record_log(
+                format!(
+                    "{} deleted {} feedback {} for {} by {}",
+                    user_info.cid,
+                    feedback.rating,
+                    feedback.id,
+                    feedback.controller,
+                    feedback.submitter_cid
+                ),
+                &state.db,
+                true,
+            )
+            .await?;
             flashed_messages::push_flashed_message(
                 session,
                 MessageLevel::Success,
@@ -158,10 +168,15 @@ async fn post_feedback_form_handle(
                 }))
                 .send()
                 .await?;
-            info!(
-                "{} submitted feedback {} to Discord",
-                user_info.cid, feedback.id
-            );
+            record_log(
+                format!(
+                    "{} submitted feedback {} to Discord",
+                    user_info.cid, feedback.id
+                ),
+                &state.db,
+                true,
+            )
+            .await?;
             sqlx::query(sql::UPDATE_FEEDBACK_TAKE_ACTION)
                 .bind(user_info.cid)
                 .bind("post")
@@ -183,14 +198,19 @@ async fn post_feedback_form_handle(
                 .bind(feedback_form.id)
                 .execute(&state.db)
                 .await?;
-            info!(
-                "{} silently-approved {} feedback {} for {} by {}",
-                user_info.cid,
-                feedback.rating,
-                feedback.id,
-                feedback.controller,
-                feedback.submitter_cid
-            );
+            record_log(
+                format!(
+                    "{} silently-approved {} feedback {} for {} by {}",
+                    user_info.cid,
+                    feedback.rating,
+                    feedback.id,
+                    feedback.controller,
+                    feedback.submitter_cid
+                ),
+                &state.db,
+                true,
+            )
+            .await?;
             flashed_messages::push_flashed_message(
                 session,
                 MessageLevel::Success,
@@ -238,10 +258,15 @@ async fn post_feedback_edited_form_handle(
             "Feedback comments updated",
         )
         .await?;
-        info!(
-            "{} updated feedback {} comments",
-            user_info.cid, edit_form.id
-        );
+        record_log(
+            format!(
+                "{} updated feedback {} comments",
+                user_info.cid, edit_form.id
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
     } else {
         flashed_messages::push_flashed_message(session, MessageLevel::Error, "Unknown feedback ID")
             .await?;
@@ -381,12 +406,17 @@ async fn post_email_manual_send(
             return Ok(Redirect::to("/admin/emails").into_response());
         }
     };
-    info!(
-        "{} sent {} email to {}",
-        user_info.unwrap().cid,
-        manual_email_form.template,
-        manual_email_form.recipient
-    );
+    record_log(
+        format!(
+            "{} sent {} email to {}",
+            user_info.unwrap().cid,
+            manual_email_form.template,
+            manual_email_form.recipient
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
     send_mail(
         &state.config,
         &state.db,
@@ -542,10 +572,15 @@ async fn post_visitor_application_action(
         vatusa::get_controller_info(request.cid, Some(&state.config.vatsim.vatusa_api_key))
             .await
             .map_err(|err| AppError::GenericFallback("getting controller info", err))?;
-    info!(
-        "{} taking action {} on visitor request {id}",
-        user_info.cid, action_form.action
-    );
+    record_log(
+        format!(
+            "{} taking action {} on visitor request {id}",
+            user_info.cid, action_form.action
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
 
     if action_form.action == "accept" {
         // add to roster in VATUSA
@@ -678,7 +713,7 @@ async fn api_delete_resource(
         "{} deleted resource {id} (name: {}, category: {})",
         user_info.cid, resource.name, resource.category
     );
-    info!("{message}");
+    record_log(message.clone(), &state.db, true).await?;
     post_audit(&state.config, message);
     Ok(StatusCode::OK)
 }
@@ -750,7 +785,7 @@ async fn post_new_resource(
         "{} created a new resource name: {}, category: {}",
         user_info.cid, resource.name, resource.category,
     );
-    info!("{message}");
+    record_log(message.clone(), &state.db, true).await?;
     post_audit(&state.config, message);
     Ok(Redirect::to("/admin/resources"))
 }
@@ -835,7 +870,12 @@ async fn page_activity_report_generate(
         state.cache.invalidate(&cache_key);
     }
 
-    info!("{} generating activity report", user_info.cid);
+    record_log(
+        format!("{} generating activity report", user_info.cid),
+        &state.db,
+        true,
+    )
+    .await?;
     let now = Utc::now();
     let months: [String; 3] = [
         now.format("%Y-%m").to_string(),
@@ -1113,12 +1153,17 @@ async fn post_new_no_show(
         .execute(&state.db)
         .await?;
     flashed_messages::push_flashed_message(session, MessageLevel::Success, "Entry added").await?;
-    info!(
-        "{} added new no-show entry for {} of {}",
-        user_info.cid,
-        new_entry_form.controller.unwrap(),
-        new_entry_form.entry_type.unwrap()
-    );
+    record_log(
+        format!(
+            "{} added new no-show entry for {} of {}",
+            user_info.cid,
+            new_entry_form.controller.unwrap(),
+            new_entry_form.entry_type.unwrap()
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
     Ok(Redirect::to("/admin/no_show_list"))
 }
 
@@ -1164,10 +1209,15 @@ async fn api_delete_no_show_entry(
         .execute(&state.db)
         .await?;
     flashed_messages::push_flashed_message(session, MessageLevel::Success, "Entry deleted").await?;
-    info!(
-        "{} deleted no-show entry #{} of {} from {}",
-        user_info.cid, id, no_show_entry.entry_type, no_show_entry.reported_by
-    );
+    record_log(
+        format!(
+            "{} deleted no-show entry #{} of {} from {}",
+            user_info.cid, id, no_show_entry.entry_type, no_show_entry.reported_by
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
 
     Ok(StatusCode::OK)
 }

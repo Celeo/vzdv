@@ -296,12 +296,15 @@ pub fn strip_some_tags(s: &str) -> String {
 }
 
 /// Add an audit log message to the DB.
-pub async fn add_log(message: &str, db: &Pool<Sqlite>) -> Result<(), AppError> {
+pub async fn record_log(message: String, db: &Pool<Sqlite>, log: bool) -> Result<(), AppError> {
     sqlx::query(sql::CREATE_LOG)
-        .bind(message)
+        .bind(&message)
         .bind(Utc::now())
         .execute(db)
         .await?;
+    if log {
+        info!("{message}");
+    }
     Ok(())
 }
 

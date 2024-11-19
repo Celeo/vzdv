@@ -3,7 +3,7 @@
 use crate::{
     flashed_messages,
     flights::get_relevant_flights,
-    shared::{AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{record_log, AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
     extract::State,
@@ -12,7 +12,7 @@ use axum::{
     Form, Router,
 };
 use itertools::Itertools;
-use log::{info, warn};
+use log::warn;
 use minijinja::context;
 use serde::Deserialize;
 use serde_json::json;
@@ -219,7 +219,12 @@ async fn page_staffing_request_post(
             }))
             .send()
             .await?;
-        info!("{} submitted a staffing request", user_info.cid);
+        record_log(
+            format!("{} submitted a staffing request", user_info.cid),
+            &state.db,
+            true,
+        )
+        .await?;
         if resp.status().is_success() {
             flashed_messages::push_flashed_message(
                 session,

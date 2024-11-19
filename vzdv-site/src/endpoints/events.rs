@@ -5,8 +5,8 @@
 use crate::{
     flashed_messages,
     shared::{
-        is_user_member_of, js_timestamp_to_utc, reject_if_not_in, AppError, AppState, UserInfo,
-        SESSION_USER_INFO_KEY,
+        is_user_member_of, js_timestamp_to_utc, record_log, reject_if_not_in, AppError, AppState,
+        UserInfo, SESSION_USER_INFO_KEY,
     },
 };
 use axum::{
@@ -18,7 +18,6 @@ use axum::{
 };
 use axum_extra::extract::WithRejection;
 use chrono::Utc;
-use log::info;
 use minijinja::context;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
@@ -123,12 +122,17 @@ async fn post_new_event_form(
         .bind(create_new_form.banner)
         .execute(&state.db)
         .await?;
-    info!(
-        "{} created new event {}: \"{}\"",
-        cid,
-        result.last_insert_rowid(),
-        &create_new_form.name
-    );
+    record_log(
+        format!(
+            "{} created new event {}: \"{}\"",
+            cid,
+            result.last_insert_rowid(),
+            &create_new_form.name
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
     Ok(Redirect::to(&format!(
         "/events/{}",
         result.last_insert_rowid()
@@ -410,7 +414,12 @@ async fn post_edit_event_form(
             .bind(details_form.banner)
             .execute(&state.db)
             .await?;
-        info!("{} edited event {id}", user_info.unwrap().cid);
+        record_log(
+            format!("{} edited event {id}", user_info.unwrap().cid),
+            &state.db,
+            true,
+        )
+        .await?;
         Ok(Redirect::to(&format!("/events/{id}")))
     } else {
         Ok(Redirect::to("/"))
@@ -438,7 +447,12 @@ async fn api_delete_event(
             .bind(id)
             .execute(&state.db)
             .await?;
-        info!("{} deleted event {id}", user_info.unwrap().cid);
+        record_log(
+            format!("{} deleted event {id}", user_info.unwrap().cid),
+            &state.db,
+            true,
+        )
+        .await?;
         flashed_messages::push_flashed_message(
             session,
             flashed_messages::MessageLevel::Info,
@@ -511,12 +525,17 @@ async fn post_register_for_event(
         .bind(notes)
         .execute(&state.db)
         .await?;
-    info!(
-        "{cid} registered for event {id}: {} {} {}",
-        c_1.unwrap_or_default(),
-        c_2.unwrap_or_default(),
-        c_3.unwrap_or_default()
-    );
+    record_log(
+        format!(
+            "{cid} registered for event {id}: {} {} {}",
+            c_1.unwrap_or_default(),
+            c_2.unwrap_or_default(),
+            c_3.unwrap_or_default()
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
 
     Ok(Redirect::to(&format!("/events/{id}")))
 }
@@ -552,7 +571,12 @@ async fn api_register_unregister(
         .bind(cid)
         .execute(&state.db)
         .await?;
-    info!("{cid} removed their registration to event {id}");
+    record_log(
+        format!("{cid} removed their registration to event {id}"),
+        &state.db,
+        true,
+    )
+    .await?;
     Ok(StatusCode::ACCEPTED)
 }
 
@@ -599,12 +623,17 @@ async fn post_add_position(
         if !existing.iter().any(|position| {
             position.name == name && position.category == new_position_data.category
         }) {
-            info!(
-                "{} adding {}/{} to event {id}",
-                user_info.unwrap().cid,
-                &new_position_data.category,
-                &name,
-            );
+            record_log(
+                format!(
+                    "{} adding {}/{} to event {id}",
+                    user_info.unwrap().cid,
+                    &new_position_data.category,
+                    &name,
+                ),
+                &state.db,
+                true,
+            )
+            .await?;
             sqlx::query(sql::INSERT_EVENT_POSITION)
                 .bind(id)
                 .bind(new_position_data.name.to_uppercase())
@@ -659,10 +688,15 @@ async fn post_delete_position(
             .execute(&mut *tx)
             .await?;
         tx.commit().await?;
-        info!(
-            "{} removed position {pos_id} from {id}",
-            user_info.unwrap().cid,
-        );
+        record_log(
+            format!(
+                "{} removed position {pos_id} from {id}",
+                user_info.unwrap().cid,
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
         flashed_messages::push_flashed_message(
             session,
             flashed_messages::MessageLevel::Info,
@@ -742,12 +776,17 @@ async fn post_set_position(
             .bind(cid)
             .execute(&state.db)
             .await?;
-        info!(
-            "{} updated event {id} position {} to cid {}",
-            user_info.unwrap().cid,
-            new_position_data.position_id,
-            new_position_data.controller
-        );
+        record_log(
+            format!(
+                "{} updated event {id} position {} to cid {}",
+                user_info.unwrap().cid,
+                new_position_data.position_id,
+                new_position_data.controller
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
         Ok(Redirect::to(&format!("/events/{id}")))
     } else {
         Ok(Redirect::to("/"))
