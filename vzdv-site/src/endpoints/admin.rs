@@ -27,7 +27,7 @@ use uuid::Uuid;
 use vzdv::{
     get_controller_cids_and_names,
     sql::{
-        self, Activity, Controller, Feedback, FeedbackForReview, NoShow, Resource, SoloCert,
+        self, Activity, Controller, Feedback, FeedbackForReview, Log, NoShow, Resource, SoloCert,
         VisitorRequest,
     },
     vatusa::{self, add_visiting_controller, get_multiple_controller_info},
@@ -1172,6 +1172,31 @@ async fn api_delete_no_show_entry(
     Ok(StatusCode::OK)
 }
 
+/// Show a log of important events.
+///
+/// For admin staff members only.
+async fn page_audit_log(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect.into_response());
+    }
+
+    let logs: Vec<Log> = sqlx::query_as(sql::GET_ALL_LOGS)
+        .fetch_all(&state.db)
+        .await?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let template = state.templates.get_template("admin/audit_log.jinja")?;
+    let rendered = template.render(context! {
+        user_info,
+        flashed_messages,
+        logs
+    })?;
+    Ok(Html(rendered).into_response())
+}
+
 /// This file's routes and templates.
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -1213,4 +1238,5 @@ pub fn router() -> Router<Arc<AppState>> {
             get(page_no_show_list).post(post_new_no_show),
         )
         .route("/admin/no_show_list/:id", delete(api_delete_no_show_entry))
+        .route("/admin/audit_log", get(page_audit_log))
 }

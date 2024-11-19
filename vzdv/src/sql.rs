@@ -167,6 +167,13 @@ pub struct NoShow {
     pub notes: Option<String>,
 }
 
+#[derive(Debug, Clone, FromRow, Serialize)]
+pub struct Log {
+    pub id: u32,
+    pub message: String,
+    pub created_date: DateTime<Utc>,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -322,6 +329,12 @@ CREATE TABLE no_show (
 
     FOREIGN KEY (cid) REFERENCES controller(cid),
     FOREIGN KEY (reported_by) REFERENCES controller(cid)
+) STRICT;
+
+CREATE TABLE log (
+    id INTEGER PRIMARY KEY NOT NULL,
+    message TEXT NOT NULL,
+    created_date TEXT NOT NULL
 ) STRICT;
 "#;
 
@@ -492,3 +505,6 @@ pub const CREATE_NEW_NO_SHOW_ENTRY: &str =
     "INSERT INTO no_show VALUES (NULL, $1, $2, $3, $4, FALSE, $5);";
 pub const DELETE_NO_SHOW_ENTRY: &str = "DELETE FROM no_show WHERE id=$1";
 pub const UPDATE_NO_SHOW_NOTIFIED: &str = "UPDATE no_show SET notified=TRUE where id=$1";
+
+pub const GET_ALL_LOGS: &str = "SELECT * FROM log ORDER BY id DESC";
+pub const CREATE_LOG: &str = "INSERT INTO log VALUES (NULL, $1, $2)";

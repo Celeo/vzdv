@@ -5,13 +5,14 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
 };
-use chrono::{NaiveDateTime, TimeZone};
+use chrono::{NaiveDateTime, TimeZone, Utc};
 use log::{error, info};
 use mini_moka::sync::Cache;
 use minijinja::{context, Environment};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sqlx::{Pool, Sqlite};
 use std::sync::{LazyLock, OnceLock};
 use std::{sync::Arc, time::Instant};
 use tower_sessions_sqlx_store::sqlx::SqlitePool;
@@ -292,6 +293,16 @@ pub fn strip_some_tags(s: &str) -> String {
         ret = re.replace_all(&ret, "").to_string();
     }
     ret
+}
+
+/// Add an audit log message to the DB.
+pub async fn add_log(message: &str, db: &Pool<Sqlite>) -> Result<(), AppError> {
+    sqlx::query(sql::CREATE_LOG)
+        .bind(message)
+        .bind(Utc::now())
+        .execute(db)
+        .await?;
+    Ok(())
 }
 
 #[cfg(test)]
