@@ -63,7 +63,7 @@ async fn handle_single(
         send_dm(
             http,
             discord_user_id,
-            &create_message(entry, &cid_name_map, occurrence_count, config),
+            &create_message(entry, cid_name_map, occurrence_count, config),
         )
         .await?;
         sqlx::query(sql::UPDATE_NO_SHOW_NOTIFIED)
