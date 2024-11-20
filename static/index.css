@@ -8,9 +8,27 @@ dialog::backdrop {
 
 dialog {
   background-color: var(--bs-body-bg);
-  width: 30%;
+  width: 90%;
   border: none;
   border-radius: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  dialog {
+    background-color: var(--bs-body-bg);
+    width: 60%;
+    border: none;
+    border-radius: 1.5rem;
+  }
+}
+
+@media (min-width: 1200px) {
+  dialog {
+    background-color: var(--bs-body-bg);
+    width: 30%;
+    border: none;
+    border-radius: 1.5rem;
+  }
 }
 
 .rank-1 {
