@@ -124,6 +124,7 @@ fn load_router(sessions_layer: SessionManagerLayer<SqliteStore>) -> Router<Arc<A
     Router::new()
         .merge(endpoints::router())
         .merge(endpoints::admin::router())
+        .merge(endpoints::api::router())
         .merge(endpoints::airspace::router())
         .merge(endpoints::auth::router())
         .merge(endpoints::controller::router())

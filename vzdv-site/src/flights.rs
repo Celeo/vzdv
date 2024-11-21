@@ -1,5 +1,5 @@
 use geo::{Contains, LineString, Point, Polygon};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 use thousands::Separable;
 use vatsim_utils::models::Pilot;
@@ -46,7 +46,7 @@ const ZDV_COORDINATES: [(f64, f64); 33] = [
 static ZDV_POLYGON: LazyLock<Polygon> =
     LazyLock::new(|| Polygon::new(LineString::from(ZDV_COORDINATES.to_vec()), Vec::new()));
 
-#[derive(Debug, Clone, Default, Serialize, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Hash, PartialEq, Eq)]
 pub struct OnlineFlight {
     pub pilot_name: String,
     pub pilot_cid: u64,
@@ -57,12 +57,20 @@ pub struct OnlineFlight {
     pub speed: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct OnlineFlights {
     pub plan_within: Vec<OnlineFlight>,
     pub plan_from: Vec<OnlineFlight>,
     pub plan_to: Vec<OnlineFlight>,
     pub actually_within: Vec<OnlineFlight>,
+}
+
+#[derive(Debug, Serialize, Default)]
+pub struct OnlineFlightSummary {
+    pub plan_within: usize,
+    pub plan_from: usize,
+    pub plan_to: usize,
+    pub actually_within: usize,
 }
 
 /// Return a list of flights that are relevant to the airspace.

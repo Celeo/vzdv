@@ -63,6 +63,8 @@ pub enum AppError {
     EmailError(#[from] lettre::transport::smtp::Error),
     #[error(transparent)]
     FileWriteError(#[from] std::io::Error),
+    #[error(transparent)]
+    JsonProcessingError(#[from] serde_json::Error),
     #[error("generic error {0}: {1}")]
     GenericFallback(&'static str, anyhow::Error),
 }
@@ -85,6 +87,7 @@ impl AppError {
             Self::MultipartFormParsing(_) => "Issue parsing form submission",
             Self::EmailError(_) => "Issue sending an email",
             Self::FileWriteError(_) => "Writing to a file",
+            Self::JsonProcessingError(_) => "error processing JSON",
             Self::GenericFallback(_, _) => "Unknown error",
         }
     }

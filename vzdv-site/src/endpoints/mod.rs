@@ -24,6 +24,7 @@ use vzdv::{
 
 pub mod admin;
 pub mod airspace;
+pub mod api;
 pub mod auth;
 pub mod controller;
 pub mod events;
