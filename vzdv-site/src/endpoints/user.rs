@@ -13,11 +13,14 @@ use axum::{
 use chrono::NaiveDateTime;
 use log::{debug, warn};
 use minijinja::context;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 use tower_sessions::Session;
 use vzdv::{
     sql::{self, Controller},
-    vatusa::{self, TrainingRecord},
+    vatusa::{self, get_multiple_controller_names, TrainingRecord},
 };
 
 /// Retrieve and show the user their training records from VATUSA.
@@ -30,8 +33,9 @@ async fn page_training_notes(
         Some(info) => info,
         None => return Ok(Redirect::to("/").into_response()),
     };
+    // let all_training_records = vatusa::get_training_records(user_info.cid, &state.config.vatsim.vatusa_api_key)
     let all_training_records =
-        vatusa::get_training_records(user_info.cid, &state.config.vatsim.vatusa_api_key)
+        vatusa::get_training_records(1640903, &state.config.vatsim.vatusa_api_key)
             .await
             .map_err(|e| {
                 AppError::GenericFallback("getting VATUSA training records by controller", e)
@@ -56,9 +60,17 @@ async fn page_training_notes(
             .unwrap_or_else(|_| NaiveDateTime::default());
         date_b.cmp(&date_a) // sort newest first
     });
+    let instructor_cids: Vec<u32> = training_records
+        .iter()
+        .map(|record| record.instructor_id)
+        .collect::<HashSet<u32>>()
+        .iter()
+        .copied()
+        .collect();
+    let instructors = get_multiple_controller_names(&instructor_cids).await;
 
     let template = state.templates.get_template("user/training_notes.jinja")?;
-    let rendered = template.render(context! { user_info, training_records })?;
+    let rendered = template.render(context! { user_info, training_records, instructors })?;
     Ok(Html(rendered).into_response())
 }
 

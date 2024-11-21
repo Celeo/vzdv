@@ -18,7 +18,7 @@
           aria-expanded="false"
           aria-controls="record-{{ record.id }}"
         >
-          #{{ record.id }} on {{ record.position }}
+          #{{ record.id }} on {{ record.position }} on {{ record.session_date }} for {{ record.duration }} with {{ instructors[record.instructor_id] }}
         </button>
       </h2>
       <div id="record-{{ record.id }}" class="accordion-collapse collapse" data-bs-parent="#training_records_accordion">
