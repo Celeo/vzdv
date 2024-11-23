@@ -19,7 +19,9 @@
   <tbody>
     {% for airport in weather %}
       <tr>
-        <td>{{ airport.name }}</td>
+        <td>
+          <a href="https://metar-taf.com/{{ airport.name }}" target="_blank">{{ airport.name }}</a>
+        </td>
         <td>{{ airport.visibility }}</td>
         <td>
           {% if airport.ceiling == 3456 %}
@@ -45,6 +47,6 @@
   </tbody>
 </table>
 
-<script src="/assets/sorttable.js"></script>
+<script src="/static/sorttable.js"></script>
 
 {% endblock %}

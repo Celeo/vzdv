@@ -14,12 +14,9 @@
       href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
       crossorigin="anonymous"
     />
-    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
-    <style>
-      .navbar-collapse { flex-grow: 0 !important; }
-    </style>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link rel="stylesheet" href="/static/index.css">
     <title>{% block title %}vZDV{% endblock %}</title>
-    {% block head_extra %}{% endblock %}
   </head>
   <body style="background-color: #212529">
     <nav class="navbar navbar-expand-lg bg-body-tertiary shadow-sm mb-3">
@@ -92,10 +89,13 @@
                   <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">Admin</a>
                   <ul class="dropdown-menu">
                     <li><a href="/admin/off_roster_list" class="dropdown-item">Off-roster list</a></li>
+                    <li><a href="/admin/solo_cert_list" class="dropdown-item">Solo certs</a></li>
+                    <li><a href="/admin/no_show_list" class="dropdown-item">No shows</a></li>
                     {% if user_info.is_named_staff %}
                       <li><a href="/admin/resources" class="dropdown-item">Manage resources</a></li>
                     {% endif %}
                     {% if user_info.is_admin %}
+                      <li><a href="/admin/audit_log" class="dropdown-item">Audit log</a></li>
                       <li><a href="/admin/feedback" class="dropdown-item">Manage feedback</a></li>
                       <li><a href="/admin/visitor_applications" class="dropdown-item">Manage visitor apps</a></li>
                       <li><a href="/admin/activity_report" class="dropdown-item">Activity report</a></li>

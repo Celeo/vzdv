@@ -28,7 +28,7 @@ pub struct Certification {
     pub id: u32,
     pub cid: u32,
     pub name: String,
-    /// "training", "solo", "certified"
+    /// "none", "training", "solo", "certified"
     pub value: String,
     pub changed_on: DateTime<Utc>,
     pub set_by: u32,
@@ -57,6 +57,8 @@ pub struct Feedback {
     pub reviewed_by_cid: u32,
     pub reviewer_action: String,
     pub posted_to_discord: bool,
+    pub contact_me: bool,
+    pub email: Option<String>,
 }
 
 #[derive(Debug, FromRow, Serialize)]
@@ -70,6 +72,8 @@ pub struct FeedbackForReview {
     pub created_date: DateTime<Utc>,
     pub submitter_cid: u32,
     pub reviewer_action: String,
+    pub contact_me: bool,
+    pub email: Option<String>,
 }
 
 #[derive(Debug, FromRow, Serialize, Default)]
@@ -180,6 +184,35 @@ pub struct TrainingRestriction {
     pub created_at: DateTime<Utc>,
 }
 
+#[derive(Debug, FromRow, Serialize)]
+pub struct SoloCert {
+    pub id: u32,
+    pub cid: u32,
+    pub issued_by: u32,
+    pub position: String,
+    pub reported: bool,
+    pub created_date: DateTime<Utc>,
+    pub expiration_date: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, FromRow, Serialize)]
+pub struct NoShow {
+    pub id: u32,
+    pub cid: u32,
+    pub reported_by: u32,
+    pub entry_type: String,
+    pub created_date: DateTime<Utc>,
+    pub notified: bool,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, FromRow, Serialize)]
+pub struct Log {
+    pub id: u32,
+    pub message: String,
+    pub created_date: DateTime<Utc>,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -219,7 +252,9 @@ CREATE TABLE feedback (
     submitter_cid INTEGER NOT NULL,
     reviewed_by_cid INTEGER,
     reviewer_action TEXT NOT NULL DEFAULT 'pending',
-    posted_to_discord INTEGER NOT NULL DEFAULT FALSE
+    posted_to_discord INTEGER NOT NULL DEFAULT FALSE,
+    contact_me INTEGER DEFAULT FALSE,
+    email TEXT
 ) STRICT;
 
 CREATE TABLE activity (
@@ -353,6 +388,38 @@ CREATE TABLE training_restriction (
 
     FOREIGN KEY (cid) REFERENCES controller(cid)
 ) STRICT;
+
+CREATE TABLE solo_cert (
+    id INTEGER PRIMARY KEY NOT NULL,
+    cid INTEGER NOT NULL,
+    issued_by INTEGER NOT NULL,
+    position TEXT NOT NULL,
+    reported INTEGER NOT NULL DEFAULT FALSE,
+    created_date TEXT NOT NULL,
+    expiration_date TEXT NOT NULL,
+
+    FOREIGN KEY (cid) REFERENCES controller(cid),
+    FOREIGN KEY (issued_by) REFERENCES controller(cid)
+) STRICT;
+
+CREATE TABLE no_show (
+    id INTEGER PRIMARY KEY NOT NULL,
+    cid INTEGER NOT NULL,
+    reported_by INTEGER NOT NULL,
+    entry_type TEXT NOT NULL,
+    created_date TEXT NOT NULL,
+    notified INTEGER NOT NULL DEFAULT FALSE,
+    notes TEXT,
+
+    FOREIGN KEY (cid) REFERENCES controller(cid),
+    FOREIGN KEY (reported_by) REFERENCES controller(cid)
+) STRICT;
+
+CREATE TABLE log (
+    id INTEGER PRIMARY KEY NOT NULL,
+    message TEXT NOT NULL,
+    created_date TEXT NOT NULL
+) STRICT;
 "#;
 
 pub const UPSERT_USER_LOGIN: &str = "
@@ -408,6 +475,9 @@ pub const GET_CONTROLLER_BY_DISCORD_ID: &str = "SELECT * FROM controller WHERE d
 pub const SET_CONTROLLER_DISCORD_ID: &str = "UPDATE controller SET discord_id=$2 WHERE cid=$1";
 pub const UNSET_CONTROLLER_DISCORD_ID: &str = "UPDATE controller SET discord_id=NULL WHERE cid=$1";
 pub const SET_CONTROLLER_ROLES: &str = "UPDATE controller SET roles=$2 WHERE cid=$1";
+pub const SET_CONTROLLER_ON_ROSTER: &str = "UPDATE controller SET is_on_roster=$2 WHERE cid=$1";
+pub const GET_CONTROLLERS_WITH_ROLES: &str =
+    "SELECT * FROM controller WHERE roles IS NOT NULL AND roles <> ''";
 
 pub const GET_ALL_CERTIFICATIONS: &str = "SELECT * FROM certification";
 pub const GET_ALL_CERTIFICATIONS_FOR: &str = "SELECT * FROM certification WHERE cid=$1";
@@ -431,9 +501,9 @@ pub const UPDATE_ACTIVITY: &str = "UPDATE activity SET minutes=$3 WHERE cid=$1 A
 
 pub const INSERT_FEEDBACK: &str = "
 INSERT INTO feedback
-    (id, controller, position, rating, comments, created_date, submitter_cid)
+    (id, controller, position, rating, comments, created_date, submitter_cid, contact_me, email)
 VALUES
-    (NULL, $1, $2, $3, $4, $5, $6)
+    (NULL, $1, $2, $3, $4, $5, $6, $7, $8)
 ";
 pub const GET_ALL_PENDING_FEEDBACK: &str =
     "SELECT * FROM feedback WHERE reviewed_by_cid IS NULL OR reviewer_action='archive'";
@@ -507,3 +577,18 @@ pub const CREATE_STAFF_NOTE: &str = "INSERT INTO staff_note VALUES (NULL, $1, $2
 pub const GET_EMAIL_TEMPLATE: &str = "SELECT * FROM email_template WHERE name=$1";
 pub const UPDATE_EMAIL_TEMPLATE: &str =
     "UPDATE email_template SET subject=$2, body=$3 WHERE name=$1";
+
+pub const GET_ALL_SOLO_CERTS: &str = "SELECT * FROM solo_cert";
+pub const GET_ALL_SOLO_CERTS_FOR: &str = "SELECT * FROM solo_cert WHERE cid=$1";
+pub const CREATE_SOLO_CERT: &str = "INSERT INTO solo_cert VALUES (NULL, $1, $2, $3, $4, $5, $6);";
+pub const DELETE_SOLO_CERT: &str = "DELETE FROM solo_cert WHERE id=$1";
+
+pub const GET_NO_SHOW_BY_ID: &str = "SELECT * FROM no_show WHERE id=$1";
+pub const GET_ALL_NO_SHOW: &str = "SELECT * FROM no_show";
+pub const CREATE_NEW_NO_SHOW_ENTRY: &str =
+    "INSERT INTO no_show VALUES (NULL, $1, $2, $3, $4, FALSE, $5);";
+pub const DELETE_NO_SHOW_ENTRY: &str = "DELETE FROM no_show WHERE id=$1";
+pub const UPDATE_NO_SHOW_NOTIFIED: &str = "UPDATE no_show SET notified=TRUE where id=$1";
+
+pub const GET_ALL_LOGS: &str = "SELECT * FROM log ORDER BY id DESC";
+pub const CREATE_LOG: &str = "INSERT INTO log VALUES (NULL, $1, $2)";

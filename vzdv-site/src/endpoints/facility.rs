@@ -2,7 +2,7 @@
 
 use crate::{
     flashed_messages,
-    shared::{AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{record_log, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
     extract::State,
@@ -12,7 +12,7 @@ use axum::{
 };
 use chrono::{DateTime, Months, Utc};
 use itertools::Itertools;
-use log::{error, info, warn};
+use log::{error, warn};
 use minijinja::context;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -527,10 +527,15 @@ async fn page_visitor_application_form_submit(
 
     // ZLC bypass
     if application_form.zlc_bypass.is_some() {
-        info!(
-            "Controller {} is using ZLC visitor requirements bypass",
-            user_info.cid
-        );
+        record_log(
+            format!(
+                "Controller {} is using ZLC visitor requirements bypass",
+                user_info.cid
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
     }
 
     sqlx::query(sql::INSERT_INTO_VISITOR_REQ)

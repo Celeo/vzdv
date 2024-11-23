@@ -3,8 +3,8 @@
 use crate::{
     flashed_messages::{self, MessageLevel},
     shared::{
-        is_user_member_of, js_timestamp_to_utc, post_audit, reject_if_not_in, strip_some_tags,
-        AppError, AppState, UserInfo, SESSION_USER_INFO_KEY,
+        js_timestamp_to_utc, post_audit, record_log, reject_if_not_in, strip_some_tags, AppError,
+        AppState, UserInfo, SESSION_USER_INFO_KEY,
     },
 };
 use axum::{
@@ -15,7 +15,7 @@ use axum::{
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use itertools::Itertools;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use minijinja::context;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
@@ -27,7 +27,7 @@ use std::{
 use tower_sessions::Session;
 use vzdv::{
     controller_can_see, get_controller_cids_and_names, retrieve_all_in_use_ois,
-    sql::{self, Certification, Controller, Feedback, StaffNote},
+    sql::{self, Certification, Controller, Feedback, SoloCert, StaffNote},
     vatsim,
     vatusa::{
         self, get_multiple_controller_names, get_training_records, save_training_record,
@@ -79,6 +79,25 @@ async fn roles_to_set(
         .iter()
         .map(|position| position.as_str().to_owned())
         .collect::<HashSet<String>>())
+}
+
+async fn user_is_training_special(
+    user_info: &Option<UserInfo>,
+    db: &Pool<Sqlite>,
+) -> Result<(bool, bool), AppError> {
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(user_info.as_ref().map(|ui| ui.cid).unwrap_or_default())
+        .fetch_optional(db)
+        .await?;
+    let is_admin = controller_can_see(&controller, PermissionsGroup::Admin);
+    let roles: Vec<_> = controller
+        .as_ref()
+        .map(|c| c.roles.split(',').collect())
+        .unwrap_or_default();
+    Ok((
+        is_admin,
+        is_admin || roles.contains(&"TA") || roles.contains(&"INS"),
+    ))
 }
 
 /// Overview page for a user.
@@ -141,9 +160,10 @@ async fn page_controller(
         };
         certifications.push(CertNameValue { name, value });
     }
-    let roles: Vec<_> = controller.roles.split_terminator(',').collect();
 
-    let is_admin = is_user_member_of(&state, &user_info, PermissionsGroup::Admin).await;
+    let roles: Vec<_> = controller.roles.split_terminator(',').collect();
+    let (is_admin, can_grant_solo) = user_is_training_special(&user_info, &state.db).await?;
+
     let viewing_themselves = user_info.as_ref().map(|info| info.cid).unwrap_or_default() == cid;
     let feedback: Vec<Feedback> = if is_admin {
         sqlx::query_as(sql::GET_ALL_FEEDBACK_FOR)
@@ -158,19 +178,20 @@ async fn page_controller(
     } else {
         Vec::new()
     };
+
+    let all_controllers = get_controller_cids_and_names(&state.db)
+        .await
+        .map_err(|e| AppError::GenericFallback("getting names and CIDs from DB", e))?;
     let staff_notes: Vec<StaffNoteDisplay> = if is_admin {
         let notes: Vec<StaffNote> = sqlx::query_as(sql::GET_STAFF_NOTES_FOR)
             .bind(cid)
             .fetch_all(&state.db)
             .await?;
-        let controllers = get_controller_cids_and_names(&state.db)
-            .await
-            .map_err(|e| AppError::GenericFallback("getting names and CIDs from DB", e))?;
         notes
             .iter()
             .map(|note| StaffNoteDisplay {
                 id: note.id,
-                by: controllers
+                by: all_controllers
                     .iter()
                     .find(|c| *c.0 == note.by)
                     .map(|c| format!("{} {} ({})", c.1 .0, c.1 .1, c.0))
@@ -187,6 +208,11 @@ async fn page_controller(
     let mut settable_roles: Vec<_> = settable_roles_set.iter().collect();
     settable_roles.sort();
 
+    let solo_certs: Vec<SoloCert> = sqlx::query_as(sql::GET_ALL_SOLO_CERTS_FOR)
+        .bind(cid)
+        .fetch_all(&state.db)
+        .await?;
+
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
     let template = state
         .templates
@@ -195,12 +221,15 @@ async fn page_controller(
         user_info,
         controller,
         roles,
+        can_grant_solo,
         rating_str,
         certifications,
         settable_roles,
         feedback,
         staff_notes,
         is_admin,
+        solo_certs,
+        all_controllers,
         flashed_messages
     })?;
     Ok(Html(rendered).into_response())
@@ -223,10 +252,15 @@ async fn api_unlink_discord(
         .execute(&state.db)
         .await?;
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Discord unlinked").await?;
-    info!(
-        "{} unlinked Discord account from {cid}",
-        user_info.unwrap().cid
-    );
+    record_log(
+        format!(
+            "{} unlinked Discord account from {cid}",
+            user_info.unwrap().cid
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
     Ok(Redirect::to(&format!("/controllers/{cid}")))
 }
 
@@ -279,10 +313,15 @@ async fn post_change_ois(
         "Operating initials updated",
     )
     .await?;
-    info!(
-        "{} updated OIs for {cid} to: '{initials}'",
-        user_info.unwrap().cid,
-    );
+    record_log(
+        format!(
+            "{} updated OIs for {cid} to: '{initials}'",
+            user_info.unwrap().cid,
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
@@ -337,10 +376,156 @@ async fn post_change_certs(
             }
         }
     }
+    record_log(
+        format!("{by_cid} updated certs for {cid}"),
+        &state.db,
+        false,
+    )
+    .await?;
 
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Updated certifications")
         .await?;
     Ok(Redirect::to(&format!("/controller/{cid}")))
+}
+
+#[derive(Debug, Deserialize)]
+struct NewSoloCertForm {
+    position: String,
+    report: Option<String>,
+}
+
+/// Post a new solo cert for the controller.
+///
+/// For training staff members, but not Mentors.
+async fn post_new_solo_cert(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(cid): Path<u32>,
+    Form(new_solo_form): Form<NewSoloCertForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let (_, can_grant_solo) = user_is_training_special(&user_info, &state.db).await?;
+    if !can_grant_solo {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "Issuance of solo certs is for Instructors",
+        )
+        .await?;
+        return Ok(Redirect::to(&format!("/controller/{cid}")));
+    }
+    let user_info: UserInfo = user_info.unwrap();
+
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(cid)
+        .fetch_optional(&state.db)
+        .await?;
+    if controller.is_none() {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "Controller not found",
+        )
+        .await?;
+        return Ok(Redirect::to("/facility/roster"));
+    }
+
+    let now = Utc::now();
+    let expiration = now.checked_add_months(chrono::Months::new(1)).unwrap();
+    let position = new_solo_form.position.to_uppercase();
+    sqlx::query(sql::CREATE_SOLO_CERT)
+        .bind(cid)
+        .bind(user_info.cid)
+        .bind(&position)
+        .bind(new_solo_form.report.is_some())
+        .bind(now)
+        .bind(expiration)
+        .execute(&state.db)
+        .await?;
+
+    if new_solo_form.report.is_some() {
+        debug!("Reporting new solo cert to VATUSA");
+        vatusa::report_solo_cert(
+            cid,
+            &position,
+            expiration,
+            &state.config.vatsim.vatusa_api_key,
+        )
+        .await
+        .map_err(|err| AppError::GenericFallback("creating solo cert on VATUSA", err))?;
+    }
+
+    flashed_messages::push_flashed_message(session, MessageLevel::Info, "New solo cert issued")
+        .await?;
+    record_log(
+        format!(
+            "{} added solo cert of {} to {}",
+            user_info.cid, position, cid
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
+    Ok(Redirect::to(&format!("/controller/{cid}")))
+}
+
+/// API endpoint for deleting a solo cert.
+///
+/// For training staff members, but not Mentors.
+async fn api_delete_solo_cert(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path((cid, cert_id)): Path<(u32, u32)>,
+) -> Result<StatusCode, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let (_, can_grant_solo) = user_is_training_special(&user_info, &state.db).await?;
+    if !can_grant_solo {
+        return Ok(StatusCode::FORBIDDEN);
+    }
+    let user_info: UserInfo = user_info.unwrap();
+
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(cid)
+        .fetch_optional(&state.db)
+        .await?;
+    if controller.is_none() {
+        return Ok(StatusCode::NOT_FOUND);
+    }
+    let solo_certs: Vec<SoloCert> = sqlx::query_as(sql::GET_ALL_SOLO_CERTS_FOR)
+        .bind(cid)
+        .fetch_all(&state.db)
+        .await?;
+    let matching = match solo_certs.iter().find(|c| c.id == cert_id) {
+        Some(m) => m,
+        None => {
+            return Ok(StatusCode::NOT_FOUND);
+        }
+    };
+
+    sqlx::query(sql::DELETE_SOLO_CERT)
+        .bind(matching.id)
+        .execute(&state.db)
+        .await?;
+    if matching.reported {
+        debug!("Deleting solo cert from VATUSA");
+        vatusa::delete_solo_cert(cid, &matching.position, &state.config.vatsim.vatusa_api_key)
+            .await
+            .map_err(|err| AppError::GenericFallback("deleting solo cert from VATUSA", err))?;
+    }
+
+    flashed_messages::push_flashed_message(session, MessageLevel::Info, "Solo cert deleted")
+        .await?;
+    record_log(
+        format!(
+            "{} deleted solo cert {} for {} of {}",
+            user_info.cid, matching.id, matching.cid, matching.position
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
+
+    Ok(StatusCode::OK)
 }
 
 #[derive(Deserialize)]
@@ -363,7 +548,12 @@ async fn post_new_staff_note(
         return Ok(redirect);
     }
     let user_info = user_info.unwrap();
-    info!("{} added staff note to {cid}", user_info.cid);
+    record_log(
+        format!("{} added staff note to {cid}", user_info.cid),
+        &state.db,
+        true,
+    )
+    .await?;
     sqlx::query(sql::CREATE_STAFF_NOTE)
         .bind(cid)
         .bind(user_info.cid)
@@ -401,7 +591,12 @@ async fn api_delete_staff_note(
                 .bind(note_id)
                 .execute(&state.db)
                 .await?;
-            info!("{} removed their note #{}", user_info.cid, note_id);
+            record_log(
+                format!("{} removed their note #{}", user_info.cid, note_id),
+                &state.db,
+                true,
+            )
+            .await?;
         }
     }
     Ok(StatusCode::OK)
@@ -421,7 +616,7 @@ async fn snippet_get_training_records(
     {
         return Ok(redirect.into_response());
     }
-    let all_training_records = get_training_records(&state.config.vatsim.vatusa_api_key, cid)
+    let all_training_records = get_training_records(cid, &state.config.vatsim.vatusa_api_key)
         .await
         .map_err(|e| {
             AppError::GenericFallback("getting VATUSA training records by training staff", e)
@@ -543,7 +738,12 @@ async fn post_add_training_note(
                 "New training record saved",
             )
             .await?;
-            info!("{} submitted new training record for {cid}", user_info.cid);
+            record_log(
+                format!("{} submitted new training record for {cid}", user_info.cid),
+                &state.db,
+                true,
+            )
+            .await?;
         }
         Err(e) => {
             error!("Error saving new training record for {cid}: {e}");
@@ -637,7 +837,7 @@ async fn post_set_roles(
         "{} is setting roles for {cid} to '{}'; was '{}'",
         user_info.cid, new_roles, controller.roles
     );
-    info!("{message}");
+    record_log(message.clone(), &state.db, true).await?;
     post_audit(&state.config, message);
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
@@ -695,10 +895,15 @@ async fn post_remove_controller(
         )
         .await
         .map_err(|e| AppError::GenericFallback("removing home controller", e))?;
-        info!(
-            "{} removed home controller {cid}, reason: {}",
-            user_info.cid, &removal_form.reason
-        );
+        record_log(
+            format!(
+                "{} removed home controller {cid}, reason: {}",
+                user_info.cid, &removal_form.reason
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
     } else {
         // visiting
         vatusa::remove_visiting_controller(
@@ -708,10 +913,15 @@ async fn post_remove_controller(
         )
         .await
         .map_err(|e| AppError::GenericFallback("removing visiting controller", e))?;
-        info!(
-            "{} removed visiting controller {cid}, reason: {}",
-            user_info.cid, &removal_form.reason
-        );
+        record_log(
+            format!(
+                "{} removed visiting controller {cid}, reason: {}",
+                user_info.cid, &removal_form.reason
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
     }
     flashed_messages::push_flashed_message(
         session,
@@ -729,6 +939,11 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/controller/:cid/discord/unlink", post(api_unlink_discord))
         .route("/controller/:cid/ois", post(post_change_ois))
         .route("/controller/:cid/certs", post(post_change_certs))
+        .route("/controller/:cid/certs/solo", post(post_new_solo_cert))
+        .route(
+            "/controller/:cid/certs/solo/:cert_id",
+            delete(api_delete_solo_cert),
+        )
         .route("/controller/:cid/note", post(post_new_staff_note))
         .route(
             "/controller/:cid/note/:note_id",

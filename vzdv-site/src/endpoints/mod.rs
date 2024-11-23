@@ -2,7 +2,7 @@
 
 use crate::{
     flashed_messages,
-    shared::{AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{record_log, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
     extract::State,
@@ -10,7 +10,7 @@ use axum::{
     routing::{get, post},
     Form, Router,
 };
-use log::{error, info};
+use log::error;
 use minijinja::context;
 use serde::Deserialize;
 use serde_json::json;
@@ -24,6 +24,7 @@ use vzdv::{
 
 pub mod admin;
 pub mod airspace;
+pub mod api;
 pub mod auth;
 pub mod controller;
 pub mod events;
@@ -74,6 +75,8 @@ struct FeedbackForm {
     position: String,
     rating: String,
     comments: String,
+    email: String,
+    contact_me: Option<String>,
 }
 
 /// Submit the feedback form.
@@ -91,6 +94,8 @@ async fn page_feedback_form_post(
             .bind(&feedback.comments)
             .bind(sqlx::types::chrono::Utc::now())
             .bind(user_info.cid)
+            .bind(feedback.contact_me.is_some())
+            .bind(&feedback.email)
             .execute(&state.db)
             .await?;
         flashed_messages::push_flashed_message(
@@ -99,10 +104,15 @@ async fn page_feedback_form_post(
             "Feedback submitted, thank you!",
         )
         .await?;
-        info!(
-            "{} submitted feedback for {}",
-            user_info.cid, feedback.controller
-        );
+        record_log(
+            format!(
+                "{} submitted feedback for {}",
+                user_info.cid, feedback.controller
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
         let notification_webhook = state.config.discord.webhooks.new_feedback.clone();
         let for_controller: Controller = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
             .bind(feedback.controller)
@@ -178,4 +188,5 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/changelog", get(page_changelog))
         .route("/privacy_policy", get(page_privacy_policy))
         .nest_service("/assets", ServeDir::new("assets"))
+        .nest_service("/static", ServeDir::new("static"))
 }

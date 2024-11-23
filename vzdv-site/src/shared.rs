@@ -5,13 +5,14 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
 };
-use chrono::{NaiveDateTime, TimeZone};
+use chrono::{NaiveDateTime, TimeZone, Utc};
 use log::{error, info};
 use mini_moka::sync::Cache;
 use minijinja::{context, Environment};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sqlx::{Pool, Sqlite};
 use std::sync::{LazyLock, OnceLock};
 use std::{sync::Arc, time::Instant};
 use tower_sessions_sqlx_store::sqlx::SqlitePool;
@@ -62,6 +63,8 @@ pub enum AppError {
     EmailError(#[from] lettre::transport::smtp::Error),
     #[error(transparent)]
     FileWriteError(#[from] std::io::Error),
+    #[error(transparent)]
+    JsonProcessingError(#[from] serde_json::Error),
     #[error("generic error {0}: {1}")]
     GenericFallback(&'static str, anyhow::Error),
 }
@@ -84,6 +87,7 @@ impl AppError {
             Self::MultipartFormParsing(_) => "Issue parsing form submission",
             Self::EmailError(_) => "Issue sending an email",
             Self::FileWriteError(_) => "Writing to a file",
+            Self::JsonProcessingError(_) => "error processing JSON",
             Self::GenericFallback(_, _) => "Unknown error",
         }
     }
@@ -292,6 +296,19 @@ pub fn strip_some_tags(s: &str) -> String {
         ret = re.replace_all(&ret, "").to_string();
     }
     ret
+}
+
+/// Add an audit log message to the DB.
+pub async fn record_log(message: String, db: &Pool<Sqlite>, log: bool) -> Result<(), AppError> {
+    sqlx::query(sql::CREATE_LOG)
+        .bind(&message)
+        .bind(Utc::now())
+        .execute(db)
+        .await?;
+    if log {
+        info!("{message}");
+    }
+    Ok(())
 }
 
 #[cfg(test)]

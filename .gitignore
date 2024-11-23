@@ -1,8 +1,5 @@
 /target
 *.sqlite*
 vzdv.toml
-assets/*
-!assets/index.html
-!assets/favicon.ico
-!assets/sorttable.js
+assets
 *.log

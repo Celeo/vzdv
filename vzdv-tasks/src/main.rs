@@ -10,7 +10,9 @@ use tokio::time;
 use vzdv::general_setup;
 
 mod activity;
+mod no_show_expiration;
 mod roster;
+mod solo_cert;
 
 /// vZDV task runner.
 #[derive(Parser)]
@@ -34,6 +36,7 @@ async fn main() {
     let (config, db) = general_setup(cli.debug, "vzdv_tasks", cli.config).await;
 
     info!("Starting tasks");
+
     let roster_handle = {
         let db = db.clone();
         tokio::spawn(async move {
@@ -98,8 +101,50 @@ async fn main() {
         })
     };
 
+    let solo_cert_handle = {
+        let db: sqlx::Pool<sqlx::Sqlite> = db.clone();
+        tokio::spawn(async move {
+            debug!("Waiting 15 seconds before starting solo cert expiration check");
+            time::sleep(Duration::from_secs(15)).await;
+            loop {
+                match solo_cert::check_expired(&db).await {
+                    Ok(_) => {
+                        debug!("Solo cert expiration checked");
+                    }
+                    Err(e) => {
+                        error!("Error checking for solo cert expiration: {e}");
+                    }
+                }
+                debug!("Waiting 30 minutes for next solo cert expiration check");
+                time::sleep(Duration::from_secs(60 * 30)).await;
+            }
+        })
+    };
+
+    let no_show_expiration_handle = {
+        let db: sqlx::Pool<sqlx::Sqlite> = db.clone();
+        tokio::spawn(async move {
+            debug!("Waiting 15 seconds before starting no-show expiration check");
+            time::sleep(Duration::from_secs(15)).await;
+            loop {
+                match no_show_expiration::check_expired(&db).await {
+                    Ok(_) => {
+                        debug!("No-show expiration checked");
+                    }
+                    Err(e) => {
+                        error!("Error checking for no-show expiration: {e}");
+                    }
+                }
+                debug!("Waiting 12 hours for next no-show expiration check");
+                time::sleep(Duration::from_secs(60 * 60 * 12)).await;
+            }
+        })
+    };
+
     roster_handle.await.unwrap();
     activity_handle.await.unwrap();
+    solo_cert_handle.await.unwrap();
+    no_show_expiration_handle.await.unwrap();
 
     db.close().await;
 }

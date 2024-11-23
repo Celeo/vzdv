@@ -2,11 +2,12 @@
 
 use crate::{
     flashed_messages,
-    flights::get_relevant_flights,
+    flights::{get_relevant_flights, OnlineFlightSummary},
     shared::{is_user_member_of, AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{extract::State, response::Html, routing::get, Router};
 use chrono::Utc;
+use itertools::Itertools;
 use log::warn;
 use minijinja::context;
 use serde::Serialize;
@@ -81,7 +82,13 @@ async fn snippet_weather(State(state): State<Arc<AppState>>) -> Result<Html<Stri
     let resp = GENERAL_HTTP_CLIENT
         .get(format!(
             "https://metar.vatsim.net/{}",
-            state.config.airports.weather_for.join(",")
+            state
+                .config
+                .weather
+                .overview
+                .iter()
+                .map(|s| format!("K{s}"))
+                .join(",")
         ))
         .send()
         .await?;
@@ -109,14 +116,6 @@ async fn snippet_weather(State(state): State<Arc<AppState>>) -> Result<Html<Stri
 }
 
 async fn snippet_flights(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
-    #[derive(Serialize, Default)]
-    struct OnlineFlights {
-        plan_within: usize,
-        plan_from: usize,
-        plan_to: usize,
-        actually_within: usize,
-    }
-
     // cache this endpoint's returned data for 15 seconds
     let cache_key = "ONLINE_FLIGHTS_HOMEPAGE";
     if let Some(cached) = state.cache.get(&cache_key) {
@@ -129,7 +128,7 @@ async fn snippet_flights(State(state): State<Arc<AppState>>) -> Result<Html<Stri
 
     let data = Vatsim::new().await?.get_v3_data().await?;
     let flights = get_relevant_flights(&state.config, &data.pilots);
-    let flights = OnlineFlights {
+    let flights = OnlineFlightSummary {
         plan_within: flights.plan_within.len(),
         plan_from: flights.plan_from.len(),
         plan_to: flights.plan_to.len(),

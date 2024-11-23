@@ -3,7 +3,7 @@
 use crate::{
     flashed_messages,
     flights::get_relevant_flights,
-    shared::{AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{record_log, AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
     extract::State,
@@ -12,7 +12,7 @@ use axum::{
     Form, Router,
 };
 use itertools::Itertools;
-use log::{info, warn};
+use log::warn;
 use minijinja::context;
 use serde::Deserialize;
 use serde_json::json;
@@ -28,7 +28,13 @@ async fn page_airports(
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let template = state.templates.get_template("airspace/airports.jinja")?;
-    let airports = &state.config.airports.all;
+    let airports: Vec<_> = state
+        .config
+        .airports
+        .all
+        .iter()
+        .sorted_by(|a, b| a.code.cmp(&b.code))
+        .collect();
     let rendered = template.render(context! { user_info, airports })?;
     Ok(Html(rendered))
 }
@@ -93,10 +99,11 @@ async fn page_weather(
             "https://metar.vatsim.net/{}",
             state
                 .config
-                .airports
+                .weather
                 .all
                 .iter()
-                .map(|airport| &airport.code)
+                .map(|s| format!("K{s}"))
+                .sorted()
                 .join(",")
         ))
         .send()
@@ -212,7 +219,12 @@ async fn page_staffing_request_post(
             }))
             .send()
             .await?;
-        info!("{} submitted a staffing request", user_info.cid);
+        record_log(
+            format!("{} submitted a staffing request", user_info.cid),
+            &state.db,
+            true,
+        )
+        .await?;
         if resp.status().is_success() {
             flashed_messages::push_flashed_message(
                 session,

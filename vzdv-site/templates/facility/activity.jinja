@@ -2,23 +2,6 @@
 
 {% block title %}Activity | {{ super() }}{% endblock %}
 
-{% block head_extra %}
-<style>
-  .rank-1 {
-    font-weight: bolder;
-    color: gold;
-  }
-  .rank-2 {
-    font-weight: bolder;
-    color: #a8b7e6;
-  }
-  .rank-3 {
-    font-weight: bolder;
-    color: #8C7853;
-  }
-</style>
-{% endblock %}
-
 {% block body %}
 
 <h2>Activity</h2>
@@ -61,6 +44,6 @@
   </tbody>
 </table>
 
-<script src="/assets/sorttable.js"></script>
+<script src="/static/sorttable.js"></script>
 
 {% endblock %}

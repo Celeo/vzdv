@@ -4,8 +4,8 @@ use crate::{
     email::{self, send_mail},
     flashed_messages::{self, MessageLevel},
     shared::{
-        is_user_member_of, post_audit, reject_if_not_in, AppError, AppState, CacheEntry, UserInfo,
-        SESSION_USER_INFO_KEY,
+        is_user_member_of, post_audit, record_log, reject_if_not_in, AppError, AppState,
+        CacheEntry, UserInfo, SESSION_USER_INFO_KEY,
     },
 };
 use axum::{
@@ -15,7 +15,7 @@ use axum::{
     Form, Router,
 };
 use chrono::{DateTime, Months, Utc};
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use minijinja::context;
 use reqwest::StatusCode;
 use rev_buf_reader::RevBufReader;
@@ -26,7 +26,10 @@ use tower_sessions::Session;
 use uuid::Uuid;
 use vzdv::{
     get_controller_cids_and_names,
-    sql::{self, Activity, Controller, Feedback, FeedbackForReview, Resource, VisitorRequest},
+    sql::{
+        self, Activity, Controller, Feedback, FeedbackForReview, Log, NoShow, Resource, SoloCert,
+        VisitorRequest,
+    },
     vatusa::{self, add_visiting_controller, get_multiple_controller_info},
     ControllerRating, PermissionsGroup, GENERAL_HTTP_CLIENT,
 };
@@ -44,12 +47,12 @@ async fn page_feedback(
     if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
         return Ok(redirect.into_response());
     }
-    let template = state.templates.get_template("admin/feedback.jinja")?;
     let pending_feedback: Vec<FeedbackForReview> =
         sqlx::query_as(sql::GET_PENDING_FEEDBACK_FOR_REVIEW)
             .fetch_all(&state.db)
             .await?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let template = state.templates.get_template("admin/feedback.jinja")?;
     let rendered = template.render(context! {
         user_info,
         flashed_messages,
@@ -90,7 +93,12 @@ async fn post_feedback_form_handle(
                 .bind(feedback_form.id)
                 .execute(&state.db)
                 .await?;
-            info!("{} archived feedback {}", user_info.cid, feedback.id);
+            record_log(
+                format!("{} archived feedback {}", user_info.cid, feedback.id),
+                &state.db,
+                true,
+            )
+            .await?;
             flashed_messages::push_flashed_message(
                 session,
                 MessageLevel::Success,
@@ -102,14 +110,19 @@ async fn post_feedback_form_handle(
                 .bind(feedback_form.id)
                 .execute(&state.db)
                 .await?;
-            info!(
-                "{} deleted {} feedback {} for {} by {}",
-                user_info.cid,
-                feedback.rating,
-                feedback.id,
-                feedback.controller,
-                feedback.submitter_cid
-            );
+            record_log(
+                format!(
+                    "{} deleted {} feedback {} for {} by {}",
+                    user_info.cid,
+                    feedback.rating,
+                    feedback.id,
+                    feedback.controller,
+                    feedback.submitter_cid
+                ),
+                &state.db,
+                true,
+            )
+            .await?;
             flashed_messages::push_flashed_message(
                 session,
                 MessageLevel::Success,
@@ -138,7 +151,13 @@ async fn post_feedback_form_handle(
                             },
                             {
                                 "name": "Rating",
-                                "value": feedback.rating
+                                "value": match feedback.rating.as_str() {
+                                    "excellent" => "Excellent",
+                                    "good" => "Good",
+                                    "fair" => "Fair",
+                                    "poor" => "Poor",
+                                    _ => "?"
+                                }
                             },
                             {
                                 "name": "Comments",
@@ -149,10 +168,15 @@ async fn post_feedback_form_handle(
                 }))
                 .send()
                 .await?;
-            info!(
-                "{} submitted feedback {} to Discord",
-                user_info.cid, feedback.id
-            );
+            record_log(
+                format!(
+                    "{} submitted feedback {} to Discord",
+                    user_info.cid, feedback.id
+                ),
+                &state.db,
+                true,
+            )
+            .await?;
             sqlx::query(sql::UPDATE_FEEDBACK_TAKE_ACTION)
                 .bind(user_info.cid)
                 .bind("post")
@@ -174,14 +198,19 @@ async fn post_feedback_form_handle(
                 .bind(feedback_form.id)
                 .execute(&state.db)
                 .await?;
-            info!(
-                "{} silently-approved {} feedback {} for {} by {}",
-                user_info.cid,
-                feedback.rating,
-                feedback.id,
-                feedback.controller,
-                feedback.submitter_cid
-            );
+            record_log(
+                format!(
+                    "{} silently-approved {} feedback {} for {} by {}",
+                    user_info.cid,
+                    feedback.rating,
+                    feedback.id,
+                    feedback.controller,
+                    feedback.submitter_cid
+                ),
+                &state.db,
+                true,
+            )
+            .await?;
             flashed_messages::push_flashed_message(
                 session,
                 MessageLevel::Success,
@@ -229,10 +258,15 @@ async fn post_feedback_edited_form_handle(
             "Feedback comments updated",
         )
         .await?;
-        info!(
-            "{} updated feedback {} comments",
-            user_info.cid, edit_form.id
-        );
+        record_log(
+            format!(
+                "{} updated feedback {} comments",
+                user_info.cid, edit_form.id
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
     } else {
         flashed_messages::push_flashed_message(session, MessageLevel::Error, "Unknown feedback ID")
             .await?;
@@ -372,12 +406,17 @@ async fn post_email_manual_send(
             return Ok(Redirect::to("/admin/emails").into_response());
         }
     };
-    info!(
-        "{} sent {} email to {}",
-        user_info.unwrap().cid,
-        manual_email_form.template,
-        manual_email_form.recipient
-    );
+    record_log(
+        format!(
+            "{} sent {} email to {}",
+            user_info.unwrap().cid,
+            manual_email_form.template,
+            manual_email_form.recipient
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
     send_mail(
         &state.config,
         &state.db,
@@ -533,16 +572,28 @@ async fn post_visitor_application_action(
         vatusa::get_controller_info(request.cid, Some(&state.config.vatsim.vatusa_api_key))
             .await
             .map_err(|err| AppError::GenericFallback("getting controller info", err))?;
-    info!(
-        "{} taking action {} on visitor request {id}",
-        user_info.cid, action_form.action
-    );
+    record_log(
+        format!(
+            "{} taking action {} on visitor request {id}",
+            user_info.cid, action_form.action
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
 
     if action_form.action == "accept" {
-        // add to roster
+        // add to roster in VATUSA
         add_visiting_controller(request.cid, &state.config.vatsim.vatusa_api_key)
             .await
             .map_err(|err| AppError::GenericFallback("could not add visitor", err))?;
+
+        // update controller record now rather than waiting for the task sync
+        sqlx::query(sql::SET_CONTROLLER_ON_ROSTER)
+            .bind(request.cid)
+            .bind(true)
+            .execute(&state.db)
+            .await?;
 
         // inform if possible
         if let Some(email_address) = controller_info.email {
@@ -662,7 +713,7 @@ async fn api_delete_resource(
         "{} deleted resource {id} (name: {}, category: {})",
         user_info.cid, resource.name, resource.category
     );
-    info!("{message}");
+    record_log(message.clone(), &state.db, true).await?;
     post_audit(&state.config, message);
     Ok(StatusCode::OK)
 }
@@ -734,14 +785,14 @@ async fn post_new_resource(
         "{} created a new resource name: {}, category: {}",
         user_info.cid, resource.name, resource.category,
     );
-    info!("{message}");
+    record_log(message.clone(), &state.db, true).await?;
     post_audit(&state.config, message);
     Ok(Redirect::to("/admin/resources"))
 }
 
 /// Page for controllers that are not on the roster but have controller DB entries.
 ///
-/// Named staff members only.
+/// Any staff members only.
 async fn page_off_roster_list(
     State(state): State<Arc<AppState>>,
     session: Session,
@@ -819,7 +870,12 @@ async fn page_activity_report_generate(
         state.cache.invalidate(&cache_key);
     }
 
-    info!("{} generating activity report", user_info.cid);
+    record_log(
+        format!("{} generating activity report", user_info.cid),
+        &state.db,
+        true,
+    )
+    .await?;
     let now = Utc::now();
     let months: [String; 3] = [
         now.format("%Y-%m").to_string(),
@@ -878,7 +934,7 @@ async fn page_activity_report_generate(
             continue;
         }
         let records =
-            match vatusa::get_training_records(&state.config.vatsim.vatusa_api_key, controller.cid)
+            match vatusa::get_training_records(controller.cid, &state.config.vatsim.vatusa_api_key)
                 .await
             {
                 Ok(t) => t,
@@ -909,9 +965,6 @@ async fn page_activity_report_generate(
         }
     }
 
-    let cid_name_map = get_controller_cids_and_names(&state.db)
-        .await
-        .map_err(|err| AppError::GenericFallback("getting cids and names from DB", err))?;
     let template = state
         .templates
         .get_template("admin/activity_report.jinja")?;
@@ -920,12 +973,277 @@ async fn page_activity_report_generate(
         controllers,
         rated_violations,
         unrated_violations,
-        cid_name_map,
         now_utc => Utc::now().to_rfc2822(),
     })?;
     state
         .cache
         .insert(cache_key, CacheEntry::new(rendered.clone()));
+    Ok(Html(rendered).into_response())
+}
+
+/// Page to centrally view all active solo certs.
+///
+/// All staff members only.
+async fn page_solo_cert_list(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::SomeStaff).await
+    {
+        return Ok(redirect.into_response());
+    }
+    let user_info = user_info.unwrap();
+    let solo_certs: Vec<SoloCert> = sqlx::query_as(sql::GET_ALL_SOLO_CERTS)
+        .fetch_all(&state.db)
+        .await?;
+    let cids_and_names = get_controller_cids_and_names(&state.db)
+        .await
+        .map_err(|err| AppError::GenericFallback("getting cids and names from DB", err))?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let template = state.templates.get_template("admin/solo_cert_list.jinja")?;
+    let rendered = template.render(context! {
+        user_info,
+        flashed_messages,
+        solo_certs,
+        cids_and_names
+    })?;
+    Ok(Html(rendered).into_response())
+}
+
+/// Page for listing and adding no-shows for training and events.
+///
+/// For any staff member.
+async fn page_no_show_list(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::SomeStaff).await
+    {
+        return Ok(redirect.into_response());
+    }
+    let user_info = user_info.unwrap();
+
+    let (filtering, no_shows) = {
+        let no_shows: Vec<NoShow> = sqlx::query_as(sql::GET_ALL_NO_SHOW)
+            .fetch_all(&state.db)
+            .await?;
+
+        if user_info.is_admin || (user_info.is_event_staff && user_info.is_training_staff) {
+            ("all", no_shows)
+        } else {
+            let filter = if user_info.is_event_staff {
+                "event"
+            } else if user_info.is_training_staff {
+                "training"
+            } else {
+                "none"
+            };
+            (
+                filter,
+                no_shows
+                    .iter()
+                    .filter(|ns| ns.entry_type == filter)
+                    .map(|ns| ns.to_owned())
+                    .collect(),
+            )
+        }
+    };
+
+    let all_controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS)
+        .fetch_all(&state.db)
+        .await?;
+    let all_controllers: Vec<(u32, String)> = all_controllers
+        .iter()
+        .map(|controller| {
+            (
+                controller.cid,
+                format!(
+                    "{} {} ({})",
+                    controller.first_name,
+                    controller.last_name,
+                    match controller.operating_initials.as_ref() {
+                        Some(oi) => {
+                            if oi.is_empty() {
+                                "??"
+                            } else {
+                                oi
+                            }
+                        }
+                        None => "??",
+                    }
+                ),
+            )
+        })
+        .collect();
+    let cid_name_name = get_controller_cids_and_names(&state.db)
+        .await
+        .map_err(|err| AppError::GenericFallback("getting cids and names from DB", err))?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let template = state.templates.get_template("admin/no_show_list.jinja")?;
+    let rendered = template.render(context! {
+        user_info,
+        flashed_messages,
+        all_controllers,
+        cid_name_name,
+        filtering,
+        no_shows
+    })?;
+    Ok(Html(rendered).into_response())
+}
+
+#[derive(Debug, Deserialize)]
+struct NewNoShowForm {
+    controller: Option<u32>,
+    entry_type: Option<String>,
+    notes: Option<String>,
+}
+
+/// Submit a new no-show entry.
+///
+/// For any staff member.
+async fn post_new_no_show(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Form(new_entry_form): Form<NewNoShowForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::SomeStaff).await
+    {
+        return Ok(redirect);
+    }
+    let user_info = user_info.unwrap();
+
+    if new_entry_form.controller.is_none() {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "Controller not selected",
+        )
+        .await?;
+        return Ok(Redirect::to("/admin/no_show_list"));
+    }
+    if new_entry_form.entry_type.is_none() {
+        flashed_messages::push_flashed_message(session, MessageLevel::Error, "Type not selected")
+            .await?;
+        return Ok(Redirect::to("/admin/no_show_list"));
+    }
+
+    let matching_controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(new_entry_form.controller)
+        .fetch_optional(&state.db)
+        .await?;
+    if matching_controller.is_none() {
+        flashed_messages::push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "No matching controller found",
+        )
+        .await?;
+        return Ok(Redirect::to("/admin/no_show_list"));
+    }
+
+    sqlx::query(sql::CREATE_NEW_NO_SHOW_ENTRY)
+        .bind(new_entry_form.controller.unwrap())
+        .bind(user_info.cid)
+        .bind(&new_entry_form.entry_type)
+        .bind(Utc::now())
+        .bind(&new_entry_form.notes)
+        .execute(&state.db)
+        .await?;
+    flashed_messages::push_flashed_message(session, MessageLevel::Success, "Entry added").await?;
+    record_log(
+        format!(
+            "{} added new no-show entry for {} of {}",
+            user_info.cid,
+            new_entry_form.controller.unwrap(),
+            new_entry_form.entry_type.unwrap()
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
+    Ok(Redirect::to("/admin/no_show_list"))
+}
+
+/// API endpoint to delete a no-show entry.
+///
+/// For any staff member.
+async fn api_delete_no_show_entry(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(id): Path<u32>,
+) -> Result<StatusCode, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if reject_if_not_in(&state, &user_info, PermissionsGroup::SomeStaff)
+        .await
+        .is_some()
+    {
+        return Ok(StatusCode::FORBIDDEN);
+    }
+    let user_info = user_info.unwrap();
+
+    let no_show_entry: Option<NoShow> = sqlx::query_as(sql::GET_NO_SHOW_BY_ID)
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?;
+    let no_show_entry = match no_show_entry {
+        Some(e) => e,
+        None => {
+            flashed_messages::push_flashed_message(
+                session,
+                MessageLevel::Error,
+                "No entry with that ID found",
+            )
+            .await?;
+            warn!(
+                "{} tried to delete unknown no-show entry {}",
+                user_info.cid, id
+            );
+            return Ok(StatusCode::NOT_FOUND);
+        }
+    };
+    sqlx::query(sql::DELETE_NO_SHOW_ENTRY)
+        .bind(id)
+        .execute(&state.db)
+        .await?;
+    flashed_messages::push_flashed_message(session, MessageLevel::Success, "Entry deleted").await?;
+    record_log(
+        format!(
+            "{} deleted no-show entry #{} of {} from {}",
+            user_info.cid, id, no_show_entry.entry_type, no_show_entry.reported_by
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
+
+    Ok(StatusCode::OK)
+}
+
+/// Show a log of important events.
+///
+/// For admin staff members only.
+async fn page_audit_log(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect.into_response());
+    }
+
+    let logs: Vec<Log> = sqlx::query_as(sql::GET_ALL_LOGS)
+        .fetch_all(&state.db)
+        .await?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let template = state.templates.get_template("admin/audit_log.jinja")?;
+    let rendered = template.render(context! {
+        user_info,
+        flashed_messages,
+        logs
+    })?;
     Ok(Html(rendered).into_response())
 }
 
@@ -964,4 +1282,11 @@ pub fn router() -> Router<Arc<AppState>> {
             "/admin/activity_report/generate",
             get(page_activity_report_generate),
         )
+        .route("/admin/solo_cert_list", get(page_solo_cert_list))
+        .route(
+            "/admin/no_show_list",
+            get(page_no_show_list).post(post_new_no_show),
+        )
+        .route("/admin/no_show_list/:id", delete(api_delete_no_show_entry))
+        .route("/admin/audit_log", get(page_audit_log))
 }

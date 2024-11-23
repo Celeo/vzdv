@@ -98,6 +98,24 @@ async fn main() {
         });
     };
 
+    {
+        let config = config.clone();
+        let db = db.clone();
+        let http = http.clone();
+        tokio::spawn(async move {
+            tasks::solo_certs::process(config, db, http).await;
+        });
+    };
+
+    {
+        let config = config.clone();
+        let db = db.clone();
+        let http = http.clone();
+        tokio::spawn(async move {
+            tasks::no_shows::process(config, db, http).await;
+        });
+    };
+
     info!("Connected to Gateway");
     loop {
         let event = match shard.next_event().await {

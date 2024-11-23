@@ -2,7 +2,7 @@ use crate::{
     config::Config, get_controller_cids_and_names, position_in_facility_airspace,
     GENERAL_HTTP_CLIENT,
 };
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -45,7 +45,12 @@ pub async fn get_online_facility_controllers(
     };
 
     let now = chrono::Utc::now();
-    let data = Vatsim::new().await?.get_v3_data().await?;
+    let data = Vatsim::new()
+        .await
+        .context("determining VATSIM live endpoint")?
+        .get_v3_data()
+        .await
+        .context("getting v3 live data")?;
     let online: Vec<_> = data
         .controllers
         .iter()

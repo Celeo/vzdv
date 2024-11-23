@@ -1,0 +1,50 @@
+{% extends "_layout.jinja" %}
+
+{% block title %}Solo certs | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h2 class="pb-3">Solo certs</h2>
+
+<p>
+  This page lists the solo certifications granted by the Training Department to home and visiting controllers.
+  <br><br>
+  To add a solo certification, go to the controller's page from the Roster and use the "Edit solo certs" button.
+  Solo certifications can optionally be reported to VATUSA. Check with the TA on which should or should not; this site does not
+  make that differentiation automatically.
+  <br>
+  To remove a solo certification, either allow it to expire or go to the controller's page from the Roster or link here, click
+  "Edit solo certs" again and delete the cert.
+</p>
+
+<table class="table table-striped table-hover">
+  <thead>
+    <tr>
+      <th>Student</th>
+      <th>Trainer</th>
+      <th>Position</th>
+      <th>VATUSA notified</th>
+      <th>Created</th>
+      <th>Expiration</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for cert in solo_certs %}
+      <tr>
+        <td>
+          {{ cids_and_names[cert.cid][0] }} {{ cids_and_names[cert.cid][1] }}
+          <a href="/controller/{{ cert.cid }}" class="icon-link icon-link-hover text-decoration-none">
+            <i class="bi bi-arrow-right-short"></i>
+          </a>
+        </td>
+        <td>{{ cids_and_names[cert.issued_by][0] }} {{ cids_and_names[cert.issued_by][1] }}</td>
+        <td>{{ cert.position }}</td>
+        <td>{{ cert.reported }}</td>
+        <td>{{ cert.created_date|simple_date }}</td>
+        <td>{{ cert.expiration_date|simple_date }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

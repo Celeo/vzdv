@@ -19,5 +19,5 @@ twilight-http = "0.15.4"
 twilight-interactions = "0.15.2"
 twilight-model = "0.15.4"
 twilight-util = { version = "0.15.4", features = ["builder"] }
-vatsim_utils = "0.5.1"
+vatsim_utils = "0.5.2"
 chrono = "0.4.38"
