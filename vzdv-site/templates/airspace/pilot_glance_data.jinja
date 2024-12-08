@@ -1,0 +1,22 @@
+<table class="table table-striped table-hover">
+  <thead>
+    <tr>
+      <th>Pilot callsign</th>
+      <th>Aircraft</th>
+      <th>Time piloting</th>
+      <th>Time controlling</th>
+      <th>Transponder</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for entry in aircraft %}
+      <tr>
+        <td>{{ entry.callsign }}</td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td>{{ entry.transponder }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

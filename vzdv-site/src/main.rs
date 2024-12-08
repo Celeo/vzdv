@@ -205,7 +205,7 @@ async fn main() {
         config,
         db: db.clone(),
         templates,
-        cache: Cache::new(10),
+        cache: Cache::new(20),
     });
     let app = router.with_state(app_state);
     let assets_dir = Path::new("./assets");

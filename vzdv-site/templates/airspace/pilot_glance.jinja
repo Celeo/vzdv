@@ -1,0 +1,37 @@
+{% extends "_layout.jinja" %}
+
+{% block title %}Pilot glance | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h2>Pilot glance for {{ airport }}</h2>
+
+<!--
+  <div id="data" hx-get="/airspace/pilot_glance/{{ airport }}/data" hx-trigger="load, every 1m"></div>
+-->
+
+<div id="main">
+  <form action="#" method="GET" hx-get="/airspace/pilot_glance/data" hx-target="#main" hx-trigger="submit, every 1m">
+    <div class="row">
+      <div class="col-3 mb-3">
+        <label for="airport" class="form-label">Airport</label>
+        <input type="text" name="airport" id="airport" class="form-control" maxlength="4" style="text-transform: uppercase" placeholder="KDEN">
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-3">
+        <button class="btn btn-primary" role="button" type="submit">View</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- <script defer>
+  document.getElementById('airportForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const airport = document.getElementById('airport').value;
+    console.log(`Submitted: ${airport}`);
+  });
+</script> -->
+
+{% endblock %}

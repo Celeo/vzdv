@@ -3,23 +3,32 @@
 use crate::{
     flashed_messages,
     flights::get_relevant_flights,
+    load_templates,
     shared::{record_log, AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
-    extract::State,
-    response::{Html, Redirect},
+    extract::{Path, Query, State},
+    response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
     Form, Router,
 };
 use itertools::Itertools;
 use log::warn;
 use minijinja::context;
+use reqwest::StatusCode;
 use serde::Deserialize;
 use serde_json::json;
-use std::{collections::HashSet, sync::Arc, time::Instant};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Instant,
+};
 use tower_sessions::Session;
 use vatsim_utils::live_api::Vatsim;
 use vzdv::{aviation::parse_metar, GENERAL_HTTP_CLIENT};
+
+/// How far away from the selected airport to show pilots in the pilot glance page.
+const GLANCE_DISTANCE: f64 = 20.0;
 
 /// Table of all the airspace's airports.
 async fn page_airports(
@@ -251,6 +260,79 @@ async fn page_staffing_request_post(
     Ok(Redirect::to("/airspace/staffing_request"))
 }
 
+/// Page to show pilot info near an airport.
+async fn page_pilot_glance(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await.unwrap();
+    if user_info.is_none() {
+        return Ok(Redirect::to("/").into_response());
+    }
+    // FIXME
+    // let template = state.templates.get_template("airspace/pilot_glance.jinja")?;
+    let env = load_templates()?;
+    let template = env.get_template("airspace/pilot_glance.jinja")?;
+    let rendered = template.render(context! { user_info })?;
+    Ok(Html(rendered).into_response())
+}
+
+/// API endpoint to get pilot data near an airport.
+async fn page_pilot_glance_data(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Query(params): Query<HashMap<String, String>>,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await.unwrap();
+    if user_info.is_none() {
+        return Ok(StatusCode::NOT_FOUND.into_response());
+    }
+    let airport = match params.get("airport") {
+        Some(a) => a.to_uppercase(),
+        None => {
+            return Ok(StatusCode::NOT_FOUND.into_response());
+        }
+    };
+
+    // TODO
+
+    // // cache this endpoint's returned data for 1 minute
+    // let cache_key = "PILOT_GLANCE";
+    // if let Some(cached) = state.cache.get(&cache_key) {
+    //     let elapsed = Instant::now() - cached.inserted;
+    //     if elapsed.as_secs() < 60 {
+    //         return Ok(Html(cached.data).into_response());
+    //     }
+    //     state.cache.invalidate(&cache_key);
+    // }
+
+    let airport_info = match vatsim_utils::distance::AIRPORTS_MAP.get(airport.as_str()) {
+        Some(info) => info,
+        None => {
+            return Ok(StatusCode::NOT_FOUND.into_response());
+        }
+    };
+    let data = Vatsim::new().await?.get_v3_data().await?;
+    let aircraft: Vec<_> = data
+        .pilots
+        .iter()
+        .filter(|pilot| {
+            vatsim_utils::distance::haversine(
+                airport_info.latitude,
+                airport_info.longitude,
+                pilot.latitude,
+                pilot.longitude,
+            ) <= GLANCE_DISTANCE
+        })
+        .collect();
+
+    let template = state
+        .templates
+        .get_template("airspace/pilot_glance_data.jinja")?;
+    let rendered = template.render(context! { user_info, aircraft })?;
+    Ok(Html(rendered).into_response())
+}
+
 /// This file's routes and templates.
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -258,6 +340,8 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/airspace/flights", get(page_flights))
         .route("/airspace/weather", get(page_weather))
         .route("/airspace/staffing_request", get(page_staffing_request))
+        .route("/airspace/pilot_glance", get(page_pilot_glance))
+        .route("/airspace/pilot_glance/data", get(page_pilot_glance_data))
         .route(
             "/airspace/staffing_request",
             post(page_staffing_request_post),
