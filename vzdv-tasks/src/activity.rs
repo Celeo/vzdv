@@ -149,6 +149,10 @@ pub async fn update_online_controller_activity(config: &Config, db: &Pool<Sqlite
         if !on_roster_cids.contains(&cid) {
             continue;
         }
+        if !position_in_facility_airspace(config, &controller.callsign) {
+            // ignore controlling in other facilities and observers
+            continue;
+        }
         debug!("Spot-updating activity for {cid}");
         if let Err(e) =
             update_single_activity(config, db, &start_of_month, cid, &controller.logon_time).await
