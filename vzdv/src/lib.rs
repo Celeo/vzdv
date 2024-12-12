@@ -550,6 +550,7 @@ pub mod tests {
         assert!(position_in_facility_airspace(&config, "DEN_2_TWR"));
         assert!(!position_in_facility_airspace(&config, "SAN_GND"));
         assert!(!position_in_facility_airspace(&config, "DENN_F_TWR"));
+        assert!(!position_in_facility_airspace(&config, "1111111_OBS"));
     }
 
     #[test]
