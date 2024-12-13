@@ -9,9 +9,11 @@ vzdv = { path = "../vzdv" }
 anyhow = "1.0.86"
 base64 = "0.22.1"
 chrono-tz = "0.9.0"
+chrono = "0.4.38"
 clap = { version = "4.5.1", features = ["derive"] }
 log = "0.4.22"
 rand = "0.8.5"
+select = "0.6.0"
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio", "sqlx-sqlite", "chrono"] }
 tokio = { version = "1.38.0", features = ["full"] }
 twilight-gateway = "0.15.4"
@@ -20,4 +22,3 @@ twilight-interactions = "0.15.2"
 twilight-model = "0.15.4"
 twilight-util = { version = "0.15.4", features = ["builder"] }
 vatsim_utils = "0.5.2"
-chrono = "0.4.38"
