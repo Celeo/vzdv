@@ -861,7 +861,7 @@ async fn page_activity_report_generate(
     let user_info = user_info.unwrap();
 
     // cache this endpoint's returned data for 6 hours
-    let cache_key = "ACTIVITY_REPORT";
+    let cache_key = "ACTIVITY_REPORT".to_string();
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
         if elapsed.as_secs() < 60 * 60 * 6 {

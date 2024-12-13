@@ -46,7 +46,7 @@ async fn snippet_online_controllers(
     State(state): State<Arc<AppState>>,
 ) -> Result<Html<String>, AppError> {
     // cache this endpoint's returned data for 30 seconds
-    let cache_key = "ONLINE_CONTROLLERS";
+    let cache_key = "ONLINE_CONTROLLERS".to_string();
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
         if elapsed.as_secs() < 30 {
@@ -70,7 +70,7 @@ async fn snippet_online_controllers(
 
 async fn snippet_weather(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
     // cache this endpoint's returned data for 5 minutes
-    let cache_key = "WEATHER_BRIEF";
+    let cache_key = "WEATHER_BRIEF".to_string();
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
         if elapsed.as_secs() < 300 {
@@ -117,7 +117,7 @@ async fn snippet_weather(State(state): State<Arc<AppState>>) -> Result<Html<Stri
 
 async fn snippet_flights(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
     // cache this endpoint's returned data for 15 seconds
-    let cache_key = "ONLINE_FLIGHTS_HOMEPAGE";
+    let cache_key = "ONLINE_FLIGHTS_HOMEPAGE".to_string();
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
         if elapsed.as_secs() < 15 {
@@ -145,7 +145,7 @@ async fn snippet_flights(State(state): State<Arc<AppState>>) -> Result<Html<Stri
 
 async fn snippet_cotm(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
     // cache this endpoint's returned data for 1 minute
-    let cache_key = "COTM";
+    let cache_key = "COTM".to_string();
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
         if elapsed.as_secs() < 60 {

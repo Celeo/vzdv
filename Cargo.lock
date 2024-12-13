@@ -3915,9 +3915,9 @@ dependencies = [
 
 [[package]]
 name = "vatsim_utils"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "284aca9cd266d654eaf8603d06c3f557e8474850818b458a51961338c2cb2e78"
+checksum = "8035d69a3e9b13f225c3452b0c8c247dcdc29258c7123d961bfd4be252678628"
 dependencies = [
  "http 0.2.12",
  "log",

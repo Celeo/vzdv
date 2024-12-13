@@ -55,7 +55,7 @@ async fn page_flights(
     session: Session,
 ) -> Result<Html<String>, AppError> {
     // cache this endpoint's returned data for 15 seconds
-    let cache_key = "ONLINE_FLIGHTS_FULL";
+    let cache_key = "ONLINE_FLIGHTS_FULL".to_string();
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
         if elapsed.as_secs() < 15 {
@@ -95,7 +95,7 @@ async fn page_weather(
     session: Session,
 ) -> Result<Html<String>, AppError> {
     // cache this endpoint's returned data for 5 minutes
-    let cache_key = "WEATHER_FULL";
+    let cache_key = "WEATHER_FULL".to_string();
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
         if elapsed.as_secs() < 300 {
@@ -305,7 +305,7 @@ async fn page_pilot_glance_data(
     };
 
     // cache this endpoint's returned data for 1 minute
-    let cache_key = "PILOT_GLANCE";
+    let cache_key = format!("PILOT_GLANCE-{airport}");
     if let Some(cached) = state.cache.get(&cache_key) {
         let elapsed = Instant::now() - cached.inserted;
         if elapsed.as_secs() < 60 {

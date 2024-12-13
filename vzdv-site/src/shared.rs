@@ -173,7 +173,7 @@ pub struct AppState {
     /// Loaded templates
     pub templates: Environment<'static>,
     /// Server-side cache for heavier-compute rendered templates
-    pub cache: Cache<&'static str, CacheEntry>,
+    pub cache: Cache<String, CacheEntry>,
 }
 
 /// Key for user info CRUD in session.
