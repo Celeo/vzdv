@@ -253,7 +253,7 @@ async fn page_staffing_request_post(
         flashed_messages::push_flashed_message(
             session,
             flashed_messages::MessageLevel::Error,
-            "You must be logged in to submit a request",
+            "You must be logged in to submit a staffing request",
         )
         .await?;
     }

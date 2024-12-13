@@ -1,7 +1,8 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use log::{debug, error, info};
+use select::{document::Document, predicate::Name};
 use sqlx::{Pool, Sqlite};
-use std::{fmt::Write, sync::Arc, time::Duration};
+use std::{collections::HashSet, fmt::Write, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use twilight_http::Client;
 use twilight_model::id::Id;
@@ -11,7 +12,42 @@ use vzdv::{
     config::Config,
     position_in_facility_airspace,
     sql::{self, Controller},
+    GENERAL_HTTP_CLIENT,
 };
+
+/// Query the VATUSA website for the list of ACE controllers' CIDs.
+async fn get_ace_controllers() -> Result<Vec<u64>> {
+    let html = GENERAL_HTTP_CLIENT
+        .get("https://www.vatusa.net/info/ace")
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    let doc = Document::from(html.as_str());
+    let table_body = doc
+        .find(Name("table"))
+        .next()
+        .ok_or_else(|| anyhow!("Empty iter"))?
+        .find(Name("tbody"))
+        .next()
+        .ok_or_else(|| anyhow!("Empty iter"))?;
+
+    let cids = table_body
+        .find(Name("tr"))
+        .flat_map(|row| match row.find(Name("td")).next() {
+            Some(col) => {
+                let text = col.text();
+                match text.parse() {
+                    Ok(n) => Some(n),
+                    Err(_) => None,
+                }
+            }
+            None => None,
+        })
+        .collect();
+    Ok(cids)
+}
 
 /// Single loop execution.
 async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Result<()> {
@@ -19,7 +55,12 @@ async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Re
     let on_roster: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS_ON_ROSTER)
         .fetch_all(db)
         .await?;
-    let on_roster_cids: Vec<_> = on_roster.iter().map(|c| c.cid as u64).collect();
+    let on_roster_cids = {
+        let mut set: HashSet<u64> = on_roster.iter().map(|c| c.cid as u64).collect();
+        let ace = get_ace_controllers().await?;
+        set.extend(ace.iter());
+        set
+    };
 
     let mut violations = String::new();
     for online in data.controllers {
@@ -31,7 +72,7 @@ async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Re
                 online.name, online.cid, online.callsign
             );
             info!("{s}");
-            writeln!(violations, "{s}")?;
+            writeln!(violations, "{s}\n")?;
         }
     }
 
