@@ -9,14 +9,45 @@
     </tr>
   </thead>
   <tbody>
-    {% for entry in aircraft %}
+    {% for entry in glance_data %}
       <tr>
         <td>{{ entry.callsign }}</td>
-        <td></td>
-        <td></td>
-        <td></td>
-        <td>{{ entry.transponder }}</td>
+        <td>{{ entry.aircraft }}</td>
+        <td>{{ entry.time_piloting }}</td>
+        <td>{{ entry.time_controlling }}</td>
+        <td>{{ entry.transponder }} {% if entry.transponder != entry.assigned_transponder %}({{ entry.assigned_transponder }}){% endif %}</td>
       </tr>
     {% endfor %}
   </tbody>
 </table>
+
+<button class="btn btn-primary btn-sm" hx-get="/airspace/pilot_glance/data?airport={{ airport }}" hx-target="#main" hx-indicator="#activity-report-retrieve-indicator">
+  <i class="bi bi-arrow-clockwise"></i>
+  Refresh
+</button>
+
+<div class="htmx-indicator pt-2 ps-1" id="activity-report-retrieve-indicator">
+  <svg
+    width="38"
+    height="38"
+    viewBox="0 0 38 38"
+    xmlns="http://www.w3.org/2000/svg"
+    stroke="#fff"
+  >
+    <g fill="none" fill-rule="evenodd">
+      <g transform="translate(1 1)" stroke-width="2">
+        <circle stroke-opacity=".5" cx="18" cy="18" r="18" />
+        <path d="M36 18c0-9.94-8.06-18-18-18">
+          <animateTransform
+            attributeName="transform"
+            type="rotate"
+            from="0 18 18"
+            to="360 18 18"
+            dur="1s"
+            repeatCount="indefinite"
+          />
+        </path>
+      </g>
+    </g>
+  </svg>
+</div>

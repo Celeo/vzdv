@@ -28,6 +28,7 @@ mini-moka = { version = "0.10.3", features = ["sync"] }
 minijinja = { version = "2.0.3", features = ["loader"] }
 minijinja-autoreload = "2.3.1"
 minijinja-embed = "2.3.1"
+num-format = "0.4.4"
 reqwest = { version = "0.12.5", default-features = false, features = [] }
 rev_buf_reader = "0.3.0"
 serde = { version = "1.0.196", features = ["derive"] }

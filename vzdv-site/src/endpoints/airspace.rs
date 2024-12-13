@@ -3,11 +3,10 @@
 use crate::{
     flashed_messages,
     flights::get_relevant_flights,
-    load_templates,
     shared::{record_log, AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Query, State},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
     Form, Router,
@@ -15,16 +14,18 @@ use axum::{
 use itertools::Itertools;
 use log::warn;
 use minijinja::context;
+use num_format::{Locale, ToFormattedString};
 use reqwest::StatusCode;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
     time::Instant,
 };
+use tokio::task::JoinSet;
 use tower_sessions::Session;
-use vatsim_utils::live_api::Vatsim;
+use vatsim_utils::{live_api::Vatsim, rest_api::get_ratings_times};
 use vzdv::{aviation::parse_metar, GENERAL_HTTP_CLIENT};
 
 /// How far away from the selected airport to show pilots in the pilot glance page.
@@ -269,12 +270,21 @@ async fn page_pilot_glance(
     if user_info.is_none() {
         return Ok(Redirect::to("/").into_response());
     }
-    // FIXME
-    // let template = state.templates.get_template("airspace/pilot_glance.jinja")?;
-    let env = load_templates()?;
-    let template = env.get_template("airspace/pilot_glance.jinja")?;
+    let template = state
+        .templates
+        .get_template("airspace/pilot_glance.jinja")?;
     let rendered = template.render(context! { user_info })?;
     Ok(Html(rendered).into_response())
+}
+
+#[derive(Debug, Serialize)]
+struct PilotGlance {
+    callsign: String,
+    aircraft: String,
+    time_piloting: String,
+    time_controlling: String,
+    transponder: String,
+    assigned_transponder: String,
 }
 
 /// API endpoint to get pilot data near an airport.
@@ -294,17 +304,15 @@ async fn page_pilot_glance_data(
         }
     };
 
-    // TODO
-
-    // // cache this endpoint's returned data for 1 minute
-    // let cache_key = "PILOT_GLANCE";
-    // if let Some(cached) = state.cache.get(&cache_key) {
-    //     let elapsed = Instant::now() - cached.inserted;
-    //     if elapsed.as_secs() < 60 {
-    //         return Ok(Html(cached.data).into_response());
-    //     }
-    //     state.cache.invalidate(&cache_key);
-    // }
+    // cache this endpoint's returned data for 1 minute
+    let cache_key = "PILOT_GLANCE";
+    if let Some(cached) = state.cache.get(&cache_key) {
+        let elapsed = Instant::now() - cached.inserted;
+        if elapsed.as_secs() < 60 {
+            return Ok(Html(cached.data).into_response());
+        }
+        state.cache.invalidate(&cache_key);
+    }
 
     let airport_info = match vatsim_utils::distance::AIRPORTS_MAP.get(airport.as_str()) {
         Some(info) => info,
@@ -313,7 +321,7 @@ async fn page_pilot_glance_data(
         }
     };
     let data = Vatsim::new().await?.get_v3_data().await?;
-    let aircraft: Vec<_> = data
+    let pilots: Vec<_> = data
         .pilots
         .iter()
         .filter(|pilot| {
@@ -326,10 +334,58 @@ async fn page_pilot_glance_data(
         })
         .collect();
 
+    let mut timing_map = HashMap::new();
+    let mut futures = JoinSet::new();
+    pilots
+        .iter()
+        .map(|pilot| pilot.cid)
+        .collect::<HashSet<u64>>()
+        .iter()
+        .for_each(|&cid| {
+            futures.spawn(get_ratings_times(cid));
+        });
+    while let Some(res) = futures.join_next().await {
+        if let Ok(Ok(data)) = res {
+            timing_map.insert(data.id as u64, (data.pilot, data.atc));
+        }
+    }
+
+    let glance_data: Vec<_> = pilots
+        .iter()
+        .map(|pilot| {
+            let (t_pilot, t_atc) = timing_map.get(&pilot.cid).unwrap_or(&(0.0, 0.0));
+            (pilot, t_pilot, t_atc)
+        })
+        .sorted_by(|(_, time_a, _), (_, time_b, _)| {
+            time_a
+                .partial_cmp(time_b)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(pilot, t_pilot, t_atc)| PilotGlance {
+            callsign: pilot.callsign.clone(),
+            aircraft: pilot
+                .flight_plan
+                .as_ref()
+                .map(|fp| fp.aircraft.clone())
+                .unwrap_or_else(|| String::from("?")),
+            time_piloting: (t_pilot.round() as i64).to_formatted_string(&Locale::en),
+            time_controlling: (t_atc.round() as i64).to_formatted_string(&Locale::en),
+            transponder: pilot.transponder.clone(),
+            assigned_transponder: pilot
+                .flight_plan
+                .as_ref()
+                .map(|fp| fp.assigned_transponder.clone())
+                .unwrap_or_else(|| pilot.transponder.clone()),
+        })
+        .collect();
+
     let template = state
         .templates
         .get_template("airspace/pilot_glance_data.jinja")?;
-    let rendered = template.render(context! { user_info, aircraft })?;
+    let rendered = template.render(context! { user_info, glance_data, airport })?;
+    state
+        .cache
+        .insert(cache_key, CacheEntry::new(rendered.clone()));
     Ok(Html(rendered).into_response())
 }
 

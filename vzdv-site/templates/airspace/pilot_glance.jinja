@@ -4,14 +4,17 @@
 
 {% block body %}
 
-<h2>Pilot glance for {{ airport }}</h2>
+<h2 class="pb-3">Pilot glance</h2>
 
-<!--
-  <div id="data" hx-get="/airspace/pilot_glance/{{ airport }}/data" hx-trigger="load, every 1m"></div>
--->
+<p>
+  This page gives information on pilots who are within 20 miles of the selected airport, intended to help give additional time and
+  clarity to new pilots.
+  <br>
+  This is <strong>not</strong> to be used as a way to shame or ridicule newer pilots. Remember the VATSIM COC.
+</p>
 
 <div id="main">
-  <form action="#" method="GET" hx-get="/airspace/pilot_glance/data" hx-target="#main" hx-trigger="submit, every 1m">
+  <form action="#" method="GET" hx-get="/airspace/pilot_glance/data" hx-target="#main" hx-trigger="submit" hx-indicator="#activity-report-retrieve-indicator">
     <div class="row">
       <div class="col-3 mb-3">
         <label for="airport" class="form-label">Airport</label>
@@ -24,14 +27,32 @@
       </div>
     </div>
   </form>
-</div>
 
-<!-- <script defer>
-  document.getElementById('airportForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const airport = document.getElementById('airport').value;
-    console.log(`Submitted: ${airport}`);
-  });
-</script> -->
+  <div class="htmx-indicator pt-2 ps-1" id="activity-report-retrieve-indicator">
+    <svg
+      width="38"
+      height="38"
+      viewBox="0 0 38 38"
+      xmlns="http://www.w3.org/2000/svg"
+      stroke="#fff"
+    >
+      <g fill="none" fill-rule="evenodd">
+        <g transform="translate(1 1)" stroke-width="2">
+          <circle stroke-opacity=".5" cx="18" cy="18" r="18" />
+          <path d="M36 18c0-9.94-8.06-18-18-18">
+            <animateTransform
+              attributeName="transform"
+              type="rotate"
+              from="0 18 18"
+              to="360 18 18"
+              dur="1s"
+              repeatCount="indefinite"
+            />
+          </path>
+        </g>
+      </g>
+    </svg>
+  </div>
+</div>
 
 {% endblock %}
