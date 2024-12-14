@@ -117,10 +117,16 @@ pub async fn handler(
         match &event.0.data.as_ref().unwrap() {
             InteractionData::ApplicationCommand(_app_command) => {
                 info!("Got event command by {author_id}; building dropdown");
-                let events: Vec<vzdv::sql::Event> = sqlx::query_as(sql::GET_ALL_UPCOMING_EVENTS)
-                    .bind(Utc::now())
-                    .fetch_all(db)
-                    .await?;
+                let events: Vec<_> = {
+                    let all: Vec<vzdv::sql::Event> =
+                        sqlx::query_as(sql::GET_ALL_EVENTS).fetch_all(db).await?;
+                    let upcoming = all
+                        .iter()
+                        .filter(|event| event.end >= Utc::now())
+                        .cloned()
+                        .collect();
+                    upcoming
+                };
                 if events.is_empty() {
                     interaction.create_response(event.id, &event.token, &InteractionResponse {
                         kind: twilight_model::http::interaction::InteractionResponseType::ChannelMessageWithSource,
