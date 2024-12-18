@@ -1,3 +1,5 @@
+//! HTTP endpoint for third-parties to query.
+
 use crate::{
     flights::{get_relevant_flights, OnlineFlights},
     shared::{AppError, AppState, CacheEntry},

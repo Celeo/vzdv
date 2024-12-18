@@ -13,15 +13,17 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Pool, Sqlite};
-use std::sync::{LazyLock, OnceLock};
-use std::{sync::Arc, time::Instant};
+use std::{
+    sync::Arc,
+    sync::{LazyLock, OnceLock},
+    time::Instant,
+};
 use tower_sessions_sqlx_store::sqlx::SqlitePool;
-use vzdv::GENERAL_HTTP_CLIENT;
 use vzdv::{
     config::Config,
     controller_can_see,
     sql::{self, Controller},
-    PermissionsGroup,
+    PermissionsGroup, GENERAL_HTTP_CLIENT,
 };
 
 /// Discord webhook for reporting errors.

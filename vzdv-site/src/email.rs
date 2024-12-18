@@ -1,11 +1,16 @@
+//! HTTP endpoints for managing some email configuration.
+
 use crate::shared::AppError;
-use lettre::message::header::ContentType;
-use lettre::transport::smtp::authentication::Credentials;
-use lettre::{Message, SmtpTransport, Transport};
+use lettre::{
+    message::header::ContentType, transport::smtp::authentication::Credentials, Message,
+    SmtpTransport, Transport,
+};
 use minijinja::{context, Environment};
 use sqlx::{Pool, Sqlite};
-use vzdv::config::Config;
-use vzdv::sql::{self, Controller, EmailTemplate};
+use vzdv::{
+    config::Config,
+    sql::{self, Controller, EmailTemplate},
+};
 
 /// Email template names.
 pub mod templates {
