@@ -1,0 +1,99 @@
+{% extends "_layout.jinja" %}
+
+{% block title %}Alias Reference | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h2>Alias Reference</h2>
+<input type="text" id="searchBar" placeholder="Search commands or contents..." class="form-control mb-3">
+
+<div class="list-group" id="aliasContainer">
+  {% for h1, h2_list in alias_ref %}
+    <!-- Top-Level Heading -->
+    <a href="#heading-{{ loop.index }}" class="list-group-item list-group-item-action" data-bs-toggle="collapse">
+      <strong>{{ h1 }}</strong>
+    </a>
+    <div class="collapse list-group" id="heading-{{ loop.index }}">
+      {% set parent_index = loop.index %}
+      {% for h2, commands in h2_list %}
+        {% if h2 == "__root__" %}
+          <!-- Commands directly under H1 -->
+          {% for command in commands %}
+            <div class="list-group-item" style="padding-left: 30px;">
+              {{ command }}
+            </div>
+          {% endfor %}
+        {% else %}
+          <!-- Subheading -->
+          <a href="#subheading-{{ parent_index }}-{{ loop.index }}" 
+             class="list-group-item list-group-item-action" 
+             data-bs-toggle="collapse" 
+             style="padding-left: 30px;">
+            {{ h2 }}
+          </a>
+          <div class="collapse list-group" id="subheading-{{ parent_index }}-{{ loop.index }}">
+            {% for command in commands %}
+              <!-- Commands under H2 -->
+              <div class="list-group-item" style="padding-left: 45px;">
+                {{ command }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endfor %}
+</div>
+
+<script>
+  const searchBar = document.getElementById('searchBar');
+  const aliasContainer = document.getElementById('aliasContainer');
+
+  searchBar.addEventListener('input', function () {
+    const query = searchBar.value.toLowerCase();
+    const allItems = aliasContainer.querySelectorAll('.list-group-item'); // All items
+    const allCollapsibles = aliasContainer.querySelectorAll('.collapse'); // All collapsible sections
+
+    // Collapse all sections initially
+    allCollapsibles.forEach(collapse => collapse.classList.remove('show'));
+
+    let hasMatch = false;
+
+    allItems.forEach(item => {
+      const text = item.textContent.toLowerCase();
+
+      if (text.includes(query)) {
+        // Show matching items
+        item.style.display = '';
+        hasMatch = true;
+
+        // Expand parent collapsible sections
+        let parentCollapse = item.closest('.collapse');
+        while (parentCollapse) {
+          parentCollapse.classList.add('show'); // Expand the collapsible
+          parentCollapse = parentCollapse.parentElement.closest('.collapse');
+        }
+
+        // Show parent H2 or H1 explicitly
+        let currentElement = item;
+        while (currentElement) {
+          const siblingHeading = currentElement.previousElementSibling;
+          if (siblingHeading && siblingHeading.classList.contains('list-group-item')) {
+            siblingHeading.style.display = ''; // Show the immediate heading (H2 or H1)
+          }
+          currentElement = currentElement.closest('.collapse')?.previousElementSibling;
+        }
+      } else {
+        // Hide non-matching items
+        item.style.display = 'none';
+      }
+    });
+
+    // If no matches are found, collapse all sections
+    if (!hasMatch) {
+      allCollapsibles.forEach(collapse => collapse.classList.remove('show'));
+    }
+  });
+</script>
+
+{% endblock %}
