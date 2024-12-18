@@ -11,6 +11,7 @@ use axum::{
     Form, Router,
 };
 use chrono::{DateTime, Months, Utc};
+use indexmap::IndexMap;
 use itertools::Itertools;
 use log::{error, warn};
 use minijinja::context;
@@ -37,6 +38,8 @@ struct StaffPosition {
     email: Option<String>,
     description: &'static str,
 }
+
+type ParsedAlias = Vec<(String, Vec<(String, Vec<String>)>)>;
 
 fn generate_staff_outline(config: &Config) -> HashMap<&'static str, StaffPosition> {
     let email_domain = &config.staff.email_domain;
@@ -397,6 +400,71 @@ async fn page_resources(
     Ok(Html(rendered))
 }
 
+pub async fn fetch_and_parse_alias_file() -> Result<ParsedAlias, reqwest::Error> {
+    let url = "https://data-api.vnas.vatsim.net/Files/Aliases/ZDV.txt";
+    let response = reqwest::get(url).await?.text().await?;
+
+    let mut parsed_data: IndexMap<String, IndexMap<String, Vec<String>>> = IndexMap::new();
+    let mut current_h1 = String::new();
+    let mut current_h2 = String::new();
+
+    for line in response.lines() {
+        if line.starts_with(";;;;") {
+            // New Heading 1
+            current_h1 = line.strip_prefix(";;;;").unwrap_or(line).trim().to_string();
+            parsed_data.entry(current_h1.clone()).or_default();
+            current_h2 = String::new(); // Reset H2
+        } else if line.starts_with(";;;") {
+            // New Heading 2
+            current_h2 = line.strip_prefix(";;;").unwrap_or(line).trim().to_string();
+            parsed_data
+                .entry(current_h1.clone())
+                .or_default()
+                .entry(current_h2.clone())
+                .or_default();
+        } else if line.starts_with('.') {
+            // Command under current H1 or H2
+            if !current_h1.is_empty() {
+                if !current_h2.is_empty() {
+                    parsed_data
+                        .entry(current_h1.clone())
+                        .or_default()
+                        .entry(current_h2.clone())
+                        .or_default()
+                        .push(line.trim().to_string());
+                } else {
+                    // Command directly under H1
+                    parsed_data
+                        .entry(current_h1.clone())
+                        .or_default()
+                        .entry("__root__".to_string())
+                        .or_default()
+                        .push(line.trim().to_string());
+                }
+            }
+        }
+    }
+
+    // Convert IndexMap to Vec for Jinja compatibility
+    let parsed_vec: ParsedAlias = parsed_data
+        .into_iter()
+        .map(|(h1, h2_map)| {
+            let h2_vec = h2_map.into_iter().collect();
+            (h1, h2_vec)
+        })
+        .collect();
+
+    Ok(parsed_vec)
+}
+
+/// View Alias commands for the facility. (Polled from the vNAS API)
+async fn alias_ref(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
+    let template = state.templates.get_template("facility/aliasref.jinja")?;
+    let alias_ref = fetch_and_parse_alias_file().await?;
+    let rendered = template.render(context! { alias_ref })?;
+    Ok(Html(rendered))
+}
+
 /// Check visitor requirements and submit an application.
 async fn page_visitor_application(
     State(state): State<Arc<AppState>>,
@@ -583,6 +651,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/facility/staff", get(page_staff))
         .route("/facility/activity", get(page_activity))
         .route("/facility/resources", get(page_resources))
+        .route("/facility/aliasref", get(alias_ref))
         .route(
             "/facility/visitor_application",
             get(page_visitor_application),
