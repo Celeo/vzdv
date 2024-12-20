@@ -5,16 +5,20 @@ use crate::{
     shared::{record_log, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
 };
 use axum::{
-    extract::State,
-    response::{Html, Redirect},
+    extract::{Path, State},
+    response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
     Form, Router,
 };
 use log::error;
 use minijinja::context;
+use reqwest::StatusCode;
 use serde::Deserialize;
 use serde_json::json;
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::{Arc, LazyLock},
+};
 use tower_http::services::ServeDir;
 use tower_sessions::Session;
 use vzdv::{
@@ -31,6 +35,10 @@ pub mod events;
 pub mod facility;
 pub mod homepage;
 pub mod user;
+
+/// Special "content-type" overrides for some files under ./static.
+static SPECIAL_STATIC_CONTENT_TYPE: LazyLock<HashMap<&'static str, &'static str>> =
+    LazyLock::new(|| HashMap::from([("vatis.json", "application/octet-stream")]));
 
 /// 404 not found page.
 ///
@@ -178,6 +186,21 @@ async fn page_privacy_policy(
     Ok(Html(rendered))
 }
 
+/// Return files under ./static with custom content-type overrides.
+async fn page_static_special(Path(name): Path<String>) -> Result<Response, AppError> {
+    let content_type = match SPECIAL_STATIC_CONTENT_TYPE.get(name.as_str()) {
+        Some(ct) => ct,
+        None => return Ok(StatusCode::NOT_FOUND.into_response()),
+    };
+    let content = std::fs::read_to_string(std::path::Path::new("static").join(&name))?;
+    let resp = (
+        [(axum::http::header::CONTENT_TYPE, content_type.to_owned())],
+        content,
+    )
+        .into_response();
+    Ok(resp)
+}
+
 /// This file's routes and templates.
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -187,5 +210,6 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/changelog", get(page_changelog))
         .route("/privacy_policy", get(page_privacy_policy))
         .nest_service("/assets", ServeDir::new("assets"))
+        .route("/static_special/:name", get(page_static_special))
         .nest_service("/static", ServeDir::new("static"))
 }
