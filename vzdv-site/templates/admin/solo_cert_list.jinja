@@ -39,7 +39,7 @@
         </td>
         <td>{{ cids_and_names[cert.issued_by][0] }} {{ cids_and_names[cert.issued_by][1] }}</td>
         <td>{{ cert.position }}</td>
-        <td>{{ cert.reported }}</td>
+        <td>{% if cert.reported %}Yes{% else %}No{% endif %}</td>
         <td>{{ cert.created_date|simple_date }}</td>
         <td>{{ cert.expiration_date|simple_date }}</td>
       </tr>
