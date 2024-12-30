@@ -273,8 +273,11 @@
 
 <dialog id="modalChangeRoles">
   <h2 class="pb-3">Edit roles</h2>
-  <p>These are roles <i>on this site</i> and do not change anything that VATUSA, etc. know about the controller.</p>
-  <p>Sr Staff roles will sync from VATUSA, which may overwrite whatever is set here.</p>
+  <p>
+    These are roles <i>on this site</i> and do not change anything that VATUSA, etc. know about the controller.
+    <br>
+    Sr Staff and Mentor roles will sync from VATUSA, which may overwrite whatever is set here.
+  </p>
   <form action="/controller/{{ controller.cid }}/roles" method="POST">
     {% for role in settable_roles %}
       <div class="row">

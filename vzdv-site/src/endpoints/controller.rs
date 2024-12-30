@@ -52,7 +52,7 @@ async fn roles_to_set(
     };
     let mut roles_to_set = Vec::new();
     let user_roles: Vec<_> = match &controller {
-        Some(c) => c.roles.split_terminator('\n').collect(),
+        Some(c) => c.roles.split_terminator(',').collect(),
         None => {
             return Ok(HashSet::new());
         }
@@ -61,6 +61,8 @@ async fn roles_to_set(
         roles_to_set.push(StaffPosition::AFE);
     } else if user_roles.contains(&"EC") {
         roles_to_set.push(StaffPosition::AEC);
+    } else if user_roles.contains(&"TA") {
+        roles_to_set.push(StaffPosition::MTR);
     } else if controller_can_see(&controller, PermissionsGroup::Admin) {
         roles_to_set.push(vzdv::StaffPosition::ATM);
         roles_to_set.push(vzdv::StaffPosition::DATM);
