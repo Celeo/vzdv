@@ -1247,6 +1247,20 @@ async fn page_audit_log(
     Ok(Html(rendered).into_response())
 }
 
+/// Allow staff to create DokuWiki accounts.
+async fn page_wiki(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::SomeStaff).await
+    {
+        return Ok(redirect.into_response());
+    }
+
+    todo!()
+}
+
 /// This file's routes and templates.
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -1289,4 +1303,5 @@ pub fn router() -> Router<Arc<AppState>> {
         )
         .route("/admin/no_show_list/:id", delete(api_delete_no_show_entry))
         .route("/admin/audit_log", get(page_audit_log))
+        .route("/admin/wiki", get(page_wiki))
 }

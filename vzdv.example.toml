@@ -399,3 +399,8 @@ password = ""
 from = ""
 reply_to = ""
 
+
+[dokuwiki]
+domain = "https://wiki.zdvartcc.org/"
+api_token = ""
+user_file_path = ""

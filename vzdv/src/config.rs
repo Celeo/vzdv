@@ -18,6 +18,7 @@ pub struct Config {
     pub stats: ConfigStats,
     pub discord: ConfigDiscord,
     pub email: ConfigEmail,
+    pub dokuwiki: ConfigDokuWiki,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -146,6 +147,13 @@ pub struct ConfigEmail {
     pub password: String,
     pub from: String,
     pub reply_to: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct ConfigDokuWiki {
+    pub domain: String,
+    pub api_token: String,
+    pub user_file_path: String,
 }
 
 impl Config {

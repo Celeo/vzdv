@@ -89,3 +89,8 @@ user = ""
 password = ""
 from = ""
 reply_to = ""
+
+[dokuwiki]
+domain = ""
+api_token = ""
+user_file_path = ""
