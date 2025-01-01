@@ -4,21 +4,35 @@
 
 {% block body %}
 
-<h2>Activity report</h2>
-<p>
-  Click this button to load the activity report for the facility.<br>
-  It can take a short while to generate.
-</p>
-<p class="pb-3">
-  This report shows rated controllers who have not met the activity requirement in the last 3 months
-  and Observer controllers who have had no training notes added from this facility in the same time frame.
-</p>
+<div id="report-area">
+  <h2>Activity report</h2>
+  <p>
+    Click this button to load the activity report for the facility.<br>
+    It can take a short while to generate.
+  </p>
+  <p class="pb-3">
+    This report shows rated controllers who have not met the activity requirement in the last 3 months
+    and Observer controllers who have had no training notes added from this facility in the same time frame.
+  </p>
 
-<div>
-  <button id="generate-report" class="btn btn-sm btn-primary" hx-get="/admin/activity_report/generate" hx-swap="outerHTML" hx-indicator="#activity-report-retrieve-indicator">
-    <i class="bi bi-search"></i>
-    Retrieve
-  </button>
+  <p class="mb-1">Select 3 months from the control to use for the report. Use the Control/Command buttons to select multiple.</p>
+  <form hx-get="/admin/activity_report/generate" hx-target="#report-area" hx-indicator="#activity-report-retrieve-indicator">
+    <div class="row mb-3">
+      <div class="col">
+        <select name="month" id="month" class="form-select" size="{{ months|length }}" multiple required>
+          <option disabled selected>Select months</option>
+          {% for month in months %}
+            <option value="{{ month }}">{{ month }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" role="button" type="submit">
+      <i class="bi bi-search"></i>
+      Retrieve
+    </button>
+  </form>
+
   <div class="htmx-indicator pt-2 ps-1" id="activity-report-retrieve-indicator">
     <svg
       width="38"
@@ -45,11 +59,5 @@
     </svg>
   </div>
 </div>
-
-<script>
-  document.getElementById('generate-report').addEventListener('click', (e) => {
-    document.getElementById('generate-report').setAttribute('disabled', true);
-  });
-</script>
 
 {% endblock %}

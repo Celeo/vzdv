@@ -9,18 +9,21 @@ use crate::{
     },
 };
 use axum::{
-    extract::{DefaultBodyLimit, Multipart, Path, Query, State},
+    extract::{DefaultBodyLimit, Multipart, Path, State},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{delete, get, post},
     Form, Router,
 };
-use chrono::{DateTime, Months, Utc};
+use axum_extra::extract::Query;
+use chrono::{DateTime, Utc};
+use itertools::Itertools;
 use log::{debug, error, warn};
 use minijinja::context;
 use reqwest::StatusCode;
 use rev_buf_reader::RevBufReader;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sqlx::Row;
 use std::{collections::HashMap, io::BufRead, path::Path as FilePath, sync::Arc, time::Instant};
 use tower_sessions::Session;
 use uuid::Uuid;
@@ -828,11 +831,26 @@ async fn page_activity_report(
     if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
         return Ok(redirect.into_response());
     }
+    let months = sqlx::query(sql::SELECT_ACTIVITY_JUST_MONTHS)
+        .fetch_all(&state.db)
+        .await?;
+    let months: Vec<String> = months
+        .iter()
+        .map(|row| row.try_get("month").unwrap())
+        .sorted()
+        .rev()
+        .collect();
     let template = state
         .templates
         .get_template("admin/activity_report_container.jinja")?;
-    let rendered = template.render(context! { user_info })?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let rendered = template.render(context! { user_info, months, flashed_messages })?;
     Ok(Html(rendered).into_response())
+}
+
+#[derive(Debug, Deserialize)]
+struct ReportParams {
+    month: Vec<String>,
 }
 
 /// Page to render the activity report.
@@ -844,6 +862,7 @@ async fn page_activity_report(
 async fn page_activity_report_generate(
     State(state): State<Arc<AppState>>,
     session: Session,
+    months: Query<ReportParams>,
 ) -> Result<Response, AppError> {
     #[derive(Serialize)]
     struct BasicInfo {
@@ -876,18 +895,8 @@ async fn page_activity_report_generate(
         true,
     )
     .await?;
-    let now = Utc::now();
-    let months: [String; 3] = [
-        now.format("%Y-%m").to_string(),
-        now.checked_sub_months(Months::new(1))
-            .unwrap()
-            .format("%Y-%m")
-            .to_string(),
-        now.checked_sub_months(Months::new(2))
-            .unwrap()
-            .format("%Y-%m")
-            .to_string(),
-    ];
+
+    let months = &months.month;
     let controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS_ON_ROSTER)
         .fetch_all(&state.db)
         .await?;
@@ -904,7 +913,6 @@ async fn page_activity_report_generate(
                 .or_insert(activity.minutes);
             acc
         });
-
     let rated_violations: Vec<BasicInfo> = controllers
         .iter()
         .filter(|controller| {
@@ -946,7 +954,14 @@ async fn page_activity_report_generate(
                     continue;
                 }
             };
-        if records.is_empty() {
+        let in_time_frame = records
+            .iter()
+            .filter(|r| {
+                let month = &r.session_date[0..7];
+                months.contains(&month.to_string())
+            })
+            .count();
+        if in_time_frame == 0 {
             unrated_violations.push(BasicInfo {
                 cid: controller.cid,
                 name: format!(
@@ -973,12 +988,38 @@ async fn page_activity_report_generate(
         controllers,
         rated_violations,
         unrated_violations,
+        months => months.iter().join(", "),
         now_utc => Utc::now().to_rfc2822(),
     })?;
     state
         .cache
         .insert(cache_key, CacheEntry::new(rendered.clone()));
     Ok(Html(rendered).into_response())
+}
+
+/// Clear the existing activity report out of the cache.
+async fn page_activity_report_delete(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect);
+    }
+    state.cache.invalidate(&"ACTIVITY_REPORT".to_string());
+    record_log(
+        format!("{} deleted the activity report", user_info.unwrap().cid),
+        &state.db,
+        true,
+    )
+    .await?;
+    flashed_messages::push_flashed_message(
+        session,
+        MessageLevel::Success,
+        "Activity report deleted",
+    )
+    .await?;
+    Ok(Redirect::to("/admin/activity_report"))
 }
 
 /// Page to centrally view all active solo certs.
@@ -1281,6 +1322,10 @@ pub fn router() -> Router<Arc<AppState>> {
         .route(
             "/admin/activity_report/generate",
             get(page_activity_report_generate),
+        )
+        .route(
+            "/admin/activity_report/delete",
+            get(page_activity_report_delete),
         )
         .route("/admin/solo_cert_list", get(page_solo_cert_list))
         .route(
