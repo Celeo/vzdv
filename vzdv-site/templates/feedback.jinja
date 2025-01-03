@@ -15,7 +15,7 @@
       <div class="mb-3">
         <label for="controller">Controller</label>
         <select id="controller" name="controller" class="form-select" required>
-          <option disabled>Controller</option>
+          <option value="" selected disabled>Select a controller</option>
           {% for (cid, name) in all_controllers %}
             <option value="{{ cid }}">{{ name }}</option>
           {% endfor %}
