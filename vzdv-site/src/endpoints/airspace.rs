@@ -189,39 +189,39 @@ async fn page_staffing_request_post(
                             "value": format!("{} {} ({})", user_info.first_name, user_info.last_name, user_info.cid)
                         },
                         {
-                            "name": "departure",
+                            "name": "Departure",
                             "value": staffing_request.departure
                         },
                         {
-                            "name": "arrival",
+                            "name": "Arrival",
                             "value": staffing_request.arrival
                         },
                         {
-                            "name": "dt_start",
+                            "name": "Start time",
                             "value": staffing_request.dt_start
                         },
                         {
-                            "name": "dt_end",
+                            "name": "End time",
                             "value": staffing_request.dt_end
                         },
                         {
-                            "name": "pilot_count",
+                            "name": "Pilot count",
                             "value": staffing_request.pilot_count
                         },
                         {
-                            "name": "contact",
+                            "name": "Contact",
                             "value": staffing_request.contact
                         },
                         {
-                            "name": "banner",
+                            "name": "Banner",
                             "value": staffing_request.banner
                         },
                         {
-                            "name": "organization",
+                            "name": "Organization",
                             "value": staffing_request.organization
                         },
                         {
-                            "name": "comments",
+                            "name": "Comments",
                             "value": staffing_request.comments
                         }
                     ]
