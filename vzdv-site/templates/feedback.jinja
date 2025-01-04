@@ -23,12 +23,20 @@
       </div>
       <div class="mb-3">
         <label for="position">Position</label>
-        <input type="text" class="form-control" id="position" name="position" required>
+        <select name="position" id="position" class="form-control" required>
+          <option value="" selected disabled>Select a position</option>
+          <option value="Center">Center</option>
+          <option value="Approach">Approach</option>
+          <option value="Departure">Departure</option>
+          <option value="Tower">Tower</option>
+          <option value="Ground">Ground</option>
+          <option value="Clearance Delivery">Clearance Delivery</option>
+        </select>
       </div>
       <div>
         <label for="rating">Rating</label>
         <select name="rating" id="rating" class="form-control" required>
-          <option disabled>Rating</option>
+          <option value="" selected disabled>Select a rating</option>
           <option value="excellent">Excellent</option>
           <option value="good">Good</option>
           <option value="fair">Fair</option>
