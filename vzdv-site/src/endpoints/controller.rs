@@ -1,6 +1,7 @@
 //! HTTP endpoints for controller pages.
 
 use crate::{
+    email::{self, send_mail},
     flashed_messages::{self, MessageLevel},
     shared::{
         js_timestamp_to_utc, post_audit, record_log, reject_if_not_in, strip_some_tags, AppError,
@@ -897,6 +898,7 @@ async fn post_remove_controller(
         )
         .await
         .map_err(|e| AppError::GenericFallback("removing home controller", e))?;
+        // VATUSA handles emailing the user for home facility removals
         record_log(
             format!(
                 "{} removed home controller {cid}, reason: {}",
@@ -915,6 +917,23 @@ async fn post_remove_controller(
         )
         .await
         .map_err(|e| AppError::GenericFallback("removing visiting controller", e))?;
+        // we're responsible for informing visitors of their removal
+        let controller_info =
+            vatusa::get_controller_info(cid, Some(&state.config.vatsim.vatusa_api_key))
+                .await
+                .map_err(|err| AppError::GenericFallback("getting controller info", err))?;
+        if let Some(ref email) = controller_info.email {
+            send_mail(
+                &state.config,
+                &state.db,
+                &format!("{} {}", controller.first_name, controller.last_name),
+                email,
+                email::templates::VISITOR_REMOVED,
+            )
+            .await?;
+        } else {
+            warn!("Could not get email for {cid} to inform of removal from the visitor roster");
+        }
         record_log(
             format!(
                 "{} removed visiting controller {cid}, reason: {}",
