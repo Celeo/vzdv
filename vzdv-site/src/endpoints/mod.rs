@@ -210,6 +210,6 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/changelog", get(page_changelog))
         .route("/privacy_policy", get(page_privacy_policy))
         .nest_service("/assets", ServeDir::new("assets"))
-        .route("/static_special/:name", get(page_static_special))
+        .route("/static_special/{name}", get(page_static_special))
         .nest_service("/static", ServeDir::new("static"))
 }

@@ -956,25 +956,25 @@ async fn post_remove_controller(
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/controller/:cid", get(page_controller))
-        .route("/controller/:cid/discord/unlink", post(api_unlink_discord))
-        .route("/controller/:cid/ois", post(post_change_ois))
-        .route("/controller/:cid/certs", post(post_change_certs))
-        .route("/controller/:cid/certs/solo", post(post_new_solo_cert))
+        .route("/controller/{cid}", get(page_controller))
+        .route("/controller/{cid}/discord/unlink", post(api_unlink_discord))
+        .route("/controller/{cid}/ois", post(post_change_ois))
+        .route("/controller/{cid}/certs", post(post_change_certs))
+        .route("/controller/{cid}/certs/solo", post(post_new_solo_cert))
         .route(
-            "/controller/:cid/certs/solo/:cert_id",
+            "/controller/{cid}/certs/solo/{cert_id}",
             delete(api_delete_solo_cert),
         )
-        .route("/controller/:cid/note", post(post_new_staff_note))
+        .route("/controller/{cid}/note", post(post_new_staff_note))
         .route(
-            "/controller/:cid/note/:note_id",
+            "/controller/{cid}/note/{note_id}",
             delete(api_delete_staff_note),
         )
         .route(
-            "/controller/:cid/training_records",
+            "/controller/{cid}/training_records",
             get(snippet_get_training_records).post(post_add_training_note),
         )
-        .route("/controller/:cid/history", get(snippet_get_history))
-        .route("/controller/:cid/roles", post(post_set_roles))
-        .route("/controller/:cid/remove", post(post_remove_controller))
+        .route("/controller/{cid}/history", get(snippet_get_history))
+        .route("/controller/{cid}/roles", post(post_set_roles))
+        .route("/controller/{cid}/remove", post(post_remove_controller))
 }

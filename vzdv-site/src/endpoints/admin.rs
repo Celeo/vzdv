@@ -1308,7 +1308,7 @@ pub fn router() -> Router<Arc<AppState>> {
             get(page_visitor_applications),
         )
         .route(
-            "/admin/visitor_applications/:id",
+            "/admin/visitor_applications/{id}",
             get(post_visitor_application_action),
         )
         .route(
@@ -1316,7 +1316,7 @@ pub fn router() -> Router<Arc<AppState>> {
             get(page_resources).post(post_new_resource),
         )
         .layer(DefaultBodyLimit::disable()) // no upload limit on this endpoint
-        .route("/admin/resources/:id", delete(api_delete_resource))
+        .route("/admin/resources/{id}", delete(api_delete_resource))
         .route("/admin/off_roster_list", get(page_off_roster_list))
         .route("/admin/activity_report", get(page_activity_report))
         .route(
@@ -1332,6 +1332,6 @@ pub fn router() -> Router<Arc<AppState>> {
             "/admin/no_show_list",
             get(page_no_show_list).post(post_new_no_show),
         )
-        .route("/admin/no_show_list/:id", delete(api_delete_no_show_entry))
+        .route("/admin/no_show_list/{id}", delete(api_delete_no_show_entry))
         .route("/admin/audit_log", get(page_audit_log))
 }

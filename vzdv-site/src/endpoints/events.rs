@@ -805,17 +805,17 @@ pub fn router() -> Router<Arc<AppState>> {
             get(get_upcoming_events).post(post_new_event_form),
         )
         .route(
-            "/events/:id",
+            "/events/{id}",
             get(page_event)
                 .delete(api_delete_event)
                 .post(post_edit_event_form),
         )
-        .route("/events/:id/register", post(post_register_for_event))
-        .route("/events/:id/unregister", post(api_register_unregister))
-        .route("/events/:id/add_position", post(post_add_position))
+        .route("/events/{id}/register", post(post_register_for_event))
+        .route("/events/{id}/unregister", post(api_register_unregister))
+        .route("/events/{id}/add_position", post(post_add_position))
         .route(
-            "/events/:id/delete_position/:pos_id",
+            "/events/{id}/delete_position/{pos_id}",
             post(post_delete_position),
         )
-        .route("/events/:id/set_position", post(post_set_position))
+        .route("/events/{id}/set_position", post(post_set_position))
 }
