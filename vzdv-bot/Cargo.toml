@@ -6,16 +6,15 @@ edition = "2021"
 [dependencies]
 vzdv = { path = "../vzdv" }
 
-anyhow = "1.0.86"
+anyhow = "1.0.95"
 base64 = "0.22.1"
-chrono-tz = "0.9.0"
-chrono = "0.4.38"
-clap = { version = "4.5.1", features = ["derive"] }
+chrono-tz = "0.10.0"
+chrono = "0.4.39"
+clap = { version = "4.5.26", features = ["derive"] }
 log = "0.4.22"
-rand = "0.8.5"
 select = "0.6.0"
-sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio", "sqlx-sqlite", "chrono"] }
-tokio = { version = "1.38.0", features = ["full"] }
+sqlx = { version = "0.8.3", default-features = false, features = ["runtime-tokio", "sqlx-sqlite", "chrono"] }
+tokio = { version = "1.43.0", features = ["full"] }
 twilight-gateway = "0.15.4"
 twilight-http = "0.15.4"
 twilight-interactions = "0.15.2"
