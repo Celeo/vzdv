@@ -21,7 +21,7 @@
       <tr class="d-flex">
         <td class="col-1">
           {{ controller.operating_initials }}
-          {% if controller.loa_until %}<span class="text-info" title="{{ controller.loa_until }}">(LOA)</span>{% endif %}
+          {% if controller.loa_until %}<span class="text-info" title="Until {{ controller.loa_until }}">(LOA)</span>{% endif %}
         </td>
         <td class="col-3">{{ controller.first_name }} {{ controller.last_name }}</td>
         <td class="col-3">

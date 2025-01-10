@@ -15,6 +15,10 @@
       Edit OIs
     </button>
     {% if controller.is_on_roster %}
+      <button class="ms-2 btn btn-sm btn-warning" onclick="modalUpdateLOA.showModal()">
+        <i class="bi bi-person-raised-hand"></i>
+        LOA
+      </button>
       <button class="ms-2 btn btn-sm btn-danger" onclick="modalRemoveController.showModal()">
         <i class="bi bi-x-circle"></i>
         Remove
@@ -38,6 +42,10 @@
           <strong>Type:</strong> {% if not controller.is_on_roster %}Guest{% elif not controller.home_facility == 'ZDV' %}Visiting{% else %}Home{% endif %}
           <br>
           <strong>Joined:</strong> {{ controller.join_date }}
+          {% if controller.loa_until %}
+          <br>
+          <strong>LOA until</strong>: {{ controller.loa_until }}
+          {% endif %}
           {% if user_info and user_info.is_some_staff %}
             <br>
             <strong>Discord user ID:</strong> {{ controller.discord_id }}
@@ -461,6 +469,27 @@
       <div class="d-flex justify-content-between">
         <button class="btn btn-warning" role="button" id="btn-modal-training-record-close">Close</button>
         <button class="btn btn-primary" role="button" type="submit">Submit</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modalUpdateLOA">
+  <h2 class="pb-3">Update LOA</h2>
+  <p>Leave empty and save to remove a LOA.</p>
+  <form action="/controller/{{ controller.cid }}/loa" method="POST">
+    <div class="row">
+      <div class="col">
+        <div class="mb-3">
+          <label for="date" class="form-label">LOA until</label>
+          <input type="datetime-local" name="loa" id="loa" class="form-control">
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="d-flex justify-content-between">
+        <button class="btn btn-warning" role="button" id="btn-modal-loa-close">Close</button>
+        <button class="btn btn-primary" role="button" type="submit">Save</button>
       </div>
     </div>
   </form>

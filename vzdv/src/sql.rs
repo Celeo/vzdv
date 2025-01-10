@@ -394,6 +394,7 @@ pub const SET_CONTROLLER_ROLES: &str = "UPDATE controller SET roles=$2 WHERE cid
 pub const SET_CONTROLLER_ON_ROSTER: &str = "UPDATE controller SET is_on_roster=$2 WHERE cid=$1";
 pub const GET_CONTROLLERS_WITH_ROLES: &str =
     "SELECT * FROM controller WHERE roles IS NOT NULL AND roles <> ''";
+pub const CONTROLLER_UPDATE_LOA: &str = "UPDATE controller SET loa_until=$2 WHERE cid=$1";
 
 pub const GET_ALL_CERTIFICATIONS: &str = "SELECT * FROM certification";
 pub const GET_ALL_CERTIFICATIONS_FOR: &str = "SELECT * FROM certification WHERE cid=$1";

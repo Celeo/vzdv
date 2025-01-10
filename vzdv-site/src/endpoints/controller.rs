@@ -850,6 +850,9 @@ struct RemoveControllerForm {
     reason: String,
 }
 
+/// Form submission to remove a controller from the roster.
+///
+/// For admin staff members.
 async fn post_remove_controller(
     State(state): State<Arc<AppState>>,
     session: Session,
@@ -954,12 +957,74 @@ async fn post_remove_controller(
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
+#[derive(Debug, Deserialize)]
+struct LoaUpdateForm {
+    loa: String,
+}
+
+/// Form submission to set controller LOA.
+///
+/// For admin staff members.
+async fn post_loa(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(cid): Path<u32>,
+    Form(loa_form): Form<LoaUpdateForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect);
+    }
+    let user_info = user_info.unwrap();
+
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(cid)
+        .fetch_optional(&state.db)
+        .await?;
+    if controller.is_none() {
+        warn!(
+            "{} tried to update LOA for unknown controller {cid}",
+            user_info.cid
+        );
+        flashed_messages::push_flashed_message(session, MessageLevel::Error, "Unknown controller")
+            .await?;
+        return Ok(Redirect::to(&format!("/controller/{cid}")));
+    }
+
+    if loa_form.loa.is_empty() {
+        let dt: Option<String> = None;
+        sqlx::query(sql::CONTROLLER_UPDATE_LOA)
+            .bind(cid)
+            .bind(dt)
+            .execute(&state.db)
+            .await?;
+    } else {
+        let dt = js_timestamp_to_utc(&loa_form.loa, "UTC")?;
+        sqlx::query(sql::CONTROLLER_UPDATE_LOA)
+            .bind(cid)
+            .bind(dt)
+            .execute(&state.db)
+            .await?;
+    }
+    record_log(
+        format!(
+            "{} updated LOA for {cid} to {}",
+            user_info.cid, loa_form.loa
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
+    Ok(Redirect::to(&format!("/controller/{cid}")))
+}
+
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/controller/{cid}", get(page_controller))
         .route("/controller/{cid}/discord/unlink", post(api_unlink_discord))
         .route("/controller/{cid}/ois", post(post_change_ois))
         .route("/controller/{cid}/certs", post(post_change_certs))
+        .route("/controller/{cid}/loa", post(post_loa))
         .route("/controller/{cid}/certs/solo", post(post_new_solo_cert))
         .route(
             "/controller/{cid}/certs/solo/{cert_id}",

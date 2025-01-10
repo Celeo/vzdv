@@ -63,6 +63,13 @@ document
   });
 
 document
+  .getElementById("btn-modal-loa-close")
+  .addEventListener("click", (e) => {
+    e.preventDefault();
+    document.getElementById("modalUpdateLOA").close();
+  });
+
+document
   .getElementById("btn-modal-training-record-close")
   .addEventListener("click", (e) => {
     e.preventDefault();
