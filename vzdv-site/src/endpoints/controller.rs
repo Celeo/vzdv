@@ -511,9 +511,15 @@ async fn api_delete_solo_cert(
         .await?;
     if matching.reported {
         debug!("Deleting solo cert from VATUSA");
-        vatusa::delete_solo_cert(cid, &matching.position, &state.config.vatsim.vatusa_api_key)
-            .await
-            .map_err(|err| AppError::GenericFallback("deleting solo cert from VATUSA", err))?;
+        if let Err(e) =
+            vatusa::delete_solo_cert(cid, &matching.position, &state.config.vatsim.vatusa_api_key)
+                .await
+        {
+            warn!(
+                "Could not delete solo cert for {} on {} from VATUSA: {e}",
+                cid, &matching.position,
+            );
+        }
     }
 
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Solo cert deleted")
