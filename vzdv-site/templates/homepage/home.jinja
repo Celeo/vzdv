@@ -4,15 +4,47 @@
 
 {% block body %}
 
+<style>
+.ocb-blue { background-color: rgb(110, 168, 254); }
+.ocb-orange { background-color: rgb(255, 193, 7); }
+.ocb-red { background-color: rgb(220, 53, 69); }
+.ocb-green { background-color: rgb(25, 135, 84); }
+</style>
+
+<script>
+  function onlineButtonRegister() {
+    document.getElementById('btn-online').addEventListener('click', () => {
+      const table = document.querySelector('#online > table');
+      if (table.style.display === 'none') {
+        table.style.display = 'block';
+        document.querySelector('#online i#i-collapse').style.display = 'block';
+        document.querySelector('#online i#i-expand').style.display = 'none';
+      } else {
+        table.style.display = 'none';
+        document.querySelector('#online i#i-collapse').style.display = 'none';
+        document.querySelector('#online i#i-expand').style.display = 'block';
+      }
+    });
+  }
+</script>
+
 <h1>Welcome to the Denver ARTCC</h1>
 
 <div class="row">
   <div class="col-12 col-lg-9">
     <p>
-      The Denver ARTCC covers approximately 285,000 square miles of airspace
-      over all or part of the states of Colorado, Arizona, New Mexico, Utah,
+      The Denver ARTCC covers approximately 285,000 square miles of airspace over all or part of the states of Colorado, Arizona, New Mexico, Utah,
       Kansas, Nebraska, South Dakota, Wyoming, and Montana.
     </p>
+    <div class="card shadow mb-2">
+      <div class="card-body">
+        <div
+          id="online"
+          hx-get="/home/online/controllers"
+          hx-on::after-request="onlineButtonRegister()"
+          hx-trigger="load, every 1m"></div>
+      </div>
+    </div>
     <div class="card shadow mb-2">
       <div class="card-body">
         {% include 'events/upcoming_events_snippet.jinja' %}
@@ -23,19 +55,9 @@
     <div class="card shadow">
       <div class="card-body">
         <div
-          id="online"
-          hx-get="/home/online/controllers"
-          hx-trigger="load, every 1m"
-        ></div>
-      </div>
-    </div>
-    <div class="card shadow mt-2">
-      <div class="card-body">
-        <div
           id="weather"
           hx-get="/home/weather"
-          hx-trigger="load, every 5m"
-        ></div>
+          hx-trigger="load, every 5m"></div>
       </div>
     </div>
     <div class="card shadow mt-2">
@@ -43,8 +65,7 @@
         <div
           id="flights"
           hx-get="/home/online/flights"
-          hx-trigger="load, every 1m"
-        ></div>
+          hx-trigger="load, every 1m"></div>
       </div>
     </div>
     <div class="card shadow mt-2">

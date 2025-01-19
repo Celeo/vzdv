@@ -1,13 +1,30 @@
 {% if online|length > 0 %}
-<h4>Online controllers</h4>
-<ul>
-  {% for controller in online %}
-  <li style="font-size: 90%">
-    {{ controller.name }} on {{ controller.callsign }} for
-    {{ controller.online_for }}
-  </li>
-  {% endfor %}
-</ul>
+  <h4 class="mb-0 d-flex justify-content-between">
+    Online controllers
+    <button type="button" id="btn-online" class="btn btn-sm">
+      <i id="i-collapse" class="bi bi-arrows-collapse"></i>
+      <i id="i-expand" class="bi bi-arrows-expand" style="display: none"></i>
+    </button>
+  </h4>
+  <table class="table">
+    <thead></thead>
+    <tbody>
+      {% for controller in online %}
+        <tr>
+          <td><span class="badge text-black ocb-{{ controller.badge_color }}">{{ controller.badge_content }}</span></td>
+          <td>{{ controller.c.callsign }}</td>
+          <td>
+            {{ controller.c.name }}
+            <a href="/controller/{{ controller.c.cid }}" class="icon-link icon-link-hover text-decoration-none">
+              <i class="bi bi-arrow-right-short"></i>
+            </a>
+          </td>
+          <td>{{ controller.c.online_for }}</td>
+          <td>{{ controller.c.frequency }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 {% else %}
-<h4>No controllers online</h4>
+  <h5>No controllers online</h5>
 {% endif %}

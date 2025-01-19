@@ -17,7 +17,7 @@ use vatsim_utils::live_api::Vatsim;
 use vzdv::{
     aviation::parse_metar,
     sql::{self, Activity},
-    vatsim::get_online_facility_controllers,
+    vatsim::{get_online_facility_controllers, OnlineController},
     PermissionsGroup, GENERAL_HTTP_CLIENT,
 };
 
@@ -45,6 +45,13 @@ async fn page_home(
 async fn snippet_online_controllers(
     State(state): State<Arc<AppState>>,
 ) -> Result<Html<String>, AppError> {
+    #[derive(Debug, Serialize)]
+    struct OnlineControllerDisplay<'a> {
+        c: &'a OnlineController,
+        badge_color: &'static str,
+        badge_content: &'static str,
+    }
+
     // cache this endpoint's returned data for 30 seconds
     let cache_key = "ONLINE_CONTROLLERS".to_string();
     if let Some(cached) = state.cache.get(&cache_key) {
@@ -58,6 +65,27 @@ async fn snippet_online_controllers(
     let online = get_online_facility_controllers(&state.db, &state.config)
         .await
         .map_err(|error| AppError::GenericFallback("getting online controllers", error))?;
+    let online: Vec<OnlineControllerDisplay> = online
+        .iter()
+        .map(|c| {
+            let (badge_color, badge_content) = if c.callsign.ends_with("_CTR") {
+                ("blue", "CTR")
+            } else if c.callsign.ends_with("_APP") {
+                ("orange", "APP")
+            } else if c.callsign.ends_with("_TWR") {
+                ("red", "TWR")
+            } else if c.callsign.ends_with("_GND") {
+                ("green", "GND")
+            } else {
+                ("", "?")
+            };
+            OnlineControllerDisplay {
+                c,
+                badge_color,
+                badge_content,
+            }
+        })
+        .collect();
     let template = state
         .templates
         .get_template("homepage/online_controllers.jinja")?;

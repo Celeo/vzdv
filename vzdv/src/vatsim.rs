@@ -29,6 +29,7 @@ pub struct OnlineController {
     pub callsign: String,
     pub name: String,
     pub online_for: String,
+    pub frequency: String,
 }
 
 /// Get facility controllers currently online.
@@ -67,6 +68,7 @@ pub async fn get_online_facility_controllers(
                     .map(|s| format!("{} {}", s.0, s.1))
                     .unwrap_or(String::from("?")),
                 online_for: format!("{}h{}m", seconds / 3600, (seconds / 60) % 60),
+                frequency: controller.frequency.clone(),
             }
         })
         .collect();
