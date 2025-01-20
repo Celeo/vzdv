@@ -16,13 +16,13 @@
     document.getElementById('btn-online').addEventListener('click', () => {
       const table = document.querySelector('#online > table');
       if (table.style.display === 'none') {
-        table.style.display = 'block';
-        document.querySelector('#online i#i-collapse').style.display = 'block';
+        table.style.display = 'table';
+        document.querySelector('#online i#i-collapse').style.display = 'table';
         document.querySelector('#online i#i-expand').style.display = 'none';
       } else {
         table.style.display = 'none';
         document.querySelector('#online i#i-collapse').style.display = 'none';
-        document.querySelector('#online i#i-expand').style.display = 'block';
+        document.querySelector('#online i#i-expand').style.display = 'table';
       }
     });
   }
