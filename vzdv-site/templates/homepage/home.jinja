@@ -13,7 +13,7 @@
 
 <script>
   function onlineButtonRegister() {
-    document.getElementById('btn-online').addEventListener('click', () => {
+    document.getElementById('btn-online')?.addEventListener('click', () => {
       const table = document.querySelector('#online > table');
       if (table.style.display === 'none') {
         table.style.display = 'table';
@@ -32,50 +32,42 @@
 
 <div class="row">
   <div class="col-12 col-lg-9">
-    <p>
+    <p class="pb-2">
       The Denver ARTCC covers approximately 285,000 square miles of airspace over all or part of the states of Colorado, Arizona, New Mexico, Utah,
       Kansas, Nebraska, South Dakota, Wyoming, and Montana.
     </p>
-    <div class="card shadow mb-2">
-      <div class="card-body">
-        <div
-          id="online"
-          hx-get="/home/online/controllers"
-          hx-on::after-request="onlineButtonRegister()"
-          hx-trigger="load, every 1m"></div>
-      </div>
+    <div class="mb-5">
+      <div
+        id="online"
+        hx-get="/home/online/controllers"
+        hx-on::after-request="onlineButtonRegister()"
+        hx-trigger="load, every 1m"></div>
     </div>
-    <div class="card shadow mb-2">
+    <div class="mb-2">
       <div class="card-body">
         {% include 'events/upcoming_events_snippet.jinja' %}
       </div>
     </div>
   </div>
   <div class="col">
-    <div class="card shadow">
-      <div class="card-body">
+    <div class="border-start border-secondary-subtle pb-1">
+      <div class="ps-3">
         <div
           id="weather"
           hx-get="/home/weather"
           hx-trigger="load, every 5m"></div>
-      </div>
-    </div>
-    <div class="card shadow mt-2">
-      <div class="card-body">
-        <div
-          id="flights"
-          hx-get="/home/online/flights"
-          hx-trigger="load, every 1m"></div>
-      </div>
-    </div>
-    <div class="card shadow mt-2">
-      <div class="card-body">
-        <div
-          id="cotm"
-          hx-get="/home/cotm"
-          hx-trigger="load, every 1m"
-        >
-          <p>Loading ...</p>
+        <div class="mt-5">
+          <div
+            id="flights"
+            hx-get="/home/online/flights"
+            hx-trigger="load, every 1m"></div>
+        </div>
+        <div class="mt-5">
+          <div
+            id="cotm"
+            hx-get="/home/cotm"
+            hx-trigger="load, every 1m"
+          ></div>
         </div>
       </div>
     </div>

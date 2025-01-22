@@ -11,7 +11,7 @@ use itertools::Itertools;
 use log::warn;
 use minijinja::context;
 use serde::Serialize;
-use std::{sync::Arc, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 use tower_sessions::Session;
 use vatsim_utils::live_api::Vatsim;
 use vzdv::{
@@ -52,6 +52,9 @@ async fn snippet_online_controllers(
         badge_content: &'static str,
     }
 
+    let order_map: HashMap<&'static str, u8> =
+        HashMap::from([("CTR", 0), ("APP", 1), ("TWR", 2), ("GND", 3), ("?", 4)]);
+
     // cache this endpoint's returned data for 30 seconds
     let cache_key = "ONLINE_CONTROLLERS".to_string();
     if let Some(cached) = state.cache.get(&cache_key) {
@@ -84,6 +87,12 @@ async fn snippet_online_controllers(
                 badge_color,
                 badge_content,
             }
+        })
+        .sorted_by(|a, b| {
+            Ord::cmp(
+                order_map.get(a.badge_content).unwrap(),
+                order_map.get(b.badge_content).unwrap(),
+            )
         })
         .collect();
     let template = state
