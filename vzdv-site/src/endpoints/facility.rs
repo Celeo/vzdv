@@ -360,9 +360,20 @@ async fn page_activity(
             });
     }
 
+    // summary row for the bottom
+    let totals = activity_data.iter().fold((0, 0, 0, 0, 0), |acc, row| {
+        (
+            acc.0 + row.months.first().map(|am| am.value).unwrap_or_default(),
+            acc.1 + row.months.get(1).map(|am| am.value).unwrap_or_default(),
+            acc.2 + row.months.get(2).map(|am| am.value).unwrap_or_default(),
+            acc.3 + row.months.get(3).map(|am| am.value).unwrap_or_default(),
+            acc.4 + row.months.get(4).map(|am| am.value).unwrap_or_default(),
+        )
+    });
+
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let template = state.templates.get_template("facility/activity.jinja")?;
-    let rendered = template.render(context! { user_info, activity_data })?;
+    let rendered = template.render(context! { user_info, activity_data, totals })?;
     Ok(Html(rendered))
 }
 

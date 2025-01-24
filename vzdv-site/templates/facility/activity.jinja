@@ -42,6 +42,12 @@
         {% endfor %}
       </tr>
     {% endfor %}
+    <tr>
+      <td><strong>Totals</strong></td>
+      {% for month in totals %}
+        <td>{{ month|minutes_to_hm }}</td>
+      {% endfor %}
+    </tr>
   </tbody>
 </table>
 
