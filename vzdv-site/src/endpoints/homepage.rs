@@ -52,8 +52,14 @@ async fn snippet_online_controllers(
         badge_content: &'static str,
     }
 
-    let order_map: HashMap<&'static str, u8> =
-        HashMap::from([("CTR", 0), ("APP", 1), ("TWR", 2), ("GND", 3), ("?", 4)]);
+    let order_map: HashMap<&'static str, u8> = HashMap::from([
+        ("CTR", 0),
+        ("APP", 1),
+        ("TWR", 2),
+        ("GND", 3),
+        ("DEL", 4),
+        ("?", 5),
+    ]);
 
     // cache this endpoint's returned data for 30 seconds
     let cache_key = "ONLINE_CONTROLLERS".to_string();
@@ -79,6 +85,8 @@ async fn snippet_online_controllers(
                 ("red", "TWR")
             } else if c.callsign.ends_with("_GND") {
                 ("green", "GND")
+            } else if c.callsign.ends_with("_DEL") {
+                ("dark-blue", "DEL")
             } else {
                 ("", "?")
             };
