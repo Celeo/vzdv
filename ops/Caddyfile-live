@@ -1,3 +1,10 @@
 example.com {
-	reverse_proxy 5001
+	handle_path /assets/* {
+		root * /srv/vzdv/assets
+		file_server
+	}
+
+	handle {
+		reverse_proxy :5001
+	}
 }
