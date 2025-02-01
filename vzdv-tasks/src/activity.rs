@@ -118,13 +118,27 @@ async fn update_single_activity(
     let logon_time = DateTime::parse_from_rfc3339(logon_time)?.timestamp();
     let online_seconds = Utc::now().timestamp() - logon_time;
     let minutes = ((counter + online_seconds as f32) / 60.0).round() as u32;
-    sqlx::query(sql::UPDATE_ACTIVITY)
+
+    // update the controller's time for this month (if able)
+    let result = sqlx::query(sql::UPDATE_ACTIVITY)
         .bind(cid as u32)
         .bind(start_of_month[0..7].to_string())
         .bind(minutes)
         .execute(db)
         .await
         .with_context(|| format!("Updating CID {cid}"))?;
+    if result.rows_affected() == 0 {
+        // The controller hasn't yet completed a full session for this month,
+        // so no rows were updated. Insert a new row.
+        sqlx::query(sql::INSERT_INTO_ACTIVITY)
+            .bind(cid as u32)
+            .bind(start_of_month[0..7].to_string())
+            .bind(minutes)
+            .execute(db)
+            .await
+            .with_context(|| format!("Inserting new activity row for spot-update for {cid}"))?;
+    }
+
     Ok(())
 }
 
