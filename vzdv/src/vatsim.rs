@@ -55,7 +55,10 @@ pub async fn get_online_facility_controllers(
     let online: Vec<_> = data
         .controllers
         .iter()
-        .filter(|controller| position_in_facility_airspace(config, &controller.callsign))
+        .filter(|controller| {
+            position_in_facility_airspace(config, &controller.callsign)
+                && controller.frequency != "199.998"
+        })
         .map(|controller| {
             let logon = parse_vatsim_timestamp(&controller.logon_time)
                 .expect("Could not parse VATSIM timestamp");
