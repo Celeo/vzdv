@@ -36,13 +36,7 @@ async fn get_ace_controllers() -> Result<Vec<u64>> {
     let cids = table_body
         .find(Name("tr"))
         .flat_map(|row| match row.find(Name("td")).next() {
-            Some(col) => {
-                let text = col.text();
-                match text.parse() {
-                    Ok(n) => Some(n),
-                    Err(_) => None,
-                }
-            }
+            Some(col) => col.text().parse().ok(),
             None => None,
         })
         .collect();
