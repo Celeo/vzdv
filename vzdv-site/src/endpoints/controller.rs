@@ -84,10 +84,22 @@ async fn roles_to_set(
         .collect::<HashSet<String>>())
 }
 
+/// Permissions that a user might have.
+#[derive(Debug, Serialize)]
+struct TrainingPermissions {
+    /// Is a site admin (Sr Staff & WM)
+    is_admin: bool,
+    /// Admin + TA + Instructors (not Mentors)
+    can_grant_rating_solos: bool,
+    /// Any training staff
+    can_grant_cert_solos: bool,
+}
+
+/// Check various training permissions of the current user.
 async fn user_is_training_special(
     user_info: &Option<UserInfo>,
     db: &Pool<Sqlite>,
-) -> Result<(bool, bool), AppError> {
+) -> Result<TrainingPermissions, AppError> {
     let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
         .bind(user_info.as_ref().map(|ui| ui.cid).unwrap_or_default())
         .fetch_optional(db)
@@ -97,10 +109,14 @@ async fn user_is_training_special(
         .as_ref()
         .map(|c| c.roles.split(',').collect())
         .unwrap_or_default();
-    Ok((
+    Ok(TrainingPermissions {
         is_admin,
-        is_admin || roles.contains(&"TA") || roles.contains(&"INS"),
-    ))
+        can_grant_rating_solos: is_admin || roles.contains(&"TA") || roles.contains(&"INS"),
+        can_grant_cert_solos: is_admin
+            || roles.contains(&"TA")
+            || roles.contains(&"INS")
+            || roles.contains(&"MTR"),
+    })
 }
 
 /// Overview page for a user.
@@ -165,10 +181,10 @@ async fn page_controller(
     }
 
     let roles: Vec<_> = controller.roles.split_terminator(',').collect();
-    let (is_admin, can_grant_solo) = user_is_training_special(&user_info, &state.db).await?;
+    let training_perms = user_is_training_special(&user_info, &state.db).await?;
 
     let viewing_themselves = user_info.as_ref().map(|info| info.cid).unwrap_or_default() == cid;
-    let feedback: Vec<Feedback> = if is_admin {
+    let feedback: Vec<Feedback> = if training_perms.is_admin {
         sqlx::query_as(sql::GET_ALL_FEEDBACK_FOR)
             .bind(cid)
             .fetch_all(&state.db)
@@ -185,7 +201,7 @@ async fn page_controller(
     let all_controllers = get_controller_cids_and_names(&state.db)
         .await
         .map_err(|e| AppError::GenericFallback("getting names and CIDs from DB", e))?;
-    let staff_notes: Vec<StaffNoteDisplay> = if is_admin {
+    let staff_notes: Vec<StaffNoteDisplay> = if training_perms.is_admin {
         let notes: Vec<StaffNote> = sqlx::query_as(sql::GET_STAFF_NOTES_FOR)
             .bind(cid)
             .fetch_all(&state.db)
@@ -224,13 +240,12 @@ async fn page_controller(
         user_info,
         controller,
         roles,
-        can_grant_solo,
         rating_str,
         certifications,
         settable_roles,
         feedback,
         staff_notes,
-        is_admin,
+        training_perms,
         solo_certs,
         all_controllers,
         flashed_messages
@@ -407,8 +422,8 @@ async fn post_new_solo_cert(
     Form(new_solo_form): Form<NewSoloCertForm>,
 ) -> Result<Redirect, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let (_, can_grant_solo) = user_is_training_special(&user_info, &state.db).await?;
-    if !can_grant_solo {
+    let training_perms = user_is_training_special(&user_info, &state.db).await?;
+    if !training_perms.can_grant_cert_solos {
         flashed_messages::push_flashed_message(
             session,
             MessageLevel::Error,
@@ -446,7 +461,8 @@ async fn post_new_solo_cert(
         .execute(&state.db)
         .await?;
 
-    if new_solo_form.report.is_some() {
+    // only permit VATUSA reporting for non-Mentor training staff
+    if new_solo_form.report.is_some() && training_perms.can_grant_rating_solos {
         debug!("Reporting new solo cert to VATUSA");
         vatusa::report_solo_cert(
             cid,
@@ -481,8 +497,8 @@ async fn api_delete_solo_cert(
     Path((cid, cert_id)): Path<(u32, u32)>,
 ) -> Result<StatusCode, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
-    let (_, can_grant_solo) = user_is_training_special(&user_info, &state.db).await?;
-    if !can_grant_solo {
+    let training_perms = user_is_training_special(&user_info, &state.db).await?;
+    if !training_perms.can_grant_cert_solos {
         return Ok(StatusCode::FORBIDDEN);
     }
     let user_info: UserInfo = user_info.unwrap();
@@ -509,7 +525,8 @@ async fn api_delete_solo_cert(
         .bind(matching.id)
         .execute(&state.db)
         .await?;
-    if matching.reported {
+    // only report to VATUSA if this was reported originally (and this user has permission to do so)
+    if matching.reported && training_perms.can_grant_rating_solos {
         debug!("Deleting solo cert from VATUSA");
         if let Err(e) =
             vatusa::delete_solo_cert(cid, &matching.position, &state.config.vatsim.vatusa_api_key)

@@ -88,7 +88,7 @@
                 Edit
               </button>
             {% endif %}
-            {% if can_grant_solo %}
+            {% if training_perms.can_grant_cert_solos %}
               <button class="btn btn-sm btn-warning" onclick="modalSoloCerts.showModal()">
                 <i class="bi bi-pencil"></i>
                 Edit solo certs
@@ -366,9 +366,11 @@
         {% with issuer = all_controllers[cert.issued_by] %}
           <li>
             <span>For {{ cert.position }}, {{ cert.created_date|simple_date }} to {{ cert.expiration_date|simple_date }}, from {{ issuer[0] }} {{ issuer[1] }}</span>
-            <button class="btn btn-sm btn-danger button-delete-solo-cert ms-2" controller-cid="{{ controller.cid }}" solo-cert-id="{{ cert.id }}">
-              <i class="bi bi-trash"></i>
-            </button>
+              {% if not cert.reported or training_perms.can_grant_rating_solos %}
+                <button class="btn btn-sm btn-danger button-delete-solo-cert ms-2" controller-cid="{{ controller.cid }}" solo-cert-id="{{ cert.id }}">
+                  <i class="bi bi-trash"></i>
+                </button>
+              {% endif %}
           </li>
         {% endwith %}
       {% endfor %}
@@ -383,13 +385,17 @@
       <label for="position" class="form-label">Position</label>
       <input type="text" class="form-control" name="position" style="text-transform: uppercase" required>
     </div>
-    <p class="mb-1">You should report this to VATUSA if it's a student getting a solo for a position they don't have the rating for, like an S1 getting a solo Tower cert.</p>
-    <div class="form-check mb-5">
-      <input class="form-check-input" type="checkbox" value="" name="report">
-      <label class="form-check-label" for="report">
-        Report to VATUSA?
-      </label>
-    </div>
+    {% if training_perms.can_grant_rating_solos %}
+      <p class="mb-1">You should report this to VATUSA if it's a student getting a solo for a position they don't have the rating for, like an S1 getting a solo Tower cert.</p>
+      <div class="form-check mb-5">
+        <input class="form-check-input" type="checkbox" value="" name="report">
+        <label class="form-check-label" for="report">
+          Report to VATUSA?
+        </label>
+      </div>
+    {% else %}
+      <p>You are not permitted to report solos to VATUSA.</p>
+    {% endif %}
     <div class="d-flex justify-content-between">
       <button class="btn btn-warning" role="button" id="btn-modal-solo-certs-close">Close</button>
       <button class="btn btn-primary" role="button" type="submit">Create</button>
