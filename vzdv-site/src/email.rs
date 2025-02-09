@@ -27,6 +27,36 @@ pub struct Templates {
 }
 
 /// Send an SMTP email to the recipient.
+///
+/// Does not do template formatting; for that, use `send_mail`.
+pub async fn send_mail_raw(
+    config: &Config,
+    recipient_address: &str,
+    subject: &str,
+    body: &str,
+) -> Result<(), AppError> {
+    // construct and send email
+    let email = Message::builder()
+        .from(config.email.from.parse().unwrap())
+        .reply_to(config.email.reply_to.parse().unwrap())
+        .to(recipient_address.parse().unwrap())
+        .subject(subject.to_owned())
+        .header(ContentType::TEXT_PLAIN)
+        .body(body.to_owned())
+        .unwrap();
+    let creds = Credentials::new(
+        config.email.user.to_owned(),
+        config.email.password.to_owned(),
+    );
+    let mailer = SmtpTransport::relay(&config.email.host)
+        .unwrap()
+        .credentials(creds)
+        .build();
+    mailer.send(&email)?;
+    Ok(())
+}
+
+/// Send an SMTP email to the recipient.
 pub async fn send_mail(
     config: &Config,
     db: &Pool<Sqlite>,
@@ -56,24 +86,9 @@ pub async fn send_mail(
         .get_template("body")?
         .render(context! { recipient_name, atm, datm })?;
 
-    // construct and send email
-    let email = Message::builder()
-        .from(config.email.from.parse().unwrap())
-        .reply_to(config.email.reply_to.parse().unwrap())
-        .to(recipient_address.parse().unwrap())
-        .subject(template.subject.to_owned())
-        .header(ContentType::TEXT_PLAIN)
-        .body(body)
-        .unwrap();
-    let creds = Credentials::new(
-        config.email.user.to_owned(),
-        config.email.password.to_owned(),
-    );
-    let mailer = SmtpTransport::relay(&config.email.host)
-        .unwrap()
-        .credentials(creds)
-        .build();
-    mailer.send(&email)?;
+    // send the email
+    send_mail_raw(config, recipient_address, &template.subject, &body).await?;
+
     Ok(())
 }
 
