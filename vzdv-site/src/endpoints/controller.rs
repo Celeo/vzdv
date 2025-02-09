@@ -721,7 +721,7 @@ async fn snippet_get_history(
     Ok(Html(rendered).into_response())
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 struct NewTrainingRecordForm {
     date: String,
     duration: String,
@@ -748,6 +748,37 @@ async fn post_add_training_note(
     }
     let user_info = user_info.unwrap();
     let date = js_timestamp_to_utc(&record_form.date, &record_form.timezone)?;
+    let record_form = if record_form.location == 100 {
+        // record a no-show DB entry
+        sqlx::query(sql::CREATE_NEW_NO_SHOW_ENTRY)
+            .bind(cid)
+            .bind(user_info.cid)
+            .bind("training")
+            .bind(date)
+            .bind(format!(
+                "Auto-rendered from training note. {}",
+                record_form.notes
+            ))
+            .execute(&state.db)
+            .await?;
+        record_log(
+            format!(
+                "{} submitted a no-show in a training note for {cid}",
+                user_info.cid
+            ),
+            &state.db,
+            true,
+        )
+        .await?;
+        // update the form to use the VATUSA no-show field
+        NewTrainingRecordForm {
+            location: 0,
+            ..record_form
+        }
+    } else {
+        // otherwise, don't touch the form data
+        record_form.clone()
+    };
     let new_record = NewTrainingRecord {
         instructor_id: format!("{}", user_info.cid),
         date,

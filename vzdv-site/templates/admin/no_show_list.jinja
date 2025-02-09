@@ -9,49 +9,8 @@
 <p>
   This page lists no-show events from students and event controllers to maintain a record for SOP and facility policy adherence.
   <br>
-  To add a new no-show, use the form below. A user can remove no-show entries they've added, and Sr. Staff can remove any
-  listed here.
+  To add a new no-show, create a new training note for a controller and select "No show" from the dropdown.
 </p>
-
-<form action="/admin/no_show_list" method="POST">
-  <div class="row">
-    <div class="col">
-      <div class="mb-1">
-        <label for="controller">Controller</label>
-        <select name="controller" id="controller" class="form-control" required>
-          <option selected disabled>Controller</option>
-          {% for (cid, name) in all_controllers %}
-            <option value="{{ cid }}">{{ name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-    <div class="col">
-      <div class="mb-1">
-        <label for="entry_type">Type (event or training)</label>
-        <select name="entry_type" id="entry_type" class="form-control" required>
-          <option selected disabled>Type</option>
-          {% if user_info.is_event_staff %}
-            <option value="event">Event</option>
-          {% endif %}
-          {% if user_info.is_training_staff %}
-            <option value="training">Training</option>
-          {% endif %}
-        </select>
-      </div>
-    </div>
-  </div>
-  <div class="row">
-    <div class="col">
-      <label for="notes">Notes (optional)</label>
-      <textarea name="notes" id="notes" class="form-control" style="height: 5rem"></textarea>
-    </div>
-  </div>
-  <button class="btn btn-primary mt-3" role="button" type="submit">
-    <i class="bi bi-floppy2-fill"></i>
-    Save
-  </button>
-</form>
 
 <hr>
 
