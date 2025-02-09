@@ -1,7 +1,7 @@
 //! HTTP endpoints for controller pages.
 
 use crate::{
-    email::{self, send_mail},
+    email::{self, send_mail, send_mail_raw},
     flashed_messages::{self, MessageLevel},
     shared::{
         js_timestamp_to_utc, post_audit, record_log, reject_if_not_in, strip_some_tags, AppError,
@@ -770,6 +770,16 @@ async fn post_add_training_note(
             true,
         )
         .await?;
+
+        // email the TA
+        send_mail_raw(
+            &state.config,
+            "ta@zdvartcc.org",
+            &format!("Student {} added to no-show list", cid),
+            "ta@zdvartcc.org",
+        )
+        .await?;
+
         // update the form to use the VATUSA no-show field
         NewTrainingRecordForm {
             location: 0,
