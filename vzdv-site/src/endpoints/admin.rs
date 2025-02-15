@@ -577,8 +577,12 @@ async fn post_visitor_application_action(
             .map_err(|err| AppError::GenericFallback("getting controller info", err))?;
     record_log(
         format!(
-            "{} taking action {} on visitor request {id}",
-            user_info.cid, action_form.action
+            "{} taking action {} on visitor request {id} for {} {} ({})",
+            user_info.cid,
+            action_form.action,
+            controller_info.first_name,
+            controller_info.last_name,
+            request.cid
         ),
         &state.db,
         true,
