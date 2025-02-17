@@ -667,8 +667,7 @@ async fn post_delete_position(
         .fetch_optional(&state.db)
         .await?;
     if event.is_some() {
-        // Need to clear out any existing registrations that are using that position
-        // and then delete any registrations that are now empty.
+        // need to clear out any existing registrations that are using that position
         let mut tx = state.db.begin().await?;
         sqlx::query(sql::CLEAR_REGISTRATIONS_FOR_POSITION_1)
             .bind(pos_id)
@@ -680,10 +679,6 @@ async fn post_delete_position(
             .await?;
         sqlx::query(sql::CLEAR_REGISTRATIONS_FOR_POSITION_3)
             .bind(pos_id)
-            .execute(&mut *tx)
-            .await?;
-        sqlx::query(sql::DELETE_REGISTRATIONS_NOW_EMPTY)
-            .bind(id)
             .execute(&mut *tx)
             .await?;
         sqlx::query(sql::DELETE_EVENT_POSITION)
