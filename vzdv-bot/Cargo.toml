@@ -1,7 +1,15 @@
 [package]
 name = "vzdv-bot"
-version = "1.3.0"
-edition = "2021"
+version = "1.4.0"
+authors = ["Celeo <mattboulanger@fastmail.com>"]
+edition = "2024"
+description = "VATSIM ZDV Discord bot"
+readme = "../README.md"
+homepage = "https://github.com/Celeo/vzdv"
+repository = "https://github.com/Celeo/vzdv"
+documentation = "https://github.com/Celeo/vzdv"
+license = "MIT OR Apache-2.0"
+publish = false
 
 [dependencies]
 vzdv = { path = "../vzdv" }

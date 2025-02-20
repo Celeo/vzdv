@@ -4,15 +4,15 @@ use crate::{
     email::{self, send_mail, send_mail_raw},
     flashed_messages::{self, MessageLevel},
     shared::{
-        js_timestamp_to_utc, post_audit, record_log, reject_if_not_in, strip_some_tags, AppError,
-        AppState, UserInfo, SESSION_USER_INFO_KEY,
+        AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, js_timestamp_to_utc, post_audit,
+        record_log, reject_if_not_in, strip_some_tags,
     },
 };
 use axum::{
+    Form, Router,
     extract::{Path, State},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{delete, get, post},
-    Form, Router,
 };
 use chrono::{DateTime, NaiveDateTime, Utc};
 use itertools::Itertools;
@@ -27,14 +27,14 @@ use std::{
 };
 use tower_sessions::Session;
 use vzdv::{
-    controller_can_see, get_controller_cids_and_names, retrieve_all_in_use_ois,
+    ControllerRating, PermissionsGroup, StaffPosition, controller_can_see,
+    get_controller_cids_and_names, retrieve_all_in_use_ois,
     sql::{self, Certification, Controller, Feedback, SoloCert, StaffNote},
     vatsim,
     vatusa::{
-        self, get_multiple_controller_names, get_training_records, save_training_record,
-        NewTrainingRecord, TrainingRecord,
+        self, NewTrainingRecord, TrainingRecord, get_multiple_controller_names,
+        get_training_records, save_training_record,
     },
-    ControllerRating, PermissionsGroup, StaffPosition,
 };
 
 /// Roles the current user is able to set.
@@ -43,7 +43,7 @@ async fn roles_to_set(
     user_info: &Option<UserInfo>,
 ) -> Result<HashSet<String>, AppError> {
     let controller: Option<Controller> = match user_info {
-        Some(ref ui) => {
+        Some(ui) => {
             sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
                 .bind(ui.cid)
                 .fetch_optional(db)
@@ -213,7 +213,7 @@ async fn page_controller(
                 by: all_controllers
                     .iter()
                     .find(|c| *c.0 == note.by)
-                    .map(|c| format!("{} {} ({})", c.1 .0, c.1 .1, c.0))
+                    .map(|c| format!("{} {} ({})", c.1.0, c.1.1, c.0))
                     .unwrap_or_else(|| format!("{}?", note.cid)),
                 by_cid: note.by,
                 date: note.date,
