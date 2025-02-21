@@ -2,7 +2,7 @@ document
   .getElementById("btn-unlink-discord")
   ?.addEventListener("click", (e) => {
     e.preventDefault();
-    const cid = e.target.getAttribute("controller-cid");
+    const cid = e.target.closest("button").getAttribute("controller-cid");
     const result = window.confirm(
       "Are you sure you want to unlink this controller's Discord account?"
     );
@@ -89,7 +89,7 @@ document
 document.querySelectorAll(".btn-delete-comment").forEach((button) => {
   button.addEventListener("click", (e) => {
     e.preventDefault();
-    const cid = e.target.getAttribute("controller-cid");
+    const cid = e.target.closest("button").getAttribute("controller-cid");
     const noteId = button.getAttribute("note-id");
     const result = window.confirm(
       "Are you sure you want to delete your comment?"
@@ -112,7 +112,7 @@ document.querySelectorAll(".btn-delete-comment").forEach((button) => {
 document.querySelectorAll(".button-delete-solo-cert").forEach((button) => {
   button.addEventListener("click", (e) => {
     e.preventDefault();
-    const cid = e.target.getAttribute("controller-cid");
+    const cid = e.target.closest("button").getAttribute("controller-cid");
     const soloCertId = button.getAttribute("solo-cert-id");
     const result = window.confirm(
       "Are you sure you want to delete this solo cert?"
