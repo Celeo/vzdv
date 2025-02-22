@@ -624,6 +624,13 @@ async fn post_edit_solo_cert(
         })?;
     }
 
+    push_flashed_message(
+        session,
+        MessageLevel::Success,
+        "Solo cert expiration date modified",
+    )
+    .await?;
+
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
