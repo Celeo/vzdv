@@ -10,7 +10,7 @@ document
       fetch(`/controller/${cid}/discord/unlink`, {
         method: "POST",
       })
-        .then((response) => {
+        .then(() => {
           window.location.reload();
         })
         .catch((error) => {
@@ -39,6 +39,13 @@ document
   .addEventListener("click", (e) => {
     e.preventDefault();
     document.getElementById("modalCertifications").close();
+  });
+
+document
+  .getElementById("btn-modal-solo-certs-edit")
+  .addEventListener("click", (e) => {
+    e.preventDefault();
+    document.getElementById("modalSoloCertEdit").close();
   });
 
 document
@@ -98,7 +105,7 @@ document.querySelectorAll(".btn-delete-comment").forEach((button) => {
       fetch(`/controller/${cid}/note/${noteId}`, {
         method: "DELETE",
       })
-        .then((response) => {
+        .then(() => {
           window.location.reload();
         })
         .catch((error) => {
@@ -121,7 +128,7 @@ document.querySelectorAll(".button-delete-solo-cert").forEach((button) => {
       fetch(`/controller/${cid}/certs/solo/${soloCertId}`, {
         method: "DELETE",
       })
-        .then((response) => {
+        .then(() => {
           window.location.reload();
         })
         .catch((error) => {
@@ -129,6 +136,18 @@ document.querySelectorAll(".button-delete-solo-cert").forEach((button) => {
           widow.alert(`Something went wrong: ${error}`);
         });
     }
+  });
+});
+
+document.querySelectorAll('.button-edit-solo-cert').forEach((button) => {
+  button.addEventListener("click", (e) => {
+    e.preventDefault();
+    const soloCertId = button.getAttribute("solo-cert-id");
+    const position = e.target.closest("li").querySelector("strong").innerText;
+    document.getElementById("modalSoloCerts").close();
+    document.getElementById("solo-cert-edit-position").innerText = position;
+    document.getElementById("solo_cert_id").value = soloCertId;
+    document.getElementById("modalSoloCertEdit").showModal();
   });
 });
 

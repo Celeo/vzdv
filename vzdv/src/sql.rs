@@ -380,8 +380,7 @@ pub const GET_ALL_CONTROLLERS_OFF_ROSTER: &str =
 pub const GET_ALL_CONTROLLER_CIDS: &str = "SELECT cid FROM controller";
 pub const GET_ALL_ROSTER_CONTROLLER_CIDS: &str =
     "SELECT cid FROM controller WHERE is_on_roster=TRUE";
-pub const UPDATE_REMOVED_FROM_ROSTER: &str =
-    "UPDATE controller SET is_on_roster=0, home_facility='', join_date=NULL, operating_initials=NULL WHERE cid=$1";
+pub const UPDATE_REMOVED_FROM_ROSTER: &str = "UPDATE controller SET is_on_roster=0, home_facility='', join_date=NULL, operating_initials=NULL WHERE cid=$1";
 pub const UPDATE_CONTROLLER_OIS: &str = "UPDATE controller SET operating_initials=$2 WHERE cid=$1";
 pub const GET_ALL_OIS: &str = "SELECT operating_initials FROM controller";
 pub const GET_CONTROLLER_BY_CID: &str = "SELECT * FROM controller WHERE cid=$1";
@@ -405,8 +404,7 @@ pub const UPDATE_CERTIFICATION: &str =
 
 pub const GET_ALL_ACTIVITY: &str =
     "SELECT * FROM activity LEFT JOIN controller ON activity.cid = controller.cid";
-pub const GET_ACTIVITY_IN_MONTH: &str =
-    "SELECT activity.*, controller.first_name, controller.last_name FROM activity LEFT JOIN controller ON activity.cid = controller.cid WHERE month=$1 ORDER BY minutes DESC";
+pub const GET_ACTIVITY_IN_MONTH: &str = "SELECT activity.*, controller.first_name, controller.last_name FROM activity LEFT JOIN controller ON activity.cid = controller.cid WHERE month=$1 ORDER BY minutes DESC";
 pub const DELETE_ACTIVITY_FOR_CID: &str = "DELETE FROM activity WHERE cid=$1";
 pub const INSERT_INTO_ACTIVITY: &str = "
 INSERT INTO activity
@@ -425,15 +423,13 @@ VALUES
 ";
 pub const GET_ALL_PENDING_FEEDBACK: &str =
     "SELECT * FROM feedback WHERE reviewed_by_cid IS NULL OR reviewer_action='archive'";
-pub const GET_PENDING_FEEDBACK_FOR_REVIEW: &str =
-    "SELECT feedback.*, controller.first_name, controller.last_name FROM feedback LEFT JOIN controller ON feedback.controller = controller.cid";
+pub const GET_PENDING_FEEDBACK_FOR_REVIEW: &str = "SELECT feedback.*, controller.first_name, controller.last_name FROM feedback LEFT JOIN controller ON feedback.controller = controller.cid";
 pub const GET_FEEDBACK_BY_ID: &str = "SELECT * FROM feedback WHERE id=$1";
 pub const UPDATE_FEEDBACK_TAKE_ACTION: &str =
     "UPDATE feedback SET reviewed_by_cid=$1, reviewer_action=$2, posted_to_discord=$3 WHERE id=$4";
 pub const DELETE_FROM_FEEDBACK: &str = "DELETE FROM feedback WHERE id=$1";
 pub const GET_ALL_FEEDBACK_FOR: &str = "SELECT * FROM feedback WHERE controller=$1";
-pub const GET_APPROVED_FEEDBACK_FOR: &str =
-    "SELECT * FROM feedback WHERE controller=$1 AND (reviewer_action='approve' OR reviewer_action='post')";
+pub const GET_APPROVED_FEEDBACK_FOR: &str = "SELECT * FROM feedback WHERE controller=$1 AND (reviewer_action='approve' OR reviewer_action='post')";
 pub const UPDATE_FEEDBACK_COMMENTS: &str = "UPDATE feedback SET comments=$2 WHERE id=$1";
 
 pub const GET_ALL_RESOURCES: &str = "SELECT * FROM resource";
@@ -498,6 +494,7 @@ pub const GET_ALL_SOLO_CERTS: &str = "SELECT * FROM solo_cert";
 pub const GET_ALL_SOLO_CERTS_FOR: &str = "SELECT * FROM solo_cert WHERE cid=$1";
 pub const CREATE_SOLO_CERT: &str = "INSERT INTO solo_cert VALUES (NULL, $1, $2, $3, $4, $5, $6);";
 pub const DELETE_SOLO_CERT: &str = "DELETE FROM solo_cert WHERE id=$1";
+pub const UPDATE_SOLO_CERT_EXPIRATION: &str = "UPDATE solo_cert SET expiration_date=$2 WHERE id=$1";
 
 pub const GET_NO_SHOW_BY_ID: &str = "SELECT * FROM no_show WHERE id=$1";
 pub const GET_ALL_NO_SHOW: &str = "SELECT * FROM no_show";

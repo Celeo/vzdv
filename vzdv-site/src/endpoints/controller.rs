@@ -2,7 +2,8 @@
 
 use crate::{
     email::{self, send_mail, send_mail_raw},
-    flashed_messages::{self, MessageLevel},
+    flashed_messages::{MessageLevel, drain_flashed_messages, push_flashed_message},
+    load_templates,
     shared::{
         AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, js_timestamp_to_utc, post_audit,
         record_log, reject_if_not_in, strip_some_tags,
@@ -14,7 +15,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     routing::{delete, get, post},
 };
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
 use itertools::Itertools;
 use log::{debug, error, info, warn};
 use minijinja::context;
@@ -151,12 +152,7 @@ async fn page_controller(
     let controller = match controller {
         Some(c) => c,
         None => {
-            flashed_messages::push_flashed_message(
-                session,
-                MessageLevel::Error,
-                "Controller not found",
-            )
-            .await?;
+            push_flashed_message(session, MessageLevel::Error, "Controller not found").await?;
             return Ok(Redirect::to("/facility/roster").into_response());
         }
     };
@@ -232,10 +228,12 @@ async fn page_controller(
         .fetch_all(&state.db)
         .await?;
 
-    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let template = state
-        .templates
-        .get_template("controller/controller.jinja")?;
+    let flashed_messages = drain_flashed_messages(session).await?;
+    // let template = state
+    //     .templates
+    //     .get_template("controller/controller.jinja")?;
+    let env = load_templates().unwrap();
+    let template = env.get_template("controller/controller.jinja")?;
     let rendered: String = template.render(context! {
         user_info,
         controller,
@@ -269,7 +267,7 @@ async fn api_unlink_discord(
         .bind(cid)
         .execute(&state.db)
         .await?;
-    flashed_messages::push_flashed_message(session, MessageLevel::Info, "Discord unlinked").await?;
+    push_flashed_message(session, MessageLevel::Info, "Discord unlinked").await?;
     record_log(
         format!(
             "{} unlinked Discord account from {cid}",
@@ -308,12 +306,8 @@ async fn post_change_ois(
             .await
             .map_err(|err| AppError::GenericFallback("accessing DB to get existing OIs", err))?;
         if in_use.contains(&initials) {
-            flashed_messages::push_flashed_message(
-                session,
-                MessageLevel::Error,
-                "Those OIs are already in use",
-            )
-            .await?;
+            push_flashed_message(session, MessageLevel::Error, "Those OIs are already in use")
+                .await?;
             return Ok(Redirect::to(&format!("/controller/{cid}")));
         }
     }
@@ -325,12 +319,7 @@ async fn post_change_ois(
         .execute(&state.db)
         .await?;
 
-    flashed_messages::push_flashed_message(
-        session,
-        MessageLevel::Info,
-        "Operating initials updated",
-    )
-    .await?;
+    push_flashed_message(session, MessageLevel::Info, "Operating initials updated").await?;
     record_log(
         format!(
             "{} updated OIs for {cid} to: '{initials}'",
@@ -401,8 +390,7 @@ async fn post_change_certs(
     )
     .await?;
 
-    flashed_messages::push_flashed_message(session, MessageLevel::Info, "Updated certifications")
-        .await?;
+    push_flashed_message(session, MessageLevel::Info, "Updated certifications").await?;
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
@@ -424,7 +412,7 @@ async fn post_new_solo_cert(
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let training_perms = user_is_training_special(&user_info, &state.db).await?;
     if !training_perms.can_grant_cert_solos {
-        flashed_messages::push_flashed_message(
+        push_flashed_message(
             session,
             MessageLevel::Error,
             "Issuance of solo certs is for Instructors",
@@ -439,12 +427,7 @@ async fn post_new_solo_cert(
         .fetch_optional(&state.db)
         .await?;
     if controller.is_none() {
-        flashed_messages::push_flashed_message(
-            session,
-            MessageLevel::Error,
-            "Controller not found",
-        )
-        .await?;
+        push_flashed_message(session, MessageLevel::Error, "Controller not found").await?;
         return Ok(Redirect::to("/facility/roster"));
     }
 
@@ -474,8 +457,7 @@ async fn post_new_solo_cert(
         .map_err(|err| AppError::GenericFallback("creating solo cert on VATUSA", err))?;
     }
 
-    flashed_messages::push_flashed_message(session, MessageLevel::Info, "New solo cert issued")
-        .await?;
+    push_flashed_message(session, MessageLevel::Info, "New solo cert issued").await?;
     record_log(
         format!(
             "{} added solo cert of {} to {}",
@@ -539,8 +521,7 @@ async fn api_delete_solo_cert(
         }
     }
 
-    flashed_messages::push_flashed_message(session, MessageLevel::Info, "Solo cert deleted")
-        .await?;
+    push_flashed_message(session, MessageLevel::Info, "Solo cert deleted").await?;
     record_log(
         format!(
             "{} deleted solo cert {} for {} of {}",
@@ -552,6 +533,98 @@ async fn api_delete_solo_cert(
     .await?;
 
     Ok(StatusCode::OK)
+}
+
+#[derive(Deserialize)]
+struct SoloCertEditForm {
+    solo_cert_id: u32,
+    expiration: String,
+}
+
+/// Form submission to change the date a solo cert expires.
+async fn post_edit_solo_cert(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(cid): Path<u32>,
+    Form(edit_form): Form<SoloCertEditForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let training_perms = user_is_training_special(&user_info, &state.db).await?;
+    if !training_perms.can_grant_cert_solos {
+        return Ok(Redirect::to(&format!("/controller/{cid}")));
+    }
+    let user_info: UserInfo = user_info.unwrap();
+
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(cid)
+        .fetch_optional(&state.db)
+        .await?;
+    if controller.is_none() {
+        push_flashed_message(session, MessageLevel::Error, "Unknown controller").await?;
+        return Ok(Redirect::to(&format!("/controller/{cid}")));
+    }
+    let solo_certs: Vec<SoloCert> = sqlx::query_as(sql::GET_ALL_SOLO_CERTS_FOR)
+        .bind(cid)
+        .fetch_all(&state.db)
+        .await?;
+    let matching = match solo_certs.iter().find(|c| c.id == edit_form.solo_cert_id) {
+        Some(m) => m,
+        None => {
+            push_flashed_message(session, MessageLevel::Error, "Unknown solo cert id").await?;
+            return Ok(Redirect::to(&format!("/controller/{cid}")));
+        }
+    };
+
+    // create the new expiration date, starting from now and updating with data from the form
+    let expiration_date = {
+        let mut parts = edit_form.expiration.split('-');
+        let mut d = Utc::now();
+        d = d.with_year(parts.next().unwrap().parse().unwrap()).unwrap();
+        d = d
+            .with_month(parts.next().unwrap().parse().unwrap())
+            .unwrap();
+        d = d.with_day(parts.next().unwrap().parse().unwrap()).unwrap();
+        d
+    };
+
+    record_log(
+        format!(
+            "{} updated solo cert {} for {cid} to {expiration_date}",
+            user_info.cid, matching.id,
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
+
+    // update DB
+    sqlx::query(sql::UPDATE_SOLO_CERT_EXPIRATION)
+        .bind(matching.id)
+        .bind(expiration_date)
+        .execute(&state.db)
+        .await?;
+
+    // report to VATUSA if needed
+    if matching.reported {
+        debug!("Updating VATUSA of the extended expiration");
+        vatusa::delete_solo_cert(cid, &matching.position, &state.config.vatsim.vatusa_api_key)
+            .await
+            .map_err(|e| {
+                AppError::GenericFallback("Error deleteing solo cert from VATUSA for extension", e)
+            })?;
+        vatusa::report_solo_cert(
+            cid,
+            &matching.position,
+            expiration_date,
+            &state.config.vatsim.vatusa_api_key,
+        )
+        .await
+        .map_err(|e| {
+            AppError::GenericFallback("Error creating soloo cert with VATUSA for extension", e)
+        })?;
+    }
+
+    Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
 #[derive(Deserialize)]
@@ -587,7 +660,7 @@ async fn post_new_staff_note(
         .bind(note_form.note)
         .execute(&state.db)
         .await?;
-    flashed_messages::push_flashed_message(session, MessageLevel::Info, "Message saved").await?;
+    push_flashed_message(session, MessageLevel::Info, "Message saved").await?;
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
@@ -799,12 +872,7 @@ async fn post_add_training_note(
     };
     match save_training_record(&state.config.vatsim.vatusa_api_key, cid, &new_record).await {
         Ok(_) => {
-            flashed_messages::push_flashed_message(
-                session,
-                MessageLevel::Info,
-                "New training record saved",
-            )
-            .await?;
+            push_flashed_message(session, MessageLevel::Info, "New training record saved").await?;
             record_log(
                 format!("{} submitted new training record for {cid}", user_info.cid),
                 &state.db,
@@ -814,7 +882,7 @@ async fn post_add_training_note(
         }
         Err(e) => {
             error!("Error saving new training record for {cid}: {e}");
-            flashed_messages::push_flashed_message(
+            push_flashed_message(
                 session,
                 MessageLevel::Error,
                 "Could not save new training record",
@@ -853,12 +921,7 @@ async fn post_set_roles(
                 "{} tried to set roles for unknown controller {cid}",
                 user_info.cid
             );
-            flashed_messages::push_flashed_message(
-                session,
-                MessageLevel::Error,
-                "Unknown controller",
-            )
-            .await?;
+            push_flashed_message(session, MessageLevel::Error, "Unknown controller").await?;
             return Ok(Redirect::to(&format!("/controller/{cid}")));
         }
     };
@@ -899,7 +962,7 @@ async fn post_set_roles(
         .bind(&new_roles)
         .execute(&state.db)
         .await?;
-    flashed_messages::push_flashed_message(session, MessageLevel::Info, "Roles updated").await?;
+    push_flashed_message(session, MessageLevel::Info, "Roles updated").await?;
     let message = format!(
         "{} is setting roles for {cid} to '{}'; was '{}'",
         user_info.cid, new_roles, controller.roles
@@ -937,12 +1000,7 @@ async fn post_remove_controller(
         Some(c) => c,
         None => {
             warn!("{} tried to remove unknown controller {cid}", user_info.cid);
-            flashed_messages::push_flashed_message(
-                session,
-                MessageLevel::Error,
-                "Unknown controller",
-            )
-            .await?;
+            push_flashed_message(session, MessageLevel::Error, "Unknown controller").await?;
             return Ok(Redirect::to(&format!("/controller/{cid}")));
         }
     };
@@ -1011,7 +1069,7 @@ async fn post_remove_controller(
         )
         .await?;
     }
-    flashed_messages::push_flashed_message(
+    push_flashed_message(
         session,
         MessageLevel::Info,
         "Controller removed from roster",
@@ -1050,8 +1108,7 @@ async fn post_loa(
             "{} tried to update LOA for unknown controller {cid}",
             user_info.cid
         );
-        flashed_messages::push_flashed_message(session, MessageLevel::Error, "Unknown controller")
-            .await?;
+        push_flashed_message(session, MessageLevel::Error, "Unknown controller").await?;
         return Ok(Redirect::to(&format!("/controller/{cid}")));
     }
 
@@ -1093,6 +1150,10 @@ pub fn router() -> Router<Arc<AppState>> {
         .route(
             "/controller/{cid}/certs/solo/{cert_id}",
             delete(api_delete_solo_cert),
+        )
+        .route(
+            "/controller/{cid}/certs/solo/edit",
+            post(post_edit_solo_cert),
         )
         .route("/controller/{cid}/note", post(post_new_staff_note))
         .route(
