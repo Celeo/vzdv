@@ -3,7 +3,6 @@
 use crate::{
     email::{self, send_mail, send_mail_raw},
     flashed_messages::{MessageLevel, drain_flashed_messages, push_flashed_message},
-    load_templates,
     shared::{
         AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, js_timestamp_to_utc, post_audit,
         record_log, reject_if_not_in, strip_some_tags,
@@ -229,11 +228,9 @@ async fn page_controller(
         .await?;
 
     let flashed_messages = drain_flashed_messages(session).await?;
-    // let template = state
-    //     .templates
-    //     .get_template("controller/controller.jinja")?;
-    let env = load_templates().unwrap();
-    let template = env.get_template("controller/controller.jinja")?;
+    let template = state
+        .templates
+        .get_template("controller/controller.jinja")?;
     let rendered: String = template.render(context! {
         user_info,
         controller,
@@ -432,7 +429,7 @@ async fn post_new_solo_cert(
     }
 
     let now = Utc::now();
-    let expiration = now.checked_add_months(chrono::Months::new(1)).unwrap();
+    let expiration = now.checked_add_days(chrono::Days::new(45)).unwrap();
     let position = new_solo_form.position.to_uppercase();
     sqlx::query(sql::CREATE_SOLO_CERT)
         .bind(cid)
