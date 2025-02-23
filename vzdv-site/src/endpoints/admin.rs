@@ -4,15 +4,15 @@ use crate::{
     email::{self, send_mail},
     flashed_messages::{self, MessageLevel},
     shared::{
-        is_user_member_of, post_audit, record_log, reject_if_not_in, AppError, AppState,
-        CacheEntry, UserInfo, SESSION_USER_INFO_KEY,
+        AppError, AppState, CacheEntry, SESSION_USER_INFO_KEY, UserInfo, is_user_member_of,
+        post_audit, record_log, reject_if_not_in,
     },
 };
 use axum::{
+    Form, Router,
     extract::{DefaultBodyLimit, Multipart, Path, State},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{delete, get, post},
-    Form, Router,
 };
 use axum_extra::extract::Query;
 use chrono::{DateTime, Utc};
@@ -28,13 +28,12 @@ use std::{collections::HashMap, io::BufRead, path::Path as FilePath, sync::Arc, 
 use tower_sessions::Session;
 use uuid::Uuid;
 use vzdv::{
-    get_controller_cids_and_names,
+    ControllerRating, GENERAL_HTTP_CLIENT, PermissionsGroup, get_controller_cids_and_names,
     sql::{
         self, Activity, Controller, Feedback, FeedbackForReview, Log, NoShow, Resource, SoloCert,
         VisitorRequest,
     },
     vatusa::{self, add_visiting_controller, get_multiple_controller_info},
-    ControllerRating, PermissionsGroup, GENERAL_HTTP_CLIENT,
 };
 
 /// Page for managing controller feedback.
@@ -797,6 +796,74 @@ async fn post_new_resource(
     Ok(Redirect::to("/admin/resources"))
 }
 
+/// Edit an existing resource with new information.
+async fn api_edit_resource(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    mut form: Multipart,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) =
+        reject_if_not_in(&state, &user_info, PermissionsGroup::NamedPosition).await
+    {
+        return Ok(redirect);
+    }
+    let user_info = user_info.unwrap();
+    let mut resource = Resource::default();
+
+    while let Some(field) = form.next_field().await? {
+        let name = field.name().ok_or(AppError::MultipartFormGet)?.to_string();
+        match name.as_str() {
+            "id" => resource.id = field.text().await?.parse()?,
+            "name" => resource.name = field.text().await?,
+            "category" => resource.category = field.text().await?,
+            "file" => {
+                let new_uuid = Uuid::new_v4();
+                let file_name = field
+                    .file_name()
+                    .ok_or(AppError::MultipartFormGet)?
+                    .to_string();
+                let file_data = field.bytes().await?;
+                if !file_data.is_empty() {
+                    let new_file_name = format!("{new_uuid}_{file_name}");
+                    let write_path = FilePath::new("./assets").join(&new_file_name);
+                    debug!(
+                        "Writing new file to assets dir as part of resource upload: {new_file_name}"
+                    );
+                    std::fs::write(write_path, file_data)?;
+                    resource.file_name = Some(new_file_name);
+                }
+            }
+            "link" => resource.link = Some(field.text().await?),
+            _ => {}
+        }
+    }
+
+    // update the DB record
+    sqlx::query(sql::UPDATE_RESOURCE)
+        .bind(resource.id)
+        .bind(&resource.category)
+        .bind(&resource.name)
+        .bind(resource.file_name)
+        .bind(resource.link)
+        .bind(Utc::now())
+        .execute(&state.db)
+        .await?;
+
+    // record the update
+    let update_message = format!("{} updated resource {}", user_info.cid, resource.id);
+    record_log(update_message.clone(), &state.db, true).await?;
+    post_audit(&state.config, update_message);
+    flashed_messages::push_flashed_message(
+        session,
+        flashed_messages::MessageLevel::Success,
+        "Resource updated",
+    )
+    .await?;
+
+    Ok(Redirect::to("/admin/resources"))
+}
+
 /// Page for controllers that are not on the roster but have controller DB entries.
 ///
 /// Any staff members only.
@@ -1110,11 +1177,7 @@ async fn page_no_show_list(
                     controller.last_name,
                     match controller.operating_initials.as_ref() {
                         Some(oi) => {
-                            if oi.is_empty() {
-                                "??"
-                            } else {
-                                oi
-                            }
+                            if oi.is_empty() { "??" } else { oi }
                         }
                         None => "??",
                     }
@@ -1321,6 +1384,8 @@ pub fn router() -> Router<Arc<AppState>> {
         )
         .layer(DefaultBodyLimit::disable()) // no upload limit on this endpoint
         .route("/admin/resources/{id}", delete(api_delete_resource))
+        .route("/admin/resources/edit", post(api_edit_resource))
+        .layer(DefaultBodyLimit::disable()) // no upload limit on this endpoint either
         .route("/admin/off_roster_list", get(page_off_roster_list))
         .route("/admin/activity_report", get(page_activity_report))
         .route(

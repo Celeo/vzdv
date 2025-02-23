@@ -4,6 +4,8 @@
 
 {% block body %}
 
+<script defer src="/static/resources_admin_page.js"></script>
+
 <h2 class="pb-3">Manage Resources</h2>
 
 <h3 class="pb-3">Existing</h3>
@@ -21,11 +23,11 @@
   <tbody>
     {% for resource in resources %}
       <tr>
-        <td>
+        <td class="r-type">
           {% if resource.file_name %}File{% else %}Link{% endif %}
         </td>
-        <td>{{ resource.category }}</td>
-        <td>{{ resource.name }}</td>
+        <td class="r-category">{{ resource.category }}</td>
+        <td class="r-name">{{ resource.name }}</td>
         <td>
           {% if resource.file_name %}
             <a href="/assets/{{ resource.file_name }}" class="text-decoration-none" target="_blank">/assets/{{ resource.file_name }}</a>
@@ -35,9 +37,11 @@
         </td>
         <td>{{ resource.updated|simple_date }}</td>
         <td>
-          <button class="btn btn-sm btn-danger button-delete-resource" resource-id="{{ resource.id }}">
+          <button class="btn btn-sm btn-warning button-edit-resource" title="Edit this resource" resource-id="{{ resource.id }}">
+            <i class="bi bi-pencil"></i>
+          </button>
+          <button class="btn btn-sm btn-danger button-delete-resource" title="Delete this resource" resource-id="{{ resource.id }}">
             <i class="bi bi-trash"></i>
-            Delete
           </button>
         </td>
       </tr>
@@ -125,23 +129,51 @@
   </div>
 </div>
 
-<script>
-  document.querySelectorAll('.button-delete-resource').forEach((button) => {
-    button.addEventListener('click', () => {
-      const resourceId = button.getAttribute('resource-id');
-      const result = window.confirm('Are you sure you want to delete this resource?');
-      if (result) {
-        fetch(`/admin/resources/${resourceId}`, { method: 'DELETE' })
-          .then((response) => {
-            window.location.reload();
-          })
-          .catch((error) => {
-            console.error(error);
-            window.alert(`Something went wrong: ${error}`);
-          });
-      }
-    });
-  });
-</script>
+<dialog id="modalEditResource">
+  <h2 class="pb-3">Edit resource</h2>
+  <form action="/admin/resources/edit" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="id" id="edit-resource-id">
+    <div class="row">
+      <div class="col">
+        <div class="mb-3">
+          <label for="name" class="form-label">Name</label>
+          <input type="text" class="form-control" name="name" id="edit-resource-name" required>
+        </div>
+      </div>
+      <div class="col">
+        <div class="mb-3">
+          <label for="category" class="form-label">Category</label>
+          <select class="form-select" name="category" id="edit-resource-category" required>
+            {% for category in categories %}
+              <option value="{{ category }}">{{ category }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="row" id="edit-resource-file">
+      <div class="col">
+        <div class="mb-3">
+          <label for="file" class="form-label">File</label>
+          <input type="file" name="file" class="form-control">
+        </div>
+      </div>
+    </div>
+    <div class="row" id="edit-resource-link">
+      <div class="col">
+        <div class="mb-3">
+          <label for="link" class="form-label">Link</label>
+          <input type="text" name="link" class="form-control">
+        </div>
+      </div>
+    </div>
+    <div id="row">
+      <div class="d-flex justify-content-between">
+        <button class="btn btn-warning" role="button" id="btn-modal-edit-close">Close</button>
+        <button class="btn btn-success" role="button" type="submit">Save</button>
+      </div>
+    </div>
+  </form>
+</dialog>
 
 {% endblock %}

@@ -436,6 +436,8 @@ pub const GET_ALL_RESOURCES: &str = "SELECT * FROM resource";
 pub const GET_RESOURCE_BY_ID: &str = "SELECT * FROM resource WHERE id=$1";
 pub const DELETE_RESOURCE_BY_ID: &str = "DELETE FROM resource WHERE id=$1";
 pub const CREATE_NEW_RESOURCE: &str = "INSERT INTO resource VALUES (NULL, $1, $2, $3, $4, $5)";
+pub const UPDATE_RESOURCE: &str =
+    "UPDATE resource SET category=$2, name=$3, file_name=$4, link=$5, updated=$6 WHERE id=$1";
 
 pub const GET_VISITOR_REQUEST_BY_ID: &str = "SELECT * FROM visitor_request WHERE id=$1";
 pub const GET_ALL_VISITOR_REQUESTS: &str = "SELECT * FROM visitor_request";
