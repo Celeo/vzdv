@@ -37,7 +37,7 @@ async fn main() {
 
     info!("Starting tasks");
 
-    let roster_handle = {
+    let _roster_handle = {
         let db = db.clone();
         tokio::spawn(async move {
             debug!("Waiting 15 seconds before starting roster sync");
@@ -58,7 +58,7 @@ async fn main() {
         })
     };
 
-    let activity_handle = {
+    let _activity_handle = {
         let config = config.clone();
         let db = db.clone();
         tokio::spawn(async move {
@@ -101,7 +101,7 @@ async fn main() {
         })
     };
 
-    let solo_cert_handle = {
+    let _solo_cert_handle = {
         let db: sqlx::Pool<sqlx::Sqlite> = db.clone();
         tokio::spawn(async move {
             debug!("Waiting 15 seconds before starting solo cert expiration check");
@@ -121,7 +121,7 @@ async fn main() {
         })
     };
 
-    let no_show_expiration_handle = {
+    let _no_show_expiration_handle = {
         let db: sqlx::Pool<sqlx::Sqlite> = db.clone();
         tokio::spawn(async move {
             debug!("Waiting 15 seconds before starting no-show expiration check");
@@ -141,10 +141,10 @@ async fn main() {
         })
     };
 
-    roster_handle.await.unwrap();
-    activity_handle.await.unwrap();
-    solo_cert_handle.await.unwrap();
-    no_show_expiration_handle.await.unwrap();
+    _roster_handle.await.unwrap();
+    _activity_handle.await.unwrap();
+    _solo_cert_handle.await.unwrap();
+    _no_show_expiration_handle.await.unwrap();
 
     db.close().await;
 }
