@@ -2,13 +2,13 @@
 
 use crate::{
     flashed_messages,
-    shared::{record_log, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, record_log},
 };
 use axum::{
+    Form, Router,
     extract::State,
     response::{Html, Redirect},
     routing::get,
-    Form, Router,
 };
 use chrono::{DateTime, Months, Utc};
 use indexmap::IndexMap;
@@ -23,10 +23,11 @@ use std::{
 };
 use tower_sessions::Session;
 use vzdv::{
+    ControllerRating, GENERAL_HTTP_CLIENT,
     config::Config,
     determine_staff_positions,
     sql::{self, Activity, Certification, Controller, Resource, VisitorRequest},
-    vatusa, ControllerRating, GENERAL_HTTP_CLIENT,
+    vatusa,
 };
 
 #[derive(Debug, Serialize)]
@@ -44,94 +45,127 @@ type ParsedAlias = Vec<(String, Vec<(String, Vec<String>)>)>;
 fn generate_staff_outline(config: &Config) -> HashMap<&'static str, StaffPosition> {
     let email_domain = &config.staff.email_domain;
     HashMap::from([
-        ("ATM", StaffPosition {
-            short: "ATM",
-            name: "Air Traffic Manager",
-            order: 1,
-            controllers: Vec::new(),
-            email: Some(format!("atm@{email_domain}")),
-            description: "Responsible for the macro-management of the facility. Oversees day-to-day operations and ensures that the facility is running smoothly.",
-        }),
-        ("DATM", StaffPosition {
-            short: "DATM",
-            name: "Deputy Air Traffic Manager",
-            order: 2,
-            controllers: Vec::new(),
-            email: Some(format!("datm@{email_domain}")),
-            description: "Assists the Air Traffic Manager with the management of the facility. Acts as the Air Traffic Manager in their absence.",
-        }),
-        ("TA", StaffPosition {
-            short: "TA",
-            name: "Training Administrator",
-            order: 3,
-            controllers: Vec::new(),
-            email: Some(format!("ta@{email_domain}")),
-            description: "Responsible for overseeing and management of the facility's training program and staff.",
-        }),
-        ("FE", StaffPosition {
-            short: "FE",
-            name: "Facility Engineer",
-            order: 4,
-            controllers: Vec::new(),
-            email: Some(format!("fe@{email_domain}")),
-            description: "Responsible for the creation of sector files, radar client files, and other facility resources.",
-        }),
-        ("EC", StaffPosition {
-            short: "EC",
-            name: "Events Coordinator",
-            order: 5,
-            controllers: Vec::new(),
-            email: Some(format!("ec@{email_domain}")),
-            description: "Responsible for the planning, coordination and advertisement of facility events with neighboring facilities, virtual airlines, VATUSA, and VATSIM.",
-        }),
-        ("WM", StaffPosition {
-            short: "WM",
-            name: "Webmaster",
-            order: 6,
-            controllers: Vec::new(),
-            email: Some(format!("wm@{email_domain}")),
-            description: "Responsible for the management of the facility's website and technical infrastructure.",
-        }),
-        ("INS", StaffPosition {
-            short: "INS",
-            name: "Instructor",
-            order: 7,
-            controllers: Vec::new(),
-            email: None,
-            description: "Under direction of the Training Administrator, leads training and handles OTS Examinations.",
-        }),
-        ("MTR", StaffPosition {
-            short: "MTR",
-            name: "Mentor",
-            order: 8,
-            controllers: Vec::new(),
-            email: None,
-            description: "Under direction of the Training Administrator, helps train students and prepare them for OTS Examinations.",
-        }),
-        ("AFE", StaffPosition {
-            short: "AFE",
-            name: "Assistant Facility Engineer",
-            order: 9,
-            controllers: Vec::new(),
-            email: None,
-            description: "Assists the Facility Engineer.",
-        }),
-        ("AEC", StaffPosition {
-            short: "AEC",
-            name: "Assistant Events Coordinator",
-            order: 10,
-            controllers: Vec::new(),
-            email: None,
-            description: "Assists the Events Coordinator.",
-        }),
-        ("AWM", StaffPosition {
-            short: "AWM",
-            name: "Assistant Webmaster",
-            order: 11,
-            controllers: Vec::new(),
-            email: None,
-            description: "Assists the Webmaster.",
-        }),
+        (
+            "ATM",
+            StaffPosition {
+                short: "ATM",
+                name: "Air Traffic Manager",
+                order: 1,
+                controllers: Vec::new(),
+                email: Some(format!("atm@{email_domain}")),
+                description: "Responsible for the macro-management of the facility. Oversees day-to-day operations and ensures that the facility is running smoothly.",
+            },
+        ),
+        (
+            "DATM",
+            StaffPosition {
+                short: "DATM",
+                name: "Deputy Air Traffic Manager",
+                order: 2,
+                controllers: Vec::new(),
+                email: Some(format!("datm@{email_domain}")),
+                description: "Assists the Air Traffic Manager with the management of the facility. Acts as the Air Traffic Manager in their absence.",
+            },
+        ),
+        (
+            "TA",
+            StaffPosition {
+                short: "TA",
+                name: "Training Administrator",
+                order: 3,
+                controllers: Vec::new(),
+                email: Some(format!("ta@{email_domain}")),
+                description: "Responsible for overseeing and management of the facility's training program and staff.",
+            },
+        ),
+        (
+            "FE",
+            StaffPosition {
+                short: "FE",
+                name: "Facility Engineer",
+                order: 4,
+                controllers: Vec::new(),
+                email: Some(format!("fe@{email_domain}")),
+                description: "Responsible for the creation of sector files, radar client files, and other facility resources.",
+            },
+        ),
+        (
+            "EC",
+            StaffPosition {
+                short: "EC",
+                name: "Events Coordinator",
+                order: 5,
+                controllers: Vec::new(),
+                email: Some(format!("ec@{email_domain}")),
+                description: "Responsible for the planning, coordination and advertisement of facility events with neighboring facilities, virtual airlines, VATUSA, and VATSIM.",
+            },
+        ),
+        (
+            "WM",
+            StaffPosition {
+                short: "WM",
+                name: "Webmaster",
+                order: 6,
+                controllers: Vec::new(),
+                email: Some(format!("wm@{email_domain}")),
+                description: "Responsible for the management of the facility's website and technical infrastructure.",
+            },
+        ),
+        (
+            "INS",
+            StaffPosition {
+                short: "INS",
+                name: "Instructor",
+                order: 7,
+                controllers: Vec::new(),
+                email: None,
+                description: "Under direction of the Training Administrator, leads training and handles OTS Examinations.",
+            },
+        ),
+        (
+            "MTR",
+            StaffPosition {
+                short: "MTR",
+                name: "Mentor",
+                order: 8,
+                controllers: Vec::new(),
+                email: None,
+                description: "Under direction of the Training Administrator, helps train students and prepare them for OTS Examinations.",
+            },
+        ),
+        (
+            "AFE",
+            StaffPosition {
+                short: "AFE",
+                name: "Assistant Facility Engineer",
+                order: 9,
+                controllers: Vec::new(),
+                email: None,
+                description: "Assists the Facility Engineer.",
+            },
+        ),
+        (
+            "AEC",
+            StaffPosition {
+                short: "AEC",
+                name: "Assistant Events Coordinator",
+                order: 10,
+                controllers: Vec::new(),
+                email: None,
+                description: "Assists the Events Coordinator.",
+            },
+        ),
+        (
+            "AWM",
+            StaffPosition {
+                short: "AWM",
+                name: "Assistant Webmaster",
+                order: 11,
+                controllers: Vec::new(),
+                email: None,
+                description: "Assists the Webmaster.",
+            },
+        ),
     ])
 }
 
@@ -469,10 +503,14 @@ pub async fn fetch_and_parse_alias_file() -> Result<ParsedAlias, reqwest::Error>
 }
 
 /// View Alias commands for the facility. (Polled from the vNAS API)
-async fn alias_ref(State(state): State<Arc<AppState>>) -> Result<Html<String>, AppError> {
+async fn alias_ref(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Html<String>, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let template = state.templates.get_template("facility/aliasref.jinja")?;
     let alias_ref = fetch_and_parse_alias_file().await?;
-    let rendered = template.render(context! { alias_ref })?;
+    let rendered = template.render(context! { user_info, alias_ref })?;
     Ok(Html(rendered))
 }
 
