@@ -2,10 +2,10 @@
 
 use crate::{
     flashed_messages,
-    flights::{get_relevant_flights, OnlineFlightSummary},
-    shared::{is_user_member_of, AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
+    flights::{OnlineFlightSummary, get_relevant_flights},
+    shared::{AppError, AppState, CacheEntry, SESSION_USER_INFO_KEY, UserInfo, is_user_member_of},
 };
-use axum::{extract::State, response::Html, routing::get, Router};
+use axum::{Router, extract::State, response::Html, routing::get};
 use chrono::Utc;
 use itertools::Itertools;
 use log::warn;
@@ -15,10 +15,10 @@ use std::{collections::HashMap, sync::Arc, time::Instant};
 use tower_sessions::Session;
 use vatsim_utils::live_api::Vatsim;
 use vzdv::{
+    GENERAL_HTTP_CLIENT, PermissionsGroup,
     aviation::parse_metar,
     sql::{self, Activity},
-    vatsim::{get_online_facility_controllers, OnlineController},
-    PermissionsGroup, GENERAL_HTTP_CLIENT,
+    vatsim::{OnlineController, get_online_facility_controllers},
 };
 
 use super::events::query_for_events;
@@ -55,10 +55,11 @@ async fn snippet_online_controllers(
     let order_map: HashMap<&'static str, u8> = HashMap::from([
         ("CTR", 0),
         ("APP", 1),
-        ("TWR", 2),
-        ("GND", 3),
-        ("DEL", 4),
-        ("?", 5),
+        ("DEP", 2),
+        ("TWR", 3),
+        ("GND", 4),
+        ("DEL", 5),
+        ("?", 6),
     ]);
 
     // cache this endpoint's returned data for 30 seconds
@@ -81,6 +82,8 @@ async fn snippet_online_controllers(
                 ("blue", "CTR")
             } else if c.callsign.ends_with("_APP") {
                 ("orange", "APP")
+            } else if c.callsign.ends_with("_DEP") {
+                ("orange", "DEP")
             } else if c.callsign.ends_with("_TWR") {
                 ("red", "TWR")
             } else if c.callsign.ends_with("_GND") {
