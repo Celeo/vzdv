@@ -3,6 +3,7 @@
 use crate::{
     flashed_messages,
     shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, record_log},
+    vatusa,
 };
 use axum::{
     Form, Router,
@@ -27,7 +28,6 @@ use vzdv::{
     config::Config,
     determine_staff_positions,
     sql::{self, Activity, Certification, Controller, Resource, VisitorRequest},
-    vatusa,
 };
 
 #[derive(Debug, Serialize)]
@@ -595,8 +595,8 @@ async fn page_visitor_application_form(
 
     // check VATUSA checklist
     let checklist = match vatusa::transfer_checklist(
-        &state.config.vatsim.vatusa_api_key,
         user_info.cid,
+        &state.config.vatsim.vatusa_api_key,
     )
     .await
     {

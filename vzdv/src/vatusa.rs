@@ -1,5 +1,5 @@
 use crate::GENERAL_HTTP_CLIENT;
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use chrono::{DateTime, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -134,7 +134,7 @@ pub struct TransferChecklist {
 }
 
 /// Get the controller's transfer checklist information.
-pub async fn transfer_checklist(api_key: &str, cid: u32) -> Result<TransferChecklist> {
+pub async fn transfer_checklist(cid: u32, api_key: &str) -> Result<TransferChecklist> {
     #[derive(Deserialize)]
     pub struct Wrapper {
         pub data: TransferChecklist,

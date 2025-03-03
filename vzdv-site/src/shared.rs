@@ -8,7 +8,7 @@ use axum::{
 use chrono::{NaiveDateTime, TimeZone, Utc};
 use log::{error, info};
 use mini_moka::sync::Cache;
-use minijinja::{context, Environment};
+use minijinja::{Environment, context};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -20,10 +20,10 @@ use std::{
 };
 use tower_sessions_sqlx_store::sqlx::SqlitePool;
 use vzdv::{
+    GENERAL_HTTP_CLIENT, PermissionsGroup,
     config::Config,
     controller_can_see,
     sql::{self, Controller},
-    PermissionsGroup, GENERAL_HTTP_CLIENT,
 };
 
 /// Discord webhook for reporting errors.
@@ -47,6 +47,8 @@ pub enum AppError {
     HttpResponse(&'static str, u16),
     #[error(transparent)]
     VatsimApi(#[from] vatsim_utils::errors::VatsimUtilError),
+    #[error("error accessing VATUSA API: {0}")]
+    VatusaApi(anyhow::Error),
     #[error(transparent)]
     ChronoParse(#[from] chrono::ParseError),
     #[error(transparent)]
@@ -79,7 +81,8 @@ impl AppError {
             Self::Database(_) => "Issue accessing database",
             Self::HttpCall(_) => "Issue sending HTTP call",
             Self::HttpResponse(_, _) => "Issue processing HTTP response",
-            Self::VatsimApi(_) => "Issue accessing VATSIM APIs",
+            Self::VatsimApi(_) => "Issue accessing VATSIM API",
+            Self::VatusaApi(_) => "Issue accessing VATUSA API",
             Self::ChronoParse(_) => "Issue processing time data",
             Self::ChronoTimezone(_) => "Issue processing timezone data",
             Self::ChronoOther(_) => "Issue processing time",

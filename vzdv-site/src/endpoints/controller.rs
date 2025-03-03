@@ -7,6 +7,7 @@ use crate::{
         AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, js_timestamp_to_utc, post_audit,
         record_log, reject_if_not_in, strip_some_tags,
     },
+    vatusa::{self, NewTrainingRecord, TrainingRecord, get_training_records, save_training_record},
 };
 use axum::{
     Form, Router,
@@ -31,10 +32,7 @@ use vzdv::{
     get_controller_cids_and_names, retrieve_all_in_use_ois,
     sql::{self, Certification, Controller, Feedback, SoloCert, StaffNote},
     vatsim,
-    vatusa::{
-        self, NewTrainingRecord, TrainingRecord, get_multiple_controller_names,
-        get_training_records, save_training_record,
-    },
+    vatusa::get_multiple_controller_names,
 };
 
 /// Roles the current user is able to set.
@@ -450,8 +448,7 @@ async fn post_new_solo_cert(
             expiration,
             &state.config.vatsim.vatusa_api_key,
         )
-        .await
-        .map_err(|err| AppError::GenericFallback("creating solo cert on VATUSA", err))?;
+        .await?;
     }
 
     push_flashed_message(session, MessageLevel::Info, "New solo cert issued").await?;
@@ -605,20 +602,14 @@ async fn post_edit_solo_cert(
     if matching.reported {
         debug!("Updating VATUSA of the extended expiration");
         vatusa::delete_solo_cert(cid, &matching.position, &state.config.vatsim.vatusa_api_key)
-            .await
-            .map_err(|e| {
-                AppError::GenericFallback("Error deleteing solo cert from VATUSA for extension", e)
-            })?;
+            .await?;
         vatusa::report_solo_cert(
             cid,
             &matching.position,
             expiration_date,
             &state.config.vatsim.vatusa_api_key,
         )
-        .await
-        .map_err(|e| {
-            AppError::GenericFallback("Error creating soloo cert with VATUSA for extension", e)
-        })?;
+        .await?;
     }
 
     push_flashed_message(
@@ -719,11 +710,8 @@ async fn snippet_get_training_records(
     {
         return Ok(redirect.into_response());
     }
-    let all_training_records = get_training_records(cid, &state.config.vatsim.vatusa_api_key)
-        .await
-        .map_err(|e| {
-            AppError::GenericFallback("getting VATUSA training records by training staff", e)
-        })?;
+    let all_training_records =
+        get_training_records(cid, &state.config.vatsim.vatusa_api_key).await?;
     let mut training_records: Vec<_> = all_training_records
         .iter()
         .filter(|record| record.facility_id == "ZDV")
@@ -780,13 +768,9 @@ async fn snippet_get_history(
         .await
         .map_err(|e| AppError::GenericFallback("getting VATSIM member info", e))?;
     let controller_info =
-        vatusa::get_controller_info(cid, Some(&state.config.vatsim.vatusa_api_key))
-            .await
-            .map_err(|e| AppError::GenericFallback("getting VATUSA controller info", e))?;
+        vatusa::get_controller_info(cid, Some(&state.config.vatsim.vatusa_api_key)).await?;
     let rating_history =
-        vatusa::get_controller_rating_history(cid, &state.config.vatsim.vatusa_api_key)
-            .await
-            .map_err(|e| AppError::GenericFallback("getting VATUSA rating history", e))?;
+        vatusa::get_controller_rating_history(cid, &state.config.vatsim.vatusa_api_key).await?;
 
     let template = state.templates.get_template("controller/history.jinja")?;
     let rendered: String = template.render(context! {
@@ -1025,8 +1009,7 @@ async fn post_remove_controller(
             &removal_form.reason,
             &state.config.vatsim.vatusa_api_key,
         )
-        .await
-        .map_err(|e| AppError::GenericFallback("removing home controller", e))?;
+        .await?;
         // VATUSA handles emailing the user for home facility removals
         record_log(
             format!(
@@ -1044,13 +1027,10 @@ async fn post_remove_controller(
             &removal_form.reason,
             &state.config.vatsim.vatusa_api_key,
         )
-        .await
-        .map_err(|e| AppError::GenericFallback("removing visiting controller", e))?;
+        .await?;
         // we're responsible for informing visitors of their removal
         let controller_info =
-            vatusa::get_controller_info(cid, Some(&state.config.vatsim.vatusa_api_key))
-                .await
-                .map_err(|err| AppError::GenericFallback("getting controller info", err))?;
+            vatusa::get_controller_info(cid, Some(&state.config.vatsim.vatusa_api_key)).await?;
         if let Some(ref email) = controller_info.email {
             send_mail(
                 &state.config,

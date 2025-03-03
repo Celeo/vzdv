@@ -2,13 +2,14 @@
 
 use crate::{
     discord, flashed_messages,
-    shared::{record_log, strip_some_tags, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, record_log, strip_some_tags},
+    vatusa::{self, TrainingRecord},
 };
 use axum::{
+    Router,
     extract::{Query, State},
     response::{Html, IntoResponse, Redirect, Response},
     routing::get,
-    Router,
 };
 use chrono::NaiveDateTime;
 use log::{debug, warn};
@@ -20,7 +21,7 @@ use std::{
 use tower_sessions::Session;
 use vzdv::{
     sql::{self, Controller},
-    vatusa::{self, get_multiple_controller_names, TrainingRecord},
+    vatusa::get_multiple_controller_names,
 };
 
 /// Retrieve and show the user their training records from VATUSA.
@@ -34,11 +35,7 @@ async fn page_training_notes(
         None => return Ok(Redirect::to("/").into_response()),
     };
     let all_training_records =
-        vatusa::get_training_records(user_info.cid, &state.config.vatsim.vatusa_api_key)
-            .await
-            .map_err(|e| {
-                AppError::GenericFallback("getting VATUSA training records by controller", e)
-            })?;
+        vatusa::get_training_records(user_info.cid, &state.config.vatsim.vatusa_api_key).await?;
     let mut training_records: Vec<_> = all_training_records
         .iter()
         .filter(|record| record.facility_id == "ZDV")

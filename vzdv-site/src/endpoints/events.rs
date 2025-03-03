@@ -5,16 +5,17 @@
 use crate::{
     flashed_messages,
     shared::{
-        is_user_member_of, js_timestamp_to_utc, record_log, reject_if_not_in, AppError, AppState,
-        UserInfo, SESSION_USER_INFO_KEY,
+        AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, is_user_member_of,
+        js_timestamp_to_utc, record_log, reject_if_not_in,
     },
+    vatusa::get_controller_info,
 };
 use axum::{
+    Form, Router,
     extract::{Path, State},
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
-    Form, Router,
 };
 use axum_extra::extract::WithRejection;
 use chrono::Utc;
@@ -24,9 +25,8 @@ use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
 use tower_sessions::Session;
 use vzdv::{
-    sql::{self, Controller, Event, EventPosition, EventRegistration},
-    vatusa::get_controller_info,
     ControllerRating, PermissionsGroup,
+    sql::{self, Controller, Event, EventPosition, EventRegistration},
 };
 
 /// Get a list of upcoming events optionally with unpublished events.
@@ -208,11 +208,7 @@ async fn page_event(
                     controller.last_name,
                     match controller.operating_initials.as_ref() {
                         Some(oi) => {
-                            if oi.is_empty() {
-                                "??"
-                            } else {
-                                oi
-                            }
+                            if oi.is_empty() { "??" } else { oi }
                         }
                         None => "??",
                     }
@@ -724,9 +720,7 @@ async fn controller_by_cid(db: &Pool<Sqlite>, cid: u32) -> Result<u32, AppError>
         return Ok(cid);
     }
     // retrieve unknown controller info
-    let info = get_controller_info(cid, None)
-        .await
-        .map_err(|e| AppError::GenericFallback("getting controller info", e))?;
+    let info = get_controller_info(cid, None).await?;
     // insert in DB
     sqlx::query(sql::INSERT_USER_SIMPLE)
         .bind(cid)

@@ -7,6 +7,7 @@ use crate::{
         AppError, AppState, CacheEntry, SESSION_USER_INFO_KEY, UserInfo, is_user_member_of,
         post_audit, record_log, reject_if_not_in,
     },
+    vatusa::{self, add_visiting_controller},
 };
 use axum::{
     Form, Router,
@@ -33,7 +34,7 @@ use vzdv::{
         self, Activity, Controller, Feedback, FeedbackForReview, Log, NoShow, Resource, SoloCert,
         VisitorRequest,
     },
-    vatusa::{self, add_visiting_controller, get_multiple_controller_info},
+    vatusa::get_multiple_controller_info,
 };
 
 /// Page for managing controller feedback.
@@ -394,8 +395,7 @@ async fn post_email_manual_send(
         manual_email_form.recipient,
         Some(&state.config.vatsim.vatusa_api_key),
     )
-    .await
-    .map_err(|err| AppError::GenericFallback("getting controller info", err))?;
+    .await?;
     let email = match controller_info.email {
         Some(e) => e,
         None => {
@@ -571,9 +571,7 @@ async fn post_visitor_application_action(
         }
     };
     let controller_info =
-        vatusa::get_controller_info(request.cid, Some(&state.config.vatsim.vatusa_api_key))
-            .await
-            .map_err(|err| AppError::GenericFallback("getting controller info", err))?;
+        vatusa::get_controller_info(request.cid, Some(&state.config.vatsim.vatusa_api_key)).await?;
     record_log(
         format!(
             "{} taking action {} on visitor request {id} for {} {} ({})",
@@ -590,9 +588,7 @@ async fn post_visitor_application_action(
 
     if action_form.action == "accept" {
         // add to roster in VATUSA
-        add_visiting_controller(request.cid, &state.config.vatsim.vatusa_api_key)
-            .await
-            .map_err(|err| AppError::GenericFallback("could not add visitor", err))?;
+        add_visiting_controller(request.cid, &state.config.vatsim.vatusa_api_key).await?;
 
         // update controller record now rather than waiting for the task sync
         sqlx::query(sql::SET_CONTROLLER_ON_ROSTER)

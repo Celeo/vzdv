@@ -3,7 +3,7 @@
 #![deny(clippy::all)]
 #![deny(unsafe_code)]
 
-use axum::{middleware as axum_middleware, Router};
+use axum::{Router, middleware as axum_middleware};
 use clap::Parser;
 use log::{debug, error, info, warn};
 use mini_moka::sync::Cache;
@@ -22,7 +22,7 @@ use tower::ServiceBuilder;
 use tower_http::timeout::TimeoutLayer;
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::SqliteStore;
-use vzdv::{general_setup, ControllerRating};
+use vzdv::{ControllerRating, general_setup};
 
 mod discord;
 mod email;
@@ -31,6 +31,7 @@ mod flashed_messages;
 mod flights;
 mod middleware;
 mod shared;
+mod vatusa;
 
 /// vZDV website.
 #[derive(Parser)]
