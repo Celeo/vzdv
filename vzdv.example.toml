@@ -17,10 +17,8 @@ oauth_client_callback_url = "http://localhost:3000/auth/callback"
 
 [training]
 certifications = [
-  "GC T2 EGE",
   "GC T2 ASE",
   "GC T1",
-  "LC T2 EGE",
   "LC T2 ASE",
   "LC T1",
   "APP T2 GJT",
