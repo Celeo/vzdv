@@ -14,7 +14,7 @@ use axum::{
 use chrono::{DateTime, Months, Utc};
 use indexmap::IndexMap;
 use itertools::Itertools;
-use log::{error, warn};
+use log::{error, info, warn};
 use minijinja::context;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -534,6 +534,9 @@ async fn page_visitor_application(
         .as_ref()
         .map(|c| c.is_on_roster)
         .unwrap_or_default();
+    if let Some(ref ui) = user_info {
+        info!("{} accessed visitor application page", ui.cid);
+    }
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
     let template = state
         .templates
@@ -553,18 +556,35 @@ async fn page_visitor_application_form(
         // a little lazy, but no one should see this
         None => return Ok(Html(String::from("Must be logged in"))),
     };
+    info!("{} accessing visitor application form", user_info.cid);
+
+    let template = state
+        .templates
+        .get_template("facility/visitor_application_form.jinja")?;
+
     // check pending request
     let pending_request: Option<VisitorRequest> = sqlx::query_as(sql::GET_PENDING_VISITOR_REQ_FOR)
         .bind(user_info.cid)
         .fetch_optional(&state.db)
         .await?;
+    if pending_request.is_some() {
+        info!(
+            "{} already has a pending visitor application",
+            user_info.cid
+        );
+        let rendered = template.render(context! { user_info, pending_request })?;
+        return Ok(Html(rendered));
+    }
 
     // get controller info
     let controller_info = match vatusa::get_controller_info(user_info.cid, None).await {
-        Ok(info) => Some(info),
+        Ok(info) => info,
         Err(e) => {
-            warn!("{e}");
-            None
+            error!("Error getting controller info from VATUSA: {e}");
+            let rendered = template.render(
+                context! { user_info, error => "Could not get controller info from VATUSA" },
+            )?;
+            return Ok(Html(rendered));
         }
     };
 
@@ -575,16 +595,11 @@ async fn page_visitor_application_form(
      * the other VATSIM/VATUSA visiting controller requirements.
      */
     if pending_request.is_none() {
-        let home_facility = controller_info
-            .as_ref()
-            .map(|c| c.facility.clone())
-            .unwrap_or_default();
-        let rating = controller_info
-            .as_ref()
-            .map(|c| c.rating)
-            .unwrap_or_default();
+        let home_facility = controller_info.facility.clone();
+        let rating = controller_info.rating;
         if home_facility == "ZLC" && rating >= ControllerRating::S1.as_id() {
             // ZLC bypass conditions met
+            info!("{} getting ZLC bypass form", user_info.cid);
             let template = state
                 .templates
                 .get_template("facility/visitor_application_form_zlc.jinja")?;
@@ -600,16 +615,25 @@ async fn page_visitor_application_form(
     )
     .await
     {
-        Ok(checklist) => Some(checklist),
+        Ok(checklist) => checklist,
         Err(e) => {
-            warn!("{e}");
-            None
+            error!("Error getting transfer checklist from VATUSA: {e}");
+            let rendered = template.render(
+                context! { user_info, error => "Could not get controller visit/transfer checklist info from VATUSA" },
+            )?;
+            return Ok(Html(rendered));
         }
     };
 
-    let template = state
-        .templates
-        .get_template("facility/visitor_application_form.jinja")?;
+    info!(
+        "Rendering visitor app form for {}; visiting: {}, rating: {}, rating_90_days: {}, controlled_50_hours: {}, last_visit_60_days: {}",
+        user_info.cid,
+        checklist.visiting,
+        controller_info.rating,
+        checklist.rating_90_days,
+        checklist.controlled_50_hrs,
+        checklist.last_visit_60_days
+    );
     let rendered =
         template.render(context! { user_info, pending_request, controller_info, checklist })?;
     Ok(Html(rendered))

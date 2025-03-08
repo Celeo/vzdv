@@ -1,4 +1,12 @@
 <div class="pt-5">
+  {% if error %}
+    <h3>An error occurred</h3>
+    <p>
+      {{ error }}
+      <br><br>
+      Please try again later.
+    </p>
+  {% endif %}
   {% if pending_request %}
     <p style="font-size: 125%">
       You already have a request pending.
@@ -6,14 +14,14 @@
       Please allow up to 7 days before reaching out to the ATM or DATM.
     </p>
   {% else %}
-    {% if checklist.visiting and controller_info.rating >= 4 %}
+    {% if checklist and checklist.visiting and controller_info.rating >= 4 %}
       <p>It looks like you're cleared to visit. Click the button below to submit the request.</p>
       <form action="/facility/visitor_application/form" method="POST">
         <input type="hidden" name="rating" value="{{ controller_info.rating }}">
         <input type="hidden" name="facility" value="{{ controller_info.facility }}">
         <button type="submit" class="btn btn-primary">Request visitor status</button>
       </form>
-    {% else %}
+    {% elif checklist %}
       <p style="font-size: 125%">
         VATUSA is reporting you as <strong>ineligible</strong> for visiting.
         <br><br>
