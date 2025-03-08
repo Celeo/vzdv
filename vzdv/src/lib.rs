@@ -3,18 +3,18 @@
 #![deny(clippy::all)]
 #![deny(unsafe_code)]
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use config::Config;
 use db::load_db;
 use fern::{
-    colors::{Color, ColoredLevelConfig},
     Dispatch,
+    colors::{Color, ColoredLevelConfig},
 };
 use itertools::Itertools;
 use log::{debug, error};
 use reqwest::ClientBuilder;
 use sql::Controller;
-use sqlx::{sqlite::SqliteRow, Pool, Row, Sqlite};
+use sqlx::{Pool, Row, Sqlite, sqlite::SqliteRow};
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -525,11 +525,12 @@ pub async fn get_staff_member_by_role(db: &Pool<Sqlite>, role: &str) -> Result<V
         .collect())
 }
 
+#[allow(clippy::field_reassign_with_default)]
 #[cfg(test)]
 pub mod tests {
     use super::{
-        controller_can_see, determine_staff_positions, position_in_facility_airspace,
-        PermissionsGroup,
+        PermissionsGroup, controller_can_see, determine_staff_positions,
+        position_in_facility_airspace,
     };
     use crate::{
         config::Config, generate_operating_initials_for, sql::Controller,
