@@ -5,21 +5,21 @@ use chrono::Utc;
 use log::{debug, info, warn};
 use sqlx::{Pool, Sqlite};
 use twilight_gateway::Event;
-use twilight_http::{client::InteractionClient, Client};
+use twilight_http::{Client, client::InteractionClient};
 use twilight_interactions::command::{CommandModel, CreateCommand};
 use twilight_model::{
     application::interaction::InteractionData,
     channel::message::{
-        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
         Component, MessageFlags,
+        component::{ActionRow, Button, ButtonStyle, SelectMenu, SelectMenuOption},
     },
     gateway::payload::incoming::InteractionCreate,
     http::interaction::InteractionResponse,
     id::Id,
 };
 use twilight_util::builder::{
-    embed::{EmbedBuilder, EmbedFieldBuilder, ImageSource},
     InteractionResponseDataBuilder,
+    embed::{EmbedBuilder, EmbedFieldBuilder, ImageSource},
 };
 use vzdv::{
     config::Config,
@@ -120,12 +120,10 @@ pub async fn handler(
                 let events: Vec<_> = {
                     let all: Vec<vzdv::sql::Event> =
                         sqlx::query_as(sql::GET_ALL_EVENTS).fetch_all(db).await?;
-                    let upcoming = all
-                        .iter()
+                    all.iter()
                         .filter(|event| event.end >= Utc::now())
                         .cloned()
-                        .collect();
-                    upcoming
+                        .collect()
                 };
                 if events.is_empty() {
                     interaction.create_response(event.id, &event.token, &InteractionResponse {
