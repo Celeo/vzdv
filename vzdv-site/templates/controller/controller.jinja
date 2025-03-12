@@ -7,6 +7,10 @@
 <script defer src="/static/controller_page.js"></script>
 
 <h2 class="pb-3">
+  <a class="ms-2 btn btn-outline-primary" href="/facility/roster" style="--bs-btn-padding-y: .25rem; --bs-btn-padding-x: .5rem; --bs-btn-font-size: .75rem;">
+    <i class="bi bi-arrow-left"></i>
+    Back
+  </a>
   {{ controller.first_name }} {{ controller.last_name }}
   {% if controller.operating_initials %} - {{ controller.operating_initials }}{% endif %}
   {% if user_info and user_info.is_admin %}
