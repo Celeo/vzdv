@@ -3,11 +3,11 @@
 use anyhow::Result;
 use chrono::DateTime;
 use log::{debug, error, info};
-use sqlx::{sqlite::SqliteRow, Pool, Row, Sqlite};
+use sqlx::{Pool, Row, Sqlite, sqlite::SqliteRow};
 use std::collections::HashSet;
 use vzdv::{
     generate_operating_initials_for, retrieve_all_in_use_ois,
-    sql::{self, Controller},
+    sql::{self, Controller, IPC},
     vatusa::{self, MembershipType, RosterMember},
 };
 
@@ -133,5 +133,36 @@ pub async fn update_roster(db: &Pool<Sqlite>) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+async fn partial_update_roster_single(db: &Pool<Sqlite>, message: &IPC) -> Result<()> {
+    // update just this member in the roster
+    let cid = message.data.parse()?;
+    let controller = vatusa::get_controller_info(cid, None).await?;
+    update_controller_record(db, &controller).await?;
+    info!("Quick-updated roster for {cid}");
+    Ok(())
+}
+
+/// Partially update the roster, just for CIDs that have been requested
+/// by users of the site for a quick update.
+pub async fn partial_update_roster(db: &Pool<Sqlite>) -> Result<()> {
+    let ipc_messages: Vec<IPC> = sqlx::query_as(sql::GET_IPC_MESSAGES).fetch_all(db).await?;
+    for message in ipc_messages {
+        if message.action == "VATUSA_SYNC" {
+            if let Err(e) = partial_update_roster_single(db, &message).await {
+                error!("Error partially updating roster for a controller: {e}");
+            }
+            // delete the IPC message regardless of success or failure
+            if let Err(e) = sqlx::query(sql::DELETE_IPC_MESSAGE)
+                .bind(&message.uuid)
+                .execute(db)
+                .await
+            {
+                error!("Could not delete IPC message {}: {e}", message.uuid);
+            }
+        }
+    }
     Ok(())
 }

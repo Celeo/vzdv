@@ -42,17 +42,26 @@ async fn main() {
         tokio::spawn(async move {
             debug!("Waiting 15 seconds before starting roster sync");
             time::sleep(Duration::from_secs(15)).await;
-            loop {
-                info!("Querying roster");
-                match roster::update_roster(&db).await {
-                    Ok(_) => {
-                        info!("Roster update successful");
+            for index in 0u64.. {
+                /*
+                 * Update the entire roster every 2 hours, but check for scheduled
+                 * "quick updates" requested by users of the site every 5 minutes.
+                 */
+                if index % 24 == 0 {
+                    info!("Querying roster");
+                    match roster::update_roster(&db).await {
+                        Ok(_) => {
+                            info!("Roster update successful");
+                        }
+                        Err(e) => {
+                            error!("Error updating roster: {e}");
+                        }
                     }
-                    Err(e) => {
-                        error!("Error updating roster: {e}");
-                    }
+                } else if let Err(e) = roster::partial_update_roster(&db).await {
+                    // don't log the success of this; individual CIDs will be logged in the function
+                    error!("Error partial updating roster: {e}");
                 }
-                time::sleep(Duration::from_secs(60 * 60 * 2)).await;
+                time::sleep(Duration::from_secs(60 * 5)).await;
             }
         })
     };
