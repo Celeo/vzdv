@@ -52,7 +52,6 @@ async fn main() {
                         error!("Error updating roster: {e}");
                     }
                 }
-                debug!("Waiting 2 hours for next roster sync");
                 time::sleep(Duration::from_secs(60 * 60 * 2)).await;
             }
         })
@@ -95,7 +94,6 @@ async fn main() {
                         }
                     }
                 }
-                debug!("Waiting 15 minutes for next activity sync tick");
                 time::sleep(Duration::from_secs(60 * 15)).await;
             }
         })
@@ -115,7 +113,6 @@ async fn main() {
                         error!("Error checking for solo cert expiration: {e}");
                     }
                 }
-                debug!("Waiting 30 minutes for next solo cert expiration check");
                 time::sleep(Duration::from_secs(60 * 30)).await;
             }
         })
@@ -135,7 +132,6 @@ async fn main() {
                         error!("Error checking for no-show expiration: {e}");
                     }
                 }
-                debug!("Waiting 12 hours for next no-show expiration check");
                 time::sleep(Duration::from_secs(60 * 60 * 12)).await;
             }
         })
