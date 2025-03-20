@@ -1113,7 +1113,7 @@ async fn post_loa(
     }
     record_log(
         format!(
-            "{} updated LOA for {cid} to {}",
+            "{} updated LOA for {cid} to: {}",
             user_info.cid, loa_form.loa
         ),
         &state.db,

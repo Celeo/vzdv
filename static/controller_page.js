@@ -2,7 +2,7 @@ document
   .getElementById("btn-unlink-discord")
   ?.addEventListener("click", (e) => {
     e.preventDefault();
-    const cid = e.target.closest("button").getAttribute("controller-cid");
+    const cid = e.target.getAttribute("controller-cid");
     const result = window.confirm(
       "Are you sure you want to unlink this controller's Discord account?"
     );
