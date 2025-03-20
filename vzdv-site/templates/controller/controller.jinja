@@ -31,6 +31,7 @@
           {% endif %}
           {% if user_info.is_admin %}
             <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="#" id="btn-vatusa-sync" controller-cid="{{ controller.cid }}">VATUSA Sync</a></li>
             <li><a class="dropdown-item" href="#" onclick="modalChangeOI.showModal()">Edit OIs</a></li>
             {% if controller.discord_id %}
               <li><a class="dropdown-item" href="#" id="btn-unlink-discord" controller-cid="{{ controller.cid }}">Unlink Discord</a></li>

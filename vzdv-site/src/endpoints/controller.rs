@@ -27,6 +27,7 @@ use std::{
     sync::Arc,
 };
 use tower_sessions::Session;
+use uuid::Uuid;
 use vzdv::{
     ControllerRating, PermissionsGroup, StaffPosition, controller_can_see,
     get_controller_cids_and_names, retrieve_all_in_use_ois,
@@ -1123,6 +1124,48 @@ async fn post_loa(
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }
 
+async fn post_vatusa_sync(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(cid): Path<u32>,
+) -> Result<StatusCode, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if reject_if_not_in(&state, &user_info, PermissionsGroup::TrainingTeam)
+        .await
+        .is_some()
+    {
+        push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "You do not have permission to do that",
+        )
+        .await?;
+        return Ok(StatusCode::FORBIDDEN);
+    }
+    let user_info = user_info.unwrap();
+    record_log(
+        format!("{} requested VATUSA sync for {cid}", user_info.cid),
+        &state.db,
+        true,
+    )
+    .await?;
+
+    // store the IPC action
+    sqlx::query(sql::INSERT_INTO_IPC)
+        .bind(Uuid::new_v4().to_string())
+        .bind("VATUSA_SYNC")
+        .bind(format!("{cid}"))
+        .execute(&state.db)
+        .await?;
+    push_flashed_message(
+        session,
+        MessageLevel::Success,
+        "Scheduled quick VATUSA sync",
+    )
+    .await?;
+    Ok(StatusCode::OK)
+}
+
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/controller/{cid}", get(page_controller))
@@ -1151,4 +1194,5 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/controller/{cid}/history", get(snippet_get_history))
         .route("/controller/{cid}/roles", post(post_set_roles))
         .route("/controller/{cid}/remove", post(post_remove_controller))
+        .route("/controller/{cid}/vatusa_sync", post(post_vatusa_sync))
 }

@@ -4,7 +4,7 @@ document
     e.preventDefault();
     const cid = e.target.getAttribute("controller-cid");
     const result = window.confirm(
-      "Are you sure you want to unlink this controller's Discord account?"
+      "Are you sure you want to unlink this controller's Discord account?",
     );
     if (result) {
       fetch(`/controller/${cid}/discord/unlink`, {
@@ -19,6 +19,24 @@ document
         });
     }
   });
+
+document.getElementById("btn-vatusa-sync")?.addEventListener("click", (e) => {
+  e.preventDefault();
+  const cid = e.target.getAttribute("controller-cid");
+  const result = window.confirm(
+    "Are you sure you want to sync this controller's information from VATUSA? This should be harmless.",
+  );
+  if (result) {
+    fetch(`/controller/${cid}/vatusa_sync`, { method: "POST" })
+      .then(() => {
+        window.location.reload();
+      })
+      .catch((error) => {
+        console.error(error);
+        window.alert(`Something went wrong: ${error}`);
+      });
+  }
+});
 
 document
   .getElementById("btn-modal-set-ois-close")
@@ -99,7 +117,7 @@ document.querySelectorAll(".btn-delete-comment").forEach((button) => {
     const cid = e.target.closest("button").getAttribute("controller-cid");
     const noteId = button.getAttribute("note-id");
     const result = window.confirm(
-      "Are you sure you want to delete your comment?"
+      "Are you sure you want to delete your comment?",
     );
     if (result) {
       fetch(`/controller/${cid}/note/${noteId}`, {
@@ -122,7 +140,7 @@ document.querySelectorAll(".button-delete-solo-cert").forEach((button) => {
     const cid = e.target.closest("button").getAttribute("controller-cid");
     const soloCertId = button.getAttribute("solo-cert-id");
     const result = window.confirm(
-      "Are you sure you want to delete this solo cert?"
+      "Are you sure you want to delete this solo cert?",
     );
     if (result) {
       fetch(`/controller/${cid}/certs/solo/${soloCertId}`, {
@@ -139,7 +157,7 @@ document.querySelectorAll(".button-delete-solo-cert").forEach((button) => {
   });
 });
 
-document.querySelectorAll('.button-edit-solo-cert').forEach((button) => {
+document.querySelectorAll(".button-edit-solo-cert").forEach((button) => {
   button.addEventListener("click", (e) => {
     e.preventDefault();
     const soloCertId = button.getAttribute("solo-cert-id");
