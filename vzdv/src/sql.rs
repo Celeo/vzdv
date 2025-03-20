@@ -174,6 +174,13 @@ pub struct Log {
     pub created_date: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, FromRow, Serialize)]
+pub struct IPC {
+    pub uuid: String,
+    pub action: String,
+    pub data: String,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -335,6 +342,12 @@ CREATE TABLE log (
     id INTEGER PRIMARY KEY NOT NULL,
     message TEXT NOT NULL,
     created_date TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE ipc (
+    uuid TEXT PRIMARY KEY NOT NULL,
+    action TEXT NOT NULL,
+    data TEXT
 ) STRICT;
 "#;
 
@@ -507,3 +520,7 @@ pub const UPDATE_NO_SHOW_NOTIFIED: &str = "UPDATE no_show SET notified=TRUE wher
 
 pub const GET_ALL_LOGS: &str = "SELECT * FROM log ORDER BY id DESC";
 pub const CREATE_LOG: &str = "INSERT INTO log VALUES (NULL, $1, $2)";
+
+pub const GET_IPC_MESSAGES: &str = "SELECT * FROM ipc";
+pub const INSERT_INTO_IPC: &str = "INSERT INTO ipc VALUES ($1, $2, $3);";
+pub const DELETE_IPC_MESSAGE: &str = "DELETE FROM ipc WHERE uuid=$1";
