@@ -296,6 +296,7 @@ async fn event_positions_extra(
 #[derive(Serialize)]
 struct EventRegistrationDisplay {
     controller: String,
+    cid: u32,
     choice_1: String,
     choice_2: String,
     choice_3: String,
@@ -353,6 +354,7 @@ async fn event_registrations_extra(
         };
         ret.push(EventRegistrationDisplay {
             controller,
+            cid: controller_db.as_ref().map(|c| c.cid).unwrap_or_default(),
             choice_1: c_1.unwrap_or_default(),
             choice_2: c_2.unwrap_or_default(),
             choice_3: c_3.unwrap_or_default(),

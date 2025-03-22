@@ -142,9 +142,17 @@
             <td class="text-info">
               <i class="bi bi-check" title="Assigned to a position"></i>
               {{ registration.controller }}
+              <a href="/controller/{{ registration.cid }}" class="icon-link icon-link-hover text-decoration-none">
+                <i class="bi bi-arrow-right-short"></i>
+              </a>
             </td>
           {% else %}
-            <td>{{ registration.controller }}</td>
+            <td>
+              {{ registration.controller }}
+              <a href="/controller/{{ registration.cid }}" class="icon-link icon-link-hover text-decoration-none">
+                <i class="bi bi-arrow-right-short"></i>
+              </a>
+            </td>
           {% endif %}
           <td class="{% if registration.is_assigned %}text-info{% endif %}">{{ registration.choice_1 }}</td>
           <td class="{% if registration.is_assigned %}text-info{% endif %}">{{ registration.choice_2 }}</td>
