@@ -1,19 +1,21 @@
 use crate::GENERAL_HTTP_CLIENT;
 use anyhow::{Result, bail};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 // TODO update for live
 const URL: &str = "https://sweatbox1.env.vnas.vatsim.net/data-feed/controllers.json";
 
+// More specific enum values available at https://github.com/vatsim-vnas/data-feed/tree/master/ControllerFeed
+
 /// Top-level vNAS data.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct VNasData {
-    #[serde(rename = "udpatedAt")]
+    #[serde(rename = "updatedAt")]
     updated_at: String,
     controllers: Vec<VNasController>,
 }
 
-/// vNAS controller info.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct VNasController {
     #[serde(rename = "artccId")]
@@ -29,12 +31,11 @@ pub struct VNasController {
     #[serde(rename = "isObserver")]
     is_observer: bool,
     #[serde(rename = "loginTime")]
-    login_time: String,
+    login_time: DateTime<Utc>,
     #[serde(rename = "vatsimData")]
     vatsim_data: VNasVatsimData,
 }
 
-/// vNAS position info.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct VNasPosition {
     #[serde(rename = "facilityId")]
@@ -47,8 +48,8 @@ pub struct VNasPosition {
     position_name: String,
     #[serde(rename = "positionType")]
     position_type: String,
-    #[serde(rename = "radioType")]
-    radio_type: String,
+    #[serde(rename = "radioName")]
+    radio_name: String,
     #[serde(rename = "defaultCallsign")]
     default_callsign: String,
     frequency: u32,
@@ -56,11 +57,27 @@ pub struct VNasPosition {
     is_primary: bool,
     #[serde(rename = "isActive")]
     is_active: bool,
-    // eramData: ?
-    // starsData: ?
+    #[serde(rename = "eramData")]
+    eram_data: Option<VNasEramData>,
+    #[serde(rename = "starsData")]
+    stars_data: Option<VNasStarsData>,
 }
 
-/// vNAS VATSIM controller info.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct VNasEramData {
+    #[serde(rename = "sectorId")]
+    sector_id: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct VNasStarsData {
+    subset: u32,
+    #[serde(rename = "sectorId")]
+    sector_id: String,
+    #[serde(rename = "areaId")]
+    area_id: String,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct VNasVatsimData {
     cid: String,
