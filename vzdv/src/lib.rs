@@ -28,6 +28,7 @@ pub mod db;
 pub mod sql;
 pub mod vatsim;
 pub mod vatusa;
+pub mod vnas;
 
 // I don't know what this is, but there's a SUP in ZDV that has this rating.
 const IGNORE_MISSING_STAFF_POSITIONS_FOR: [&str; 1] = ["FACCBT"];
