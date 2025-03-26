@@ -1,8 +1,8 @@
 use crate::{
-    config::Config, get_controller_cids_and_names, position_in_facility_airspace,
-    GENERAL_HTTP_CLIENT,
+    GENERAL_HTTP_CLIENT, config::Config, get_controller_cids_and_names,
+    position_in_facility_airspace,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use log::error;
 use serde::{Deserialize, Serialize};

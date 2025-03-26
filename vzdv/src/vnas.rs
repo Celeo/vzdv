@@ -1,10 +1,9 @@
-use crate::GENERAL_HTTP_CLIENT;
+use crate::{GENERAL_HTTP_CLIENT, config::Config, position_in_facility_airspace};
 use anyhow::{Result, bail};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-// TODO update for live
-const URL: &str = "https://sweatbox1.env.vnas.vatsim.net/data-feed/controllers.json";
+const URL: &str = "https://live.env.vnas.vatsim.net/data-feed/controllers.json";
 
 // More specific enum values available at https://github.com/vatsim-vnas/data-feed/tree/master/ControllerFeed
 
@@ -97,7 +96,7 @@ pub struct VNasVatsimData {
 }
 
 /// Query for the current vNAS data.
-pub async fn get_vnas_data() -> Result<VNasData> {
+async fn get_vnas_data() -> Result<VNasData> {
     let resp = GENERAL_HTTP_CLIENT.get(URL).send().await?;
     if !resp.status().is_success() {
         bail!(
@@ -107,4 +106,45 @@ pub async fn get_vnas_data() -> Result<VNasData> {
     }
     let data = resp.json().await?;
     Ok(data)
+}
+
+/// Online controllers, suitable for displaying on the site homepage
+/// or in Discord.
+#[derive(Debug, Serialize)]
+pub struct OnlineController {
+    pub cid: String,
+    pub callsign: String,
+    pub name: String,
+    pub online_for: String,
+    pub frequency: String,
+}
+
+/// Use the vNAS data feed to get a list of online controllers.
+pub async fn get_online_facility_controllers(config: &Config) -> Result<Vec<OnlineController>> {
+    let data = get_vnas_data().await?;
+    let now = chrono::Utc::now();
+    let mut online: Vec<OnlineController> = Vec::new();
+
+    for controller in data.controllers {
+        for position in controller.positions {
+            if position.is_primary
+                && position_in_facility_airspace(config, &position.default_callsign)
+            {
+                let online_seconds = (now - controller.login_time).num_seconds() as u32;
+                online.push(OnlineController {
+                    cid: controller.vatsim_data.cid.clone(),
+                    callsign: position.default_callsign.clone(),
+                    name: controller.vatsim_data.real_name.clone(),
+                    online_for: format!(
+                        "{}h{}m",
+                        online_seconds / 3600,
+                        (online_seconds / 60) % 60
+                    ),
+                    frequency: format!("{}", position.frequency as f32 / 1_000_000.0),
+                });
+            }
+        }
+    }
+
+    Ok(online)
 }
