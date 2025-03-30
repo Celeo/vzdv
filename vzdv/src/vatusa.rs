@@ -117,18 +117,22 @@ pub struct TransferChecklist {
     #[serde(rename = "override")]
     pub has_override: bool,
     pub is_first: bool,
-    pub days: bool,
+    pub days: u32,
     #[serde(rename = "visitingDays")]
-    pub visiting_days: bool,
+    pub visiting_days: u32,
     #[serde(rename = "60days")]
     pub last_visit_60_days: bool,
+    #[serde(rename = "promoDays")]
+    promo_days: Option<u32>,
+    #[serde(rename = "ratingHours")]
+    rating_hours: Option<f32>,
     #[serde(rename = "hasHome")]
     pub has_home: bool,
     #[serde(rename = "hasRating")]
     pub has_rating: bool,
     pub instructor: bool,
     pub staff: bool,
-    /// computed flag for whether or not the controller meets basic visiting requirements
+    /// Computed flag for whether or not the controller meets basic visiting requirements
     pub visiting: bool,
     pub overall: bool,
 }
