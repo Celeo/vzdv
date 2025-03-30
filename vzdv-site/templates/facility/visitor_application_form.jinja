@@ -28,11 +28,11 @@
         {% if controller_info.rating < 4 %}
           You must be rated at least S3.<br>
         {% endif %}
-        {% if not checklist.rating_90_days %}
-          You have not have your current rating for at least 90 days.
-        {% elif not checklist.controlled_50_hrs %}
+        {% if checklist.rating_90_days is false %}
+          You have not had your current rating for at least 90 days.
+        {% elif checklist.controlled_50_hrs is false %}
           You have not controlled 50 hours in your current rating.
-        {% elif not checklist.last_visit_60_days %}
+        {% elif checklist.last_visit_60_days is false %}
           You have visited another facility within the last 60 days.
         {% else %}
           For information why, please check the above documents.
