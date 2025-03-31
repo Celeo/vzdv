@@ -119,7 +119,7 @@ pub struct TransferChecklist {
     pub is_first: bool,
     pub days: u32,
     #[serde(rename = "visitingDays")]
-    pub visiting_days: u32,
+    pub visiting_days: Option<u32>,
     #[serde(rename = "60days")]
     pub last_visit_60_days: bool,
     #[serde(rename = "promoDays")]
