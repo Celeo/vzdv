@@ -963,6 +963,7 @@ async fn page_activity_report_generate(
     )
     .await?;
 
+    debug!("Getting activity from DB");
     let months = &months.month;
     let controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS_ON_ROSTER)
         .fetch_all(&state.db)
@@ -980,6 +981,7 @@ async fn page_activity_report_generate(
                 .or_insert(activity.minutes);
             acc
         });
+    debug!("Determining violations");
     let rated_violations: Vec<BasicInfo> = controllers
         .iter()
         .filter(|controller| {
@@ -1003,6 +1005,7 @@ async fn page_activity_report_generate(
         })
         .collect();
 
+    debug!("Querying training records for OBS controllers");
     let mut unrated_violations: Vec<BasicInfo> = Vec::new();
     for controller in &controllers {
         if controller.rating != ControllerRating::OBS.as_id() {
