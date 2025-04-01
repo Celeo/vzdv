@@ -18,7 +18,7 @@ use axum::{
 use axum_extra::extract::Query;
 use chrono::{DateTime, Utc};
 use itertools::Itertools;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use minijinja::context;
 use reqwest::StatusCode;
 use rev_buf_reader::RevBufReader;
@@ -1046,6 +1046,8 @@ async fn page_activity_report_generate(
             });
         }
     }
+
+    info!("Returning activity report");
 
     let template = state
         .templates
