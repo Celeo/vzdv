@@ -29,7 +29,8 @@ use std::{collections::HashMap, io::BufRead, path::Path as FilePath, sync::Arc, 
 use tower_sessions::Session;
 use uuid::Uuid;
 use vzdv::{
-    ControllerRating, GENERAL_HTTP_CLIENT, PermissionsGroup, get_controller_cids_and_names,
+    ControllerRating, GENERAL_HTTP_CLIENT, PermissionsGroup, generate_operating_initials_for,
+    get_controller_cids_and_names, retrieve_all_in_use_ois,
     sql::{
         self, Activity, Controller, Feedback, FeedbackForReview, Log, NoShow, Resource, SoloCert,
         VisitorRequest,
@@ -596,6 +597,23 @@ async fn post_visitor_application_action(
             .bind(true)
             .execute(&state.db)
             .await?;
+
+        // generate OIs
+        let in_use = retrieve_all_in_use_ois(&state.db)
+            .await
+            .map_err(|e| AppError::GenericFallback("could not get OIs from DB", e))?;
+        let new_ois = generate_operating_initials_for(
+            &in_use,
+            &controller_info.first_name,
+            &controller_info.last_name,
+        )
+        .map_err(|e| AppError::GenericFallback("could not create new OIs", e))?;
+        sqlx::query(sql::UPDATE_CONTROLLER_OIS)
+            .bind(request.cid)
+            .bind(&new_ois)
+            .execute(&state.db)
+            .await?;
+        info!("New visitor {} given OIs {}", request.cid, new_ois);
 
         // inform if possible
         if let Some(email_address) = controller_info.email {
