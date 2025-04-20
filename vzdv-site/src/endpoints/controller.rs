@@ -833,14 +833,23 @@ async fn post_add_training_note(
         )
         .await?;
 
-        // email the TA
-        send_mail_raw(
-            &state.config,
-            "ta@zdvartcc.org",
-            &format!("Student {} added to no-show list", cid),
-            "ta@zdvartcc.org",
-        )
-        .await?;
+        let controller_record: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+            .bind(cid)
+            .fetch_optional(&state.db)
+            .await?;
+        if let Some(data) = controller_record {
+            // email the TA
+            send_mail_raw(
+                &state.config,
+                "ta@zdvartcc.org",
+                &format!(
+                    "A student received a no-show training record: {} {} ({})",
+                    data.first_name, data.last_name, cid
+                ),
+                "ta@zdvartcc.org",
+            )
+            .await?;
+        }
 
         // update the form to use the VATUSA no-show field
         NewTrainingRecordForm {
