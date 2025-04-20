@@ -108,9 +108,17 @@ async fn user_is_training_special(
         .as_ref()
         .map(|c| c.roles.split(',').collect())
         .unwrap_or_default();
+    let is_at_least_s3 = controller
+        .as_ref()
+        .map(|c| c.rating)
+        .unwrap_or(ControllerRating::OBS.as_id())
+        >= ControllerRating::S3.as_id();
     Ok(TrainingPermissions {
         is_admin,
-        can_grant_rating_solos: is_admin || roles.contains(&"TA") || roles.contains(&"INS"),
+        can_grant_rating_solos: is_admin
+            || roles.contains(&"TA")
+            || roles.contains(&"INS")
+            || (roles.contains(&"MTR") && is_at_least_s3),
         can_grant_cert_solos: is_admin
             || roles.contains(&"TA")
             || roles.contains(&"INS")
@@ -440,7 +448,7 @@ async fn post_new_solo_cert(
         .execute(&state.db)
         .await?;
 
-    // only permit VATUSA reporting for non-Mentor training staff
+    // only permit VATUSA reporting for the training staff who can do so (INS+ & S3+ MTRs)
     if new_solo_form.report.is_some() && training_perms.can_grant_rating_solos {
         debug!("Reporting new solo cert to VATUSA");
         vatusa::report_solo_cert(
