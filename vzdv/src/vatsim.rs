@@ -175,7 +175,7 @@ pub async fn code_to_tokens(code: &str, config: &Config) -> Result<TokenResponse
 pub async fn get_user_info(access_token: &str, config: &Config) -> Result<UserInfoResponse> {
     let resp = GENERAL_HTTP_CLIENT
         .get(format!("{}api/user", config.vatsim.oauth_url_base))
-        .header("Authorization", &format!("Bearer {}", access_token))
+        .header("Authorization", &format!("Bearer {access_token}"))
         .send()
         .await?;
     if !resp.status().is_success() {
