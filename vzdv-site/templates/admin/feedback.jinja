@@ -18,7 +18,7 @@
   <div class="tab-content pt-3" id="nav-tabContent">
     <div class="tab-pane fade show active" id="nav-pending" role="tabpanel" aria-labelledby="nav-pending-tab" tabindex="0">
       <div class="d-flex pb-3">
-        <span class="col-2 fw-bold text-decoration-underline">Submitter CID</span>
+        <span class="col-2 fw-bold text-decoration-underline">Submitter</span>
         <span class="col-2 fw-bold text-decoration-underline">Controller</span>
         <span class="col-2 fw-bold text-decoration-underline">Position</span>
         <span class="col-2 fw-bold text-decoration-underline">Rating</span>
@@ -29,7 +29,7 @@
         {% if feedback.reviewer_action == "pending" %}
           <div class="d-flex flex-wrap">
             <span class="col-2">
-              <a href="https://stats.vatsim.net/stats/{{ feedback.submitter_cid }}" target="_blank">{{ feedback.submitter_cid }}</a>
+              <a href="https://stats.vatsim.net/stats/{{ feedback.submitter_cid }}" target="_blank">{{ cid_names[feedback.submitter_cid] }} ({{ feedback.submitter_cid }})</a>
             </span>
             <span class="col-2">{{ feedback.first_name }} {{ feedback.last_name }}</span>
             <span class="col-2">{{ feedback.position }}</span>

@@ -35,7 +35,7 @@ use vzdv::{
         self, Activity, Controller, Feedback, FeedbackForReview, Log, NoShow, Resource, SoloCert,
         VisitorRequest,
     },
-    vatusa::get_multiple_controller_info,
+    vatusa::{get_multiple_controller_info, get_multiple_controller_names},
 };
 
 /// Page for managing controller feedback.
@@ -55,12 +55,21 @@ async fn page_feedback(
         sqlx::query_as(sql::GET_PENDING_FEEDBACK_FOR_REVIEW)
             .fetch_all(&state.db)
             .await?;
+    let cid_names = get_multiple_controller_names(
+        &pending_feedback
+            .iter()
+            .filter(|pf| pf.reviewer_action == "pending")
+            .map(|pf| pf.submitter_cid)
+            .collect::<Vec<_>>(),
+    )
+    .await;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
     let template = state.templates.get_template("admin/feedback.jinja")?;
     let rendered = template.render(context! {
         user_info,
         flashed_messages,
         pending_feedback,
+        cid_names,
     })?;
     Ok(Html(rendered).into_response())
 }
