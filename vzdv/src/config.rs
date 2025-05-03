@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};
 use std::{fs, path::Path};
 
@@ -84,6 +84,7 @@ pub struct ConfigDiscord {
     pub roles: ConfigDiscordRoles,
     pub owner_id: u64,
     pub solo_cert_expiration_channel: u64,
+    pub streamers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Default)]

@@ -37,6 +37,7 @@ online_channel = 0
 off_roster_channel = 0
 owner_id = 0
 solo_cert_expiration_channel = 0
+streamers = []
 
 [discord.auth]
 client_id = ""

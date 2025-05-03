@@ -29,3 +29,5 @@ twilight-interactions = "0.15.2"
 twilight-model = "0.15.4"
 twilight-util = { version = "0.15.4", features = ["builder"] }
 vatsim_utils = "0.5.3"
+scraper = "0.23.1"
+regex = "1.11.1"
