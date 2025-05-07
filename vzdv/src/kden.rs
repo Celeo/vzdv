@@ -54,7 +54,7 @@ impl DenverConfig {
             DenverConfig::NorthCalm => "34R, 35L, 35R",
             DenverConfig::SouthCalm => "16L, 16R, 17R",
             DenverConfig::NorthEast => "34R, 35L, 35R",
-            DenverConfig::NorthWest => "26, 345R, 35L, 35R",
+            DenverConfig::NorthWest => "26, 34R, 35L, 35R",
             DenverConfig::SouthEast => "7, 16L, 16R, 17R",
             DenverConfig::SouthWest => "16L, 16R, 26",
             DenverConfig::NorthAll => "35L, 35R",
