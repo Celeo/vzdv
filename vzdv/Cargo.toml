@@ -25,3 +25,4 @@ toml = "0.8.19"
 vatsim_utils = "0.5.3"
 fern = { version = "0.7.1", features = ["colored"] }
 humantime = "2.1.0"
+scraper = "0.23.1"

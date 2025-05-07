@@ -4394,6 +4394,7 @@ dependencies = [
  "itertools 0.14.0",
  "log",
  "reqwest 0.12.12",
+ "scraper",
  "serde",
  "serde_json",
  "sqlx",

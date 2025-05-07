@@ -29,7 +29,7 @@ use vatsim_utils::{live_api::Vatsim, rest_api::get_ratings_times};
 use vzdv::{
     GENERAL_HTTP_CLIENT,
     aviation::parse_metar,
-    kden::{determine_runway_config, wind_components},
+    kden::{determine_runway_config, fetch_runway_assignments, wind_components},
 };
 
 /// How far away from the selected airport to show pilots in the pilot glance page.
@@ -434,8 +434,17 @@ async fn page_denver_data(
     State(state): State<Arc<AppState>>,
     session: Session,
 ) -> Result<Html<String>, AppError> {
+    // cache this endpoint's returned data for 5 minutes
+    let cache_key = "KDEN_INFO".to_string();
+    if let Some(cached) = state.cache.get(&cache_key) {
+        let elapsed = Instant::now() - cached.inserted;
+        if elapsed.as_secs() < 300 {
+            return Ok(Html(cached.data));
+        }
+        state.cache.invalidate(&cache_key);
+    }
+
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await.unwrap();
-    // let template = state.templates.get_template("airspace/kden_data.jinja")?;
     let metar_resp = GENERAL_HTTP_CLIENT
         .get("https://metar.vatsim.net/KDEN")
         .send()
@@ -452,7 +461,10 @@ async fn page_denver_data(
     let runway_config = determine_runway_config(&weather);
     let real_world = get_real_world_kden_atis().await?;
     let wind_components = wind_components(&weather);
-    // TODO cache for a few minutes or so
+    let runway_selection = fetch_runway_assignments()
+        .await
+        .map_err(|e| AppError::GenericFallback("determining recommended runways", e))?;
+
     let template = state.templates.get_template("airspace/kden_data.jinja")?;
     let rendered = template.render(context! {
         user_info,
@@ -462,8 +474,12 @@ async fn page_denver_data(
         departing => runway_config.departing(),
         landing => runway_config.landing(),
         wind_components,
+        runway_selection,
         real_world,
     })?;
+    state
+        .cache
+        .insert(cache_key, CacheEntry::new(rendered.clone()));
     Ok(Html(rendered))
 }
 

@@ -1,6 +1,11 @@
 //! Data about KDEN.
 
-use crate::aviation::{AirportWeather, wind_between};
+use crate::{
+    GENERAL_HTTP_CLIENT,
+    aviation::{AirportWeather, wind_between},
+};
+use anyhow::{Result, bail};
+use scraper::{Html, Selector};
 use serde::Serialize;
 
 /// KDEN runway configurations.
@@ -147,9 +152,38 @@ pub fn wind_components(weather: &AirportWeather<'_>) -> Vec<WindComponent> {
         .collect()
 }
 
+/// Using a third-party site, fetch and parse the runway assignments
+/// by SID.
+pub async fn fetch_runway_assignments() -> Result<Vec<Vec<String>>> {
+    let resp = GENERAL_HTTP_CLIENT
+        .get("https://den.aerobahn.com/ids4.html")
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        bail!(
+            "HTTP {} from runway assignment page",
+            resp.status().as_u16()
+        );
+    }
+    let document = Html::parse_document(&resp.text().await?);
+    let rows: Vec<_> = document
+        .select(&Selector::parse("tr").unwrap())
+        .skip(1)
+        .map(|row| {
+            let cells: Vec<_> = row
+                .select(&Selector::parse("td").unwrap())
+                .take(3)
+                .map(|cell| cell.inner_html())
+                .collect();
+            cells
+        })
+        .collect();
+    Ok(rows)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{DenverConfig, determine_runway_config, wind_components};
+    use super::{DenverConfig, determine_runway_config};
     use crate::aviation::parse_metar;
 
     #[test]
@@ -165,10 +199,5 @@ mod tests {
 
         weather.wind = (210, 20, 35);
         assert_eq!(determine_runway_config(&weather), DenverConfig::SouthAll);
-    }
-
-    #[test]
-    fn test_wind_components() {
-        // TODO
     }
 }
