@@ -3,7 +3,6 @@
 use crate::{
     flashed_messages,
     flights::get_relevant_flights,
-    load_templates,
     shared::{AppError, AppState, CacheEntry, SESSION_USER_INFO_KEY, UserInfo, record_log},
 };
 use axum::{
@@ -29,8 +28,8 @@ use tower_sessions::Session;
 use vatsim_utils::{live_api::Vatsim, rest_api::get_ratings_times};
 use vzdv::{
     GENERAL_HTTP_CLIENT,
-    aviation::{AirportWeather, WeatherConditions, parse_metar, wind_between},
-    kden::determine_runway_config,
+    aviation::parse_metar,
+    kden::{determine_runway_config, wind_components},
 };
 
 /// How far away from the selected airport to show pilots in the pilot glance page.
@@ -436,9 +435,7 @@ async fn page_denver_data(
     session: Session,
 ) -> Result<Html<String>, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await.unwrap();
-    let env = load_templates()?;
     // let template = state.templates.get_template("airspace/kden_data.jinja")?;
-    let template = env.get_template("airspace/kden_data.jinja")?;
     let metar_resp = GENERAL_HTTP_CLIENT
         .get("https://metar.vatsim.net/KDEN")
         .send()
@@ -454,13 +451,17 @@ async fn page_denver_data(
         parse_metar(&metar).map_err(|e| AppError::GenericFallback("parsing METAR for KDEN", e))?;
     let runway_config = determine_runway_config(&weather);
     let real_world = get_real_world_kden_atis().await?;
+    let wind_components = wind_components(&weather);
     // TODO cache for a few minutes or so
+    let template = state.templates.get_template("airspace/kden_data.jinja")?;
     let rendered = template.render(context! {
         user_info,
         weather,
+        wind => format!("{} at {}{}", weather.wind.0, weather.wind.1, if weather.wind.2 > 0 { format!(" gust {}", weather.wind.2) } else { String::new() }),
         runway_config => runway_config.name(),
         departing => runway_config.departing(),
         landing => runway_config.landing(),
+        wind_components,
         real_world,
     })?;
     Ok(Html(rendered))

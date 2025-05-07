@@ -7,7 +7,11 @@
 <p class="ms-2">
   {% for airport in weather %}
   <span title="{{ airport.raw }}">
-    {{ airport.name }}
+    {% if airport.name == "DEN" %}
+      <a href="/airspace/KDEN" class="text-decoration-none">DEN</a>
+    {% else %}
+      {{ airport.name }}
+    {% endif %}
     {% if airport.conditions == 'VFR' %}
       <span class="badge rounded-pill text-bg-success">{{ airport.conditions }}</span>
     {% elif airport.conditions == 'MVFR' %}

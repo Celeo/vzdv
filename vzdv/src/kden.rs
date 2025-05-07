@@ -1,8 +1,7 @@
 //! Data about KDEN.
 
-use serde::Serialize;
-
 use crate::aviation::{AirportWeather, wind_between};
+use serde::Serialize;
 
 /// KDEN runway configurations.
 #[derive(Debug, PartialEq)]

@@ -1,4 +1,4 @@
-<div class="d-flex justify-content-around pb-3 pb-3">
+<div class="d-flex justify-content-around pb-3 pt-3">
   <a href="https://skyvector.com/airport/DEN/Denver-International-Airport" target="_blank">SkyVector</a>
   <a href="https://metar-taf.com/KDEN" target="_blank">METAR & TAF</a>
   <a href="https://runway.airportdb.io/airport/KDEN" target="_blank">Runways</a>
@@ -35,7 +35,7 @@
         </td>
         <tr>
           <th>Wind</th>
-          <td>{{ weather.wind }}</td> {# TODO #}
+          <td>{{ wind }}</td>
         </td>
         <tr>
           <th>Ceiling</th>
@@ -60,9 +60,11 @@
       configuration they're advertising in their ATIS regardless of what is listed here.
     </p>
     <br>
-    <h3>Config</h3>
+    <h3 class="pb-3">Config</h3>
     <table class="table table-striped table-hover sortable">
-      <thead></thead>
+      <thead>
+        <tr></tr>
+      </thead>
       <tbody>
         <tr>
           <th>Name</th>
@@ -79,18 +81,25 @@
       </tbody>
     </table>
 
-    <h3 class="pt-3">Wind components</h3>
+    <h3 class="pt-3 pb-1">Wind components</h3>
     <table class="table table-striped table-hover sortable">
       <thead>
         <tr>
-          <th>Ruwnay</th>
-          <th>Head</th>
-          <th>Tail</th>
-          <th>Cross</th>
+          <th class="text-center">Ruwnay</th>
+          <th class="text-center">Head</th>
+          <th class="text-center">Tail</th>
+          <th class="text-center">Cross</th>
         </tr>
       </thead>
       <tbody>
-        {# TODO #}
+        {% for runway in wind_components %}
+          <tr>
+            <td class="text-center">{{ runway.runway }}</td>
+            <td class="text-center">{{ runway.head }}</td>
+            <td class="text-center">{{ runway.tail }}</td>
+            <td class="text-center">{{ runway.cross }}</td>
+          </tr>
+        {% endfor %}
       </tbody>
     </table>
   </div>
