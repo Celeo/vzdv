@@ -25,6 +25,7 @@ use std::{
 pub mod aviation;
 pub mod config;
 pub mod db;
+pub mod kden;
 pub mod sql;
 pub mod vatsim;
 pub mod vatusa;

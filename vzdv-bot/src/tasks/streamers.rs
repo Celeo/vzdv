@@ -91,3 +91,22 @@ pub async fn detect_presence(config: &Config) -> Result<Vec<String>> {
     }
     Ok(valid)
 }
+
+#[cfg(test)]
+mod tests {
+    use vzdv::config::Airport;
+
+    use super::detect_presence;
+    use crate::Config;
+
+    #[tokio::test]
+    async fn test_youtube_check() {
+        let mut config = Config::default();
+        let mut airport = Airport::default();
+        airport.code = String::from("KDEN");
+        config.airports.all.push(airport);
+        config.discord.streamers = vec![String::from("")];
+
+        //
+    }
+}

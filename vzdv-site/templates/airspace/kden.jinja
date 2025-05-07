@@ -1,0 +1,15 @@
+{% extends "_layout.jinja" %}
+
+{% block title %}KDEN | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h1>Denver International Airport</h1>
+
+<div id="main">
+  <div
+    hx-get="/airspace/KDEN/data"
+    hx-trigger="load, every 5m"></div>
+</div>
+
+{% endblock %}

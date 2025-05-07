@@ -3,13 +3,14 @@
 use crate::{
     flashed_messages,
     flights::get_relevant_flights,
-    shared::{record_log, AppError, AppState, CacheEntry, UserInfo, SESSION_USER_INFO_KEY},
+    load_templates,
+    shared::{AppError, AppState, CacheEntry, SESSION_USER_INFO_KEY, UserInfo, record_log},
 };
 use axum::{
+    Form, Router,
     extract::{Query, State},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
-    Form, Router,
 };
 use itertools::Itertools;
 use log::warn;
@@ -26,7 +27,11 @@ use std::{
 use tokio::task::JoinSet;
 use tower_sessions::Session;
 use vatsim_utils::{live_api::Vatsim, rest_api::get_ratings_times};
-use vzdv::{aviation::parse_metar, GENERAL_HTTP_CLIENT};
+use vzdv::{
+    GENERAL_HTTP_CLIENT,
+    aviation::{AirportWeather, WeatherConditions, parse_metar, wind_between},
+    kden::determine_runway_config,
+};
 
 /// How far away from the selected airport to show pilots in the pilot glance page.
 const GLANCE_DISTANCE: f64 = 20.0;
@@ -389,6 +394,78 @@ async fn page_pilot_glance_data(
     Ok(Html(rendered).into_response())
 }
 
+/// Render some inforamtion about KDEN, including current weather, ATIS, and
+/// recommended runway selection with head/tail/crosswind components.
+async fn page_denver(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Html<String>, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await.unwrap();
+    let template = state.templates.get_template("airspace/kden.jinja")?;
+    let rendered = template.render(context! { user_info })?;
+    Ok(Html(rendered))
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct RealWorldAtis {
+    #[serde(rename = "type")]
+    direction: String,
+    code: char,
+    datis: String,
+}
+
+/// Use the FAA Digital ATIS lookup site's API to retrieve the current real world KDEN ATIS.
+async fn get_real_world_kden_atis() -> Result<Vec<RealWorldAtis>, AppError> {
+    let resp = GENERAL_HTTP_CLIENT
+        .get("https://datis.clowd.io/api/KDEN")
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        return Err(AppError::HttpResponse(
+            "getting real world KDEN ATIS",
+            resp.status().as_u16(),
+        ));
+    }
+    let data = resp.json().await?;
+    Ok(data)
+}
+
+/// Return an HTML snippet containing information for the parent page.
+async fn page_denver_data(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Html<String>, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await.unwrap();
+    let env = load_templates()?;
+    // let template = state.templates.get_template("airspace/kden_data.jinja")?;
+    let template = env.get_template("airspace/kden_data.jinja")?;
+    let metar_resp = GENERAL_HTTP_CLIENT
+        .get("https://metar.vatsim.net/KDEN")
+        .send()
+        .await?;
+    if !metar_resp.status().is_success() {
+        return Err(AppError::HttpResponse(
+            "VATSIM METAR API",
+            metar_resp.status().as_u16(),
+        ));
+    }
+    let metar = metar_resp.text().await?;
+    let weather =
+        parse_metar(&metar).map_err(|e| AppError::GenericFallback("parsing METAR for KDEN", e))?;
+    let runway_config = determine_runway_config(&weather);
+    let real_world = get_real_world_kden_atis().await?;
+    // TODO cache for a few minutes or so
+    let rendered = template.render(context! {
+        user_info,
+        weather,
+        runway_config => runway_config.name(),
+        departing => runway_config.departing(),
+        landing => runway_config.landing(),
+        real_world,
+    })?;
+    Ok(Html(rendered))
+}
+
 /// This file's routes and templates.
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -402,4 +479,6 @@ pub fn router() -> Router<Arc<AppState>> {
             "/airspace/staffing_request",
             post(page_staffing_request_post),
         )
+        .route("/airspace/KDEN", get(page_denver))
+        .route("/airspace/KDEN/data", get(page_denver_data))
 }

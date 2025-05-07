@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use log::warn;
 use serde::Serialize;
 
@@ -19,6 +19,7 @@ pub struct AirportWeather<'a> {
     pub conditions: WeatherConditions,
     pub visibility: u16,
     pub ceiling: u16,
+    pub wind: (u16, u8, u8),
     pub raw: &'a str,
 }
 
@@ -27,11 +28,7 @@ pub fn parse_metar(line: &str) -> Result<AirportWeather> {
     let parts: Vec<_> = line.split(' ').collect();
     let airport = {
         let s = parts.first().ok_or_else(|| anyhow!("Blank metar?"))?;
-        if s.len() == 4 {
-            &s[1..]
-        } else {
-            s
-        }
+        if s.len() == 4 { &s[1..] } else { s }
     };
     let mut ceiling = 3_456;
     for part in &parts {
@@ -63,6 +60,30 @@ pub fn parse_metar(line: &str) -> Result<AirportWeather> {
             Ok(0)
         })?;
 
+    let wind_info = parts
+        .iter()
+        .find(|part| part.ends_with("KT"))
+        .unwrap_or_else(|| {
+            warn!("Could not determine wind for {airport}");
+            &"00000KT"
+        });
+    let wind = {
+        let dir = wind_info.chars().take(3).collect::<String>().parse()?;
+        let mag = wind_info
+            .chars()
+            .skip(3)
+            .take(2)
+            .collect::<String>()
+            .parse()?;
+        let gust = wind_info
+            .chars()
+            .skip(6)
+            .take_while(|c| c.is_numeric())
+            .collect::<String>();
+        let gust = if !gust.is_empty() { gust.parse()? } else { 0 };
+        (dir, mag, gust)
+    };
+
     let conditions = if visibility > 5 && ceiling > 3_000 {
         WeatherConditions::VFR
     } else if visibility >= 3 && ceiling > 1_000 {
@@ -78,13 +99,27 @@ pub fn parse_metar(line: &str) -> Result<AirportWeather> {
         conditions,
         visibility,
         ceiling,
+        wind,
         raw: line,
     })
 }
 
+/// Check if the value is AOA `min`, clockwise to AOB `max`.
+pub fn wind_between(val: u16, min: u16, max: u16) -> bool {
+    let val = val % 360;
+    let min = min % 360;
+    let max = max % 360;
+
+    if min <= max {
+        min <= val && val <= max
+    } else {
+        min <= val || val <= max
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
-    use super::{parse_metar, WeatherConditions};
+    use super::{WeatherConditions, parse_metar, wind_between};
 
     #[test]
     fn test_parse_metar_standard() {
@@ -100,6 +135,21 @@ pub mod tests {
 
         let ret = parse_metar("KDEN 1/2SM OVC001").unwrap();
         assert_eq!(ret.conditions, WeatherConditions::LIFR);
+    }
+
+    #[test]
+    fn test_parse_metar_wind() {
+        let missing = "K5SM 070435Z AUTO 10SM CLR M12/M13 A3015 RMK AO2";
+        let ret = parse_metar(missing).unwrap();
+        assert_eq!(ret.wind, (0, 0, 0));
+
+        let standard = "KCPW 070435Z AUTO 03007KT OVC003 M13/M15 A3013 RMK AO2 PWINO";
+        let ret = parse_metar(standard).unwrap();
+        assert_eq!(ret.wind, (30, 7, 0));
+
+        let gust = "KFLY 070435Z AUTO 36014G21KT OVC036 M05/M07 A3028 RMK AO2 T10531075 PWINO";
+        let ret = parse_metar(gust).unwrap();
+        assert_eq!(ret.wind, (360, 14, 21));
     }
 
     #[test]
@@ -119,5 +169,13 @@ pub mod tests {
         for entry in entries {
             _ = parse_metar(entry).unwrap();
         }
+    }
+
+    #[test]
+    fn test_wind_between() {
+        assert!(wind_between(0, 0, 0));
+        assert!(wind_between(90, 0, 180));
+        assert!(wind_between(5, 350, 10));
+        assert!(!wind_between(20, 0, 10));
     }
 }
