@@ -293,7 +293,7 @@ pub async fn handler(
                                         let controller = controllers.iter().find(|c| c.cid == cid);
                                         match controller {
                                             Some(c) => match &c.discord_id {
-                                                Some(d_id) => format!("<@{}>", d_id),
+                                                Some(d_id) => format!("<@{d_id}>"),
                                                 None => format!("{} {}", c.first_name, c.last_name),
                                             },
                                             None => String::from("Unknown"),
