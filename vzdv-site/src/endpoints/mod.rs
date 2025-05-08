@@ -2,13 +2,13 @@
 
 use crate::{
     flashed_messages,
-    shared::{record_log, AppError, AppState, UserInfo, SESSION_USER_INFO_KEY},
+    shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, record_log},
 };
 use axum::{
+    Form, Router,
     extract::{Path, State},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
-    Form, Router,
 };
 use log::error;
 use minijinja::context;
@@ -22,8 +22,8 @@ use std::{
 use tower_http::services::ServeDir;
 use tower_sessions::Session;
 use vzdv::{
-    sql::{self, Controller},
     GENERAL_HTTP_CLIENT,
+    sql::{self, Controller},
 };
 
 pub mod admin;
@@ -34,6 +34,7 @@ pub mod controller;
 pub mod events;
 pub mod facility;
 pub mod homepage;
+pub mod ids;
 pub mod user;
 
 /// Special "content-type" overrides for some files under ./static.
