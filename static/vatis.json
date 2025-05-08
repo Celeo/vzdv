@@ -2,7 +2,7 @@
   "name": "ZDV",
   "id": "a5fa4b84-cb9c-4abd-a33e-6e9f3e7844b3",
   "updateUrl": "https://zdvartcc.org/static_special/vatis.json",
-  "updateSerial": 2024122101,
+  "updateSerial": 2025050701,
   "stations": [
     {
       "id": "364a4d28-d8ee-4a3f-8579-d9c57c91de27",
@@ -1934,7 +1934,7 @@
       "notamsBeforeFreeText": true,
       "airportConditionsBeforeFreeText": false,
       "frequency": 134025000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": true,
@@ -4044,7 +4044,7 @@
       "notamsBeforeFreeText": true,
       "airportConditionsBeforeFreeText": false,
       "frequency": 125600000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": true,
@@ -6164,7 +6164,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 120300000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": true,
@@ -8163,7 +8163,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 120400000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": true,
@@ -10177,7 +10177,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 126250000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": true,
@@ -12169,7 +12169,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 119025000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": false,
@@ -14161,7 +14161,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 125000000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": true,
@@ -16165,7 +16165,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 126150000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": false,
@@ -18155,7 +18155,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 134425000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": false,
@@ -20149,7 +20149,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 135575000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": false,
@@ -22112,7 +22112,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 127150000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": false,
@@ -24102,7 +24102,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 135075000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": false,
@@ -26084,7 +26084,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 118550000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": true,
@@ -28079,7 +28079,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 125250000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": false,
@@ -30070,7 +30070,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 119825000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": true,
@@ -32043,7 +32043,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 119025000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": false,
@@ -34036,7 +34036,7 @@
       "notamsBeforeFreeText": false,
       "airportConditionsBeforeFreeText": false,
       "frequency": 119025000,
-      "idsEndpoint": "",
+      "idsEndpoint": "https://zdvartcc.org/ids/vatis/submit",
       "useDecimalTerminology": false,
       "atisVoice": {
         "useTextToSpeech": false,
