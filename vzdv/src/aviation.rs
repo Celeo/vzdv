@@ -68,7 +68,10 @@ pub fn parse_metar(line: &str) -> Result<AirportWeather> {
             &"00000KT"
         });
     let wind = {
-        let dir = wind_info.chars().take(3).collect::<String>().parse()?;
+        let dir = {
+            let s = wind_info.chars().take(3).collect::<String>();
+            if s == "VRB" { 0 } else { s.parse()? }
+        };
         let mag = wind_info
             .chars()
             .skip(3)
@@ -164,6 +167,7 @@ pub mod tests {
             "KHEQ 070435Z AUTO 00/00 RMK AO2 TSNO PWINO",
             "KMYP 070435Z AUTO OVC002 M14/M16 A3018 RMK AO2 PWINO",
             "KTBX 070415Z AUTO 15017KT CLR M06/M12 A3027 RMK AO2 PWINO",
+            "KAPA 081853Z VRB06KT 10SM SCT055 16/02 A3027 RMK AO2 SLP224 T01610017",
         ];
 
         for entry in entries {
