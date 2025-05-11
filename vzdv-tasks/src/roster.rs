@@ -2,6 +2,7 @@
 
 use anyhow::Result;
 use chrono::DateTime;
+use itertools::Itertools;
 use log::{debug, error, info};
 use sqlx::{Pool, Row, Sqlite, sqlite::SqliteRow};
 use std::collections::HashSet;
@@ -119,10 +120,11 @@ pub async fn update_roster(db: &Pool<Sqlite>) -> Result<()> {
     let db_controllers: Vec<SqliteRow> = sqlx::query(sql::GET_ALL_CONTROLLER_CIDS)
         .fetch_all(db)
         .await?;
+    let mut not_on_roster = Vec::new();
     for row in db_controllers {
         let cid: u32 = row.try_get("cid")?;
         if !current_controllers.contains(&cid) {
-            debug!("Controller {cid} is not on the roster");
+            not_on_roster.push(cid);
             if let Err(e) = sqlx::query(sql::UPDATE_REMOVED_FROM_ROSTER)
                 .bind(cid)
                 .execute(db)
@@ -132,6 +134,10 @@ pub async fn update_roster(db: &Pool<Sqlite>) -> Result<()> {
             }
         }
     }
+    debug!(
+        "The following controllers are in the DB but not on the roster: {}",
+        not_on_roster.iter().map(|n| n.to_string()).join(", ")
+    );
 
     Ok(())
 }

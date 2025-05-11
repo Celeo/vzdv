@@ -4473,6 +4473,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
+ "itertools 0.14.0",
  "log",
  "sqlx",
  "tokio",
