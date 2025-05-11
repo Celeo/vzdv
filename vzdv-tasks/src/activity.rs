@@ -34,6 +34,8 @@ async fn true_up_single_activity(
     let sessions = match sessions_res {
         Ok(data) => data,
         Err(VatsimUtilError::InvalidStatusCode(code)) => {
+            warn!("Getting rate limited on activity API; waiting 30 seconds before continuing");
+            time::sleep(Duration::from_secs(30)).await;
             bail!("getting activity for {cid}; got HTTP response {code}")
         }
         Err(VatsimUtilError::FailedJsonParse(e)) => bail!("failed parsing activity for {cid}: {e}"),
