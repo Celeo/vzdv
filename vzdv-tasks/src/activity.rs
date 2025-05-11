@@ -102,8 +102,8 @@ pub async fn true_up_all_controllers_activity(config: &Config, db: &Pool<Sqlite>
         if let Err(e) = true_up_single_activity(config, db, &five_months_ago, cid).await {
             error!("Error updating activity for {cid}: {e}");
         }
-        // wait a second to be nice to the VATSIM API
-        time::sleep(Duration::from_secs(1)).await;
+        // wait 8 seconds to adhere to the VATSIM API rate limits
+        time::sleep(Duration::from_secs(8)).await;
     }
     Ok(())
 }
@@ -182,8 +182,8 @@ pub async fn update_online_controller_activity(config: &Config, db: &Pool<Sqlite
         {
             error!("Error spot-updating CID {cid}: {e}")
         }
-        // wait a second to be nice to the VATSIM API
-        time::sleep(Duration::from_secs(1)).await;
+        // wait 8 seconds to adhere to the VATSIM API rate limits
+        time::sleep(Duration::from_secs(8)).await;
     }
 
     Ok(())
