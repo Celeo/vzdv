@@ -1,11 +1,12 @@
 //! Update activity from VATSIM.
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use chrono::{DateTime, Months, Utc};
 use log::{debug, error};
 use sqlx::{Pool, Row, Sqlite};
 use std::{collections::HashMap, time::Duration};
 use tokio::time;
+use vatsim_utils::errors::VatsimUtilError;
 use vatsim_utils::rest_api;
 use vzdv::{
     config::Config,
@@ -28,9 +29,17 @@ async fn true_up_single_activity(
      * active controllers don't have enough sessions in this time range to go over
      * the endpoint's single-page response limit.
      */
-    let sessions = rest_api::get_atc_sessions(cid as u64, None, None, Some(five_months_ago), None)
-        .await
-        .with_context(|| format!("Processing CID {cid}"))?;
+    let sessions_res =
+        rest_api::get_atc_sessions(cid as u64, None, None, Some(five_months_ago), None).await;
+    let sessions = match sessions_res {
+        Ok(data) => data,
+        Err(VatsimUtilError::InvalidStatusCode(code)) => {
+            bail!("getting activity for {cid}; got HTTP response {code}")
+        }
+        Err(VatsimUtilError::FailedJsonParse(e)) => bail!("failed parsing activity for {cid}: {e}"),
+        Err(e) => bail!("getting activity for {cid}: {e}"),
+    };
+
     // group the controller's activity by month
     let mut seconds_map: HashMap<String, f32> = HashMap::new();
     for session in sessions.results {
