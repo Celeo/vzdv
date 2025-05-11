@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result, bail};
 use chrono::{DateTime, Months, Utc};
-use log::{debug, error};
+use log::{debug, error, warn};
 use sqlx::{Pool, Row, Sqlite};
 use std::{collections::HashMap, time::Duration};
 use tokio::time;
