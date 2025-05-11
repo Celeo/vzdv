@@ -5,7 +5,7 @@
 #![deny(unsafe_code)]
 
 use anyhow::Result;
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use clap::Parser;
 use log::{debug, error, info, warn};
 use sqlx::{Pool, Sqlite};
@@ -121,7 +121,7 @@ async fn main() {
         let event = match shard.next_event().await {
             Ok(event) => event,
             Err(source) => {
-                warn!("Error receiving event: {:?}", source);
+                warn!("Error receiving event: {source:?}");
                 if source.is_fatal() {
                     break;
                 }

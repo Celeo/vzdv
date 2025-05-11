@@ -6,12 +6,12 @@ use tokio::time::sleep;
 use twilight_http::Client;
 use twilight_model::{
     guild::Member,
-    id::{marker::GuildMarker, Id},
+    id::{Id, marker::GuildMarker},
 };
 use vzdv::{
+    ControllerRating,
     config::Config,
     sql::{self, Controller},
-    ControllerRating,
 };
 
 /// Set the guild member's nickname if needed.
@@ -223,7 +223,7 @@ pub async fn process_single_member(
         debug!("Skipping over bot user {nick} ({user_id})");
         return false;
     }
-    debug!("Processing user {} ({})", nick, user_id);
+    debug!("Processing user {nick} ({user_id})");
     let controller: Option<Controller> = match sqlx::query_as(sql::GET_CONTROLLER_BY_DISCORD_ID)
         .bind(user_id.to_string())
         .fetch_optional(db)
