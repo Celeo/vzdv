@@ -21,4 +21,4 @@ itertools = "0.14.0"
 log = "0.4.22"
 sqlx = { version = "0.8.3", default-features = false, features = ["runtime-tokio", "sqlx-sqlite", "chrono"] }
 tokio = { version = "1.43.0", features = ["full"] }
-vatsim_utils = "0.5.3"
+vatsim_utils = "0.5.4"
