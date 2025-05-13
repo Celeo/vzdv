@@ -58,8 +58,9 @@ async fn snippet_online_controllers(
         ("DEP", 2),
         ("TWR", 3),
         ("GND", 4),
-        ("DEL", 5),
-        ("?", 6),
+        ("RMP", 5),
+        ("DEL", 6),
+        ("?", 7),
     ]);
 
     // cache this endpoint's returned data for 30 seconds
@@ -86,7 +87,7 @@ async fn snippet_online_controllers(
                 ("orange", "DEP")
             } else if c.callsign.ends_with("_TWR") {
                 ("red", "TWR")
-            } else if c.callsign.ends_with("_GND") {
+            } else if c.callsign.ends_with("_GND") || c.callsign.ends_with("_RMP") {
                 ("green", "GND")
             } else if c.callsign.ends_with("_DEL") {
                 ("dark-blue", "DEL")
