@@ -1,8 +1,9 @@
 use anyhow::{Result, anyhow, bail};
 use itertools::Itertools;
-use log::{debug, error, info};
+use log::{debug, error};
 use regex::Regex;
 use scraper::{Html, Selector};
+use serde_json::json;
 use sqlx::{Pool, Sqlite};
 use std::{sync::Arc, sync::LazyLock, time::Duration};
 use tokio::time::sleep;
@@ -12,6 +13,7 @@ use vzdv::{GENERAL_HTTP_CLIENT, config::Config};
 const CHROME_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
 static FIELD_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\W([A-Z]{3,4})\W"#).unwrap());
 
+/// Parse the HTML response for a live YouTube video.
 fn parse_for_live_link(text: &str) -> Result<String> {
     let document = Html::parse_document(text);
     let href = document
@@ -22,6 +24,7 @@ fn parse_for_live_link(text: &str) -> Result<String> {
     Ok(href.to_owned())
 }
 
+/// Parse the HTML response for a live YouTube video for the title.
 fn parse_for_title(text: &str) -> Result<String> {
     let document = Html::parse_document(text);
     let title = document
@@ -144,10 +147,19 @@ async fn tick(config: &Arc<Config>, _http: &Arc<Client>) -> Result<()> {
     let streamers = detect_presence(config).await?;
 
     if !streamers.is_empty() {
-        info!(
+        let s = format!(
             "These streamers are active in relevant fields: {}",
             streamers.iter().map(|(name, _)| name).join(", ")
         );
+        // TODO this is temporary
+        let res = GENERAL_HTTP_CLIENT
+            .post(&config.discord.webhooks.errors)
+            .json(&json!({"content": s}))
+            .send()
+            .await;
+        if let Err(e) = res {
+            error!("Could not send streamer message to Discord webhook: {e}");
+        }
     }
 
     Ok(())

@@ -4416,6 +4416,7 @@ dependencies = [
  "regex",
  "scraper",
  "select",
+ "serde_json",
  "sqlx",
  "tokio",
  "twilight-gateway",
