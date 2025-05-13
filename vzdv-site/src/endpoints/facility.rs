@@ -1,7 +1,7 @@
 //! Endpoints for getting information on the facility.
 
 use crate::{
-    flashed_messages,
+    flashed_messages::{self, MessageLevel, push_flashed_message},
     shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, record_log},
     vatusa,
 };
@@ -27,7 +27,7 @@ use vzdv::{
     ControllerRating, GENERAL_HTTP_CLIENT,
     config::Config,
     determine_staff_positions,
-    sql::{self, Activity, Certification, Controller, Resource, VisitorRequest},
+    sql::{self, Activity, Certification, Controller, Resource, SopInitial, VisitorRequest},
 };
 
 #[derive(Debug, Serialize)]
@@ -440,9 +440,113 @@ async fn page_resources(
         .collect();
 
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let sop_initials: HashMap<u32, bool> = match user_info {
+        Some(ref ui) => {
+            let initials: Vec<SopInitial> = sqlx::query_as(sql::GET_ALL_SOP_INITIALS_FOR_CID)
+                .bind(ui.cid)
+                .fetch_all(&state.db)
+                .await?;
+            initials.iter().fold(HashMap::new(), |mut acc, item| {
+                acc.insert(item.resource_id, true);
+                acc
+            })
+        }
+        None => HashMap::new(),
+    };
+
     let template = state.templates.get_template("facility/resources.jinja")?;
-    let rendered = template.render(context! { user_info, resources, categories })?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let rendered = template.render(context! {
+        user_info,
+        resources,
+        categories,
+        flashed_messages,
+        sop_initials
+    })?;
     Ok(Html(rendered))
+}
+
+#[derive(Debug, Deserialize)]
+struct InitialSopForm {
+    resource_id: u32,
+    initials: String,
+}
+
+/// Form submission handler for a controller initializing a SOP resource.
+async fn post_page_resources_initial(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Form(initial_form): Form<InitialSopForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let user_info = match user_info {
+        Some(ui) => ui,
+        None => {
+            return Ok(Redirect::to("/facility/resources"));
+        }
+    };
+    let controller: Controller = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(user_info.cid)
+        .fetch_one(&state.db)
+        .await?;
+    let resource: Option<Resource> = sqlx::query_as(sql::GET_RESOURCE_BY_ID)
+        .bind(initial_form.resource_id)
+        .fetch_optional(&state.db)
+        .await?;
+    let resource = match resource {
+        Some(r) => r,
+        None => {
+            push_flashed_message(session, MessageLevel::Error, "Unknown resource").await?;
+            return Ok(Redirect::to("/facility/resources"));
+        }
+    };
+    if resource.category != "SOPs" {
+        push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "You cannot initial non-SOP resources",
+        )
+        .await?;
+        return Ok(Redirect::to("/facility/resources"));
+    }
+
+    let ois = match controller.operating_initials {
+        Some(ref ois) => ois,
+        None => {
+            push_flashed_message(
+                session,
+                MessageLevel::Error,
+                "You cannot initial SOPs until you have been granted operating initials",
+            )
+            .await?;
+            return Ok(Redirect::to("/facility/resources"));
+        }
+    };
+    if &initial_form.initials.to_uppercase() != ois {
+        push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "You must correctly enter your operating initials",
+        )
+        .await?;
+        return Ok(Redirect::to("/facility/resources"));
+    }
+    sqlx::query(sql::INSERT_SOP_INITIALS)
+        .bind(user_info.cid)
+        .bind(resource.id)
+        .execute(&state.db)
+        .await?;
+    push_flashed_message(session, MessageLevel::Success, "Resource initialled").await?;
+    record_log(
+        format!(
+            "{} initialled resource {}, '{}'",
+            user_info.cid, resource.id, resource.name
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
+    Ok(Redirect::to("/facility/resources"))
 }
 
 pub async fn fetch_and_parse_alias_file() -> Result<ParsedAlias, reqwest::Error> {
@@ -658,7 +762,7 @@ async fn page_visitor_application_form_submit(
         None => {
             flashed_messages::push_flashed_message(
                 session,
-                flashed_messages::MessageLevel::Error,
+                MessageLevel::Error,
                 "You must be logged in to submit a visitor request.",
             )
             .await?;
@@ -690,7 +794,7 @@ async fn page_visitor_application_form_submit(
         .await?;
     flashed_messages::push_flashed_message(
         session,
-        flashed_messages::MessageLevel::Success,
+        MessageLevel::Success,
         "Request submitted, thank you!",
     )
     .await?;
@@ -723,7 +827,10 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/facility/roster", get(page_roster))
         .route("/facility/staff", get(page_staff))
         .route("/facility/activity", get(page_activity))
-        .route("/facility/resources", get(page_resources))
+        .route(
+            "/facility/resources",
+            get(page_resources).post(post_page_resources_initial),
+        )
         .route("/facility/aliasref", get(alias_ref))
         .route(
             "/facility/visitor_application",

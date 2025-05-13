@@ -734,6 +734,12 @@ async fn api_delete_resource(
             return Ok(StatusCode::NOT_FOUND);
         }
     };
+    // delete all intiails for this SOP
+    sqlx::query(sql::DELETE_SOP_INITIALS_FOR_RESOURCE)
+        .bind(id)
+        .execute(&state.db)
+        .await?;
+    // delete the resource itself
     sqlx::query(sql::DELETE_RESOURCE_BY_ID)
         .bind(id)
         .execute(&state.db)
@@ -873,8 +879,17 @@ async fn api_edit_resource(
         .execute(&state.db)
         .await?;
 
+    // delete all intiails for this SOP since controllers will need to read it anew
+    sqlx::query(sql::DELETE_SOP_INITIALS_FOR_RESOURCE)
+        .bind(resource.id)
+        .execute(&state.db)
+        .await?;
+
     // record the update
-    let update_message = format!("{} updated resource {}", user_info.cid, resource.id);
+    let update_message = format!(
+        "{} updated resource {} (name: {}, category: {})",
+        user_info.cid, resource.id, resource.name, resource.category
+    );
     record_log(update_message.clone(), &state.db, true).await?;
     post_audit(&state.config, update_message);
     flashed_messages::push_flashed_message(
