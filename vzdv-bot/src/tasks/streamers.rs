@@ -1,6 +1,6 @@
 use anyhow::{Result, anyhow, bail};
 use itertools::Itertools;
-use log::{debug, error};
+use log::{debug, error, info};
 use regex::Regex;
 use scraper::{Html, Selector};
 use serde_json::json;
@@ -72,7 +72,14 @@ async fn youtube_check(channel: &str) -> Result<Option<String>> {
             resp.status().as_u16()
         );
     }
-    let title = parse_for_title(&resp.text().await?)?;
+    let text = resp.text().await?;
+    let title = parse_for_title(&text)?;
+
+    // check that the stream is actually live
+    if text.contains("Scheduled for") {
+        return Ok(None);
+    }
+
     Ok(Some(title.to_string()))
 }
 
@@ -120,9 +127,9 @@ pub async fn detect_presence(config: &Config) -> Result<Vec<(String, Vec<&str>)>
                 let code = {
                     let s = group.get(1).map(|s| s.as_str()).unwrap_or_default();
                     if s.len() == 3 {
-                        format!("K{s}")
-                    } else {
                         s.to_string()
+                    } else {
+                        (s[0..4]).to_string()
                     }
                 };
                 let matching_airports: Vec<_> = config
@@ -151,6 +158,7 @@ async fn tick(config: &Arc<Config>, _http: &Arc<Client>) -> Result<()> {
             "These streamers are active in relevant fields: {}",
             streamers.iter().map(|(name, _)| name).join(", ")
         );
+        info!("{s}");
         // TODO this is temporary
         let res = GENERAL_HTTP_CLIENT
             .post(&config.discord.webhooks.errors)

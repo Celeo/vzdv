@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use log::{debug, error, info};
 use select::{document::Document, predicate::Name};
 use sqlx::{Pool, Sqlite};
@@ -9,10 +9,10 @@ use twilight_model::id::Id;
 use twilight_util::builder::embed::{EmbedBuilder, EmbedFieldBuilder};
 use vatsim_utils::live_api::Vatsim;
 use vzdv::{
+    GENERAL_HTTP_CLIENT,
     config::Config,
     position_in_facility_airspace,
     sql::{self, Controller},
-    GENERAL_HTTP_CLIENT,
 };
 
 /// Query the VATUSA website for the list of ACE controllers' CIDs.
