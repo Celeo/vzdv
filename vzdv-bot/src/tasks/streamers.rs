@@ -139,7 +139,7 @@ pub async fn detect_presence(config: &Config) -> Result<Vec<(String, Vec<&str>)>
 }
 
 /// Single loop execution.
-async fn tick(config: &Arc<Config>, http: &Arc<Client>) -> Result<()> {
+async fn tick(config: &Arc<Config>, _http: &Arc<Client>) -> Result<()> {
     debug!("Checking for online streamers");
     let streamers = detect_presence(config).await?;
 
