@@ -24,8 +24,16 @@ fn create_message(
         cid_name_map.get(&no_show.reported_by).unwrap().0,
         cid_name_map.get(&no_show.reported_by).unwrap().1,
         count,
-        if no_show.entry_type == "training" { "TA" } else  { "EC" },
-        if no_show.entry_type == "training" { "ta" } else  { "ec" },
+        if no_show.entry_type == "training" {
+            "TA"
+        } else {
+            "EC"
+        },
+        if no_show.entry_type == "training" {
+            "ta"
+        } else {
+            "ec"
+        },
         config.staff.email_domain
     )
 }
@@ -127,10 +135,10 @@ async fn tick(config: &Arc<Config>, db: &Pool<Sqlite>, http: &Arc<Client>) -> Re
     }
     let cid_name_map = get_controller_cids_and_names(db).await?;
     for entry in &entries {
-        if !entry.notified {
-            if let Err(e) = handle_single(entry, &entries, &cid_name_map, config, db, http).await {
-                error!("Error processing no-show tick for entry {}: {e}", entry.id);
-            }
+        if !entry.notified
+            && let Err(e) = handle_single(entry, &entries, &cid_name_map, config, db, http).await
+        {
+            error!("Error processing no-show tick for entry {}: {e}", entry.id);
         }
     }
 
