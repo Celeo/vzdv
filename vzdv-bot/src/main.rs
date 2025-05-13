@@ -65,7 +65,10 @@ async fn main() {
     let interaction_client = http.interaction(Id::new(bot_id));
 
     interaction_client
-        .set_global_commands(&[commands::EventCommand::create_command().into()])
+        .set_global_commands(&[
+            commands::EventCommand::create_command().into(),
+            commands::ResourcesCommand::create_command().into(),
+        ])
         .await
         .expect("Could not register commands");
 

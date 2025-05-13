@@ -31,6 +31,10 @@ use vzdv::{
 #[command(name = "event", desc = "Post event info or positions")]
 pub struct EventCommand;
 
+#[derive(Debug, CommandModel, CreateCommand)]
+#[command(name = "resources", desc = "Link someone to the resources page")]
+pub struct ResourcesCommand;
+
 /// Build a simple ephemeral response with a `String` message.
 fn quick_resp(message: &str) -> InteractionResponse {
     InteractionResponse {
