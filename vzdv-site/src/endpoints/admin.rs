@@ -799,11 +799,11 @@ async fn api_get_resource_initials(
                 .get(&entry.cid)
                 .map(|e| e.to_owned())
                 .unwrap_or_else(|| (String::new(), String::new()));
-            return ControllerInfo {
+            ControllerInfo {
                 cid: entry.cid,
                 name: format!("{} {}", name.0, name.1),
                 created_date: entry.created_date,
-            };
+            }
         })
         .collect();
     let template = state
