@@ -465,11 +465,32 @@ async fn page_denver_data(
         .await
         .map_err(|e| AppError::GenericFallback("determining recommended runways", e))?;
 
+    let wind = {
+        let dir = weather.wind.0 as i16 - 10;
+        let dir = if dir < 0 {
+            360 + dir
+        } else if dir > 360 {
+            dir - 360
+        } else {
+            dir
+        };
+        format!(
+            "{} at {}{}",
+            dir,
+            weather.wind.1,
+            if weather.wind.2 > 0 {
+                format!(" gust {}", weather.wind.2)
+            } else {
+                String::new()
+            }
+        )
+    };
+
     let template = state.templates.get_template("airspace/kden_data.jinja")?;
     let rendered = template.render(context! {
         user_info,
         weather,
-        wind => format!("{} at {}{}", weather.wind.0, weather.wind.1, if weather.wind.2 > 0 { format!(" gust {}", weather.wind.2) } else { String::new() }),
+        wind,
         runway_config => runway_config.name(),
         departing => runway_config.departing(),
         landing => runway_config.landing(),
