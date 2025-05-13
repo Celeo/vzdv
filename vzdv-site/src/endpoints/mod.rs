@@ -122,26 +122,41 @@ async fn page_feedback_form_post(
         )
         .await?;
         let notification_webhook = state.config.discord.webhooks.new_feedback.clone();
-        let for_controller: Controller = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        let for_controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
             .bind(feedback.controller)
-            .fetch_one(&state.db)
+            .fetch_optional(&state.db)
             .await?;
-        let message = format!(
-            "New {} feedback posted for {} {} ({}) on **{}** by {}:\n\t{}",
-            feedback.rating,
-            for_controller.first_name,
-            for_controller.last_name,
-            for_controller
-                .operating_initials
-                .unwrap_or_else(|| String::from("??")),
-            feedback.position,
-            user_info.cid,
-            if feedback.comments.len() >= 100 {
-                format!("{} ...", &feedback.comments[0..100])
-            } else {
-                feedback.comments
+        let message = match for_controller {
+            Some(c) => {
+                format!(
+                    "New {} feedback posted for {} {} ({}) on **{}** by {}:\n\t{}",
+                    feedback.rating,
+                    c.first_name,
+                    c.last_name,
+                    c.operating_initials.unwrap_or_else(|| String::from("??")),
+                    feedback.position,
+                    user_info.cid,
+                    if feedback.comments.len() >= 100 {
+                        format!("{} ...", &feedback.comments[0..100])
+                    } else {
+                        feedback.comments
+                    }
+                )
             }
-        );
+            None => {
+                format!(
+                    "New {} feedback posted for an unknown controller on **{}** by {}:\n\t{}",
+                    feedback.rating,
+                    feedback.position,
+                    user_info.cid,
+                    if feedback.comments.len() >= 100 {
+                        format!("{} ...", &feedback.comments[0..100])
+                    } else {
+                        feedback.comments
+                    }
+                )
+            }
+        };
         tokio::spawn(async move {
             let res = GENERAL_HTTP_CLIENT
                 .post(&notification_webhook)
