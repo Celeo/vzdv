@@ -1,6 +1,7 @@
 //! vZDV website
 
 #![deny(clippy::all)]
+#![allow(clippy::collapsible_if)]
 #![deny(unsafe_code)]
 
 use axum::{Router, middleware as axum_middleware};

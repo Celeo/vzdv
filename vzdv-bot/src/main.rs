@@ -1,7 +1,7 @@
 //! vZDV Discord bot.
 
-// #![deny(clippy::all)]
-// #![allow(clippy::unneeded_return)]
+#![deny(clippy::all)]
+#![allow(clippy::collapsible_if)]
 #![deny(unsafe_code)]
 
 use anyhow::Result;
