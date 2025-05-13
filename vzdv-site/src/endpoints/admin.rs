@@ -33,7 +33,7 @@ use vzdv::{
     get_controller_cids_and_names, retrieve_all_in_use_ois,
     sql::{
         self, Activity, Controller, Feedback, FeedbackForReview, Log, NoShow, Resource, SoloCert,
-        VisitorRequest,
+        SopInitial, VisitorRequest,
     },
     vatusa::{get_multiple_controller_info, get_multiple_controller_names},
 };
@@ -753,6 +753,66 @@ async fn api_delete_resource(
     Ok(StatusCode::OK)
 }
 
+/// Load a list of controllers who have signed off on the resource.
+async fn api_get_resource_initials(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(id): Path<u32>,
+) -> Result<Response, AppError> {
+    #[derive(Serialize)]
+    struct ControllerInfo {
+        cid: u32,
+        name: String,
+        created_date: DateTime<Utc>,
+    }
+
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if !is_user_member_of(&state, &user_info, PermissionsGroup::NamedPosition).await {
+        return Ok(StatusCode::FORBIDDEN.into_response());
+    }
+    let user_info = user_info.unwrap();
+    let resource: Option<Resource> = sqlx::query_as(sql::GET_RESOURCE_BY_ID)
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?;
+    let resource = match resource {
+        Some(r) => r,
+        None => {
+            warn!(
+                "{} tried to get SOP initials on unknown resource {id}",
+                user_info.cid
+            );
+            return Ok(StatusCode::NOT_FOUND.into_response());
+        }
+    };
+    let initials: Vec<SopInitial> = sqlx::query_as(sql::GET_SOP_INITIALS_FOR_RESOURCE)
+        .bind(resource.id)
+        .fetch_all(&state.db)
+        .await?;
+    let all_controllers = get_controller_cids_and_names(&state.db)
+        .await
+        .map_err(|e| AppError::GenericFallback("getting names and CIDs from DB", e))?;
+    let data: Vec<ControllerInfo> = initials
+        .iter()
+        .map(|entry| {
+            let name = all_controllers
+                .get(&entry.cid)
+                .map(|e| e.to_owned())
+                .unwrap_or_else(|| (String::new(), String::new()));
+            return ControllerInfo {
+                cid: entry.cid,
+                name: format!("{} {}", name.0, name.1),
+                created_date: entry.created_date,
+            };
+        })
+        .collect();
+    let template = state
+        .templates
+        .get_template("admin/resources_initials.jinja")?;
+    let rendered = template.render(context! { user_info, data })?;
+    Ok(Html(rendered).into_response())
+}
+
 /// Form submission for creating a new resource.
 ///
 /// Named staff members only.
@@ -1431,6 +1491,10 @@ pub fn router() -> Router<Arc<AppState>> {
         )
         .layer(DefaultBodyLimit::disable()) // no upload limit on this endpoint
         .route("/admin/resources/{id}", delete(api_delete_resource))
+        .route(
+            "/admin/resources/{id}/initials",
+            get(api_get_resource_initials),
+        )
         .route("/admin/resources/edit", post(api_edit_resource))
         .layer(DefaultBodyLimit::disable()) // no upload limit on this endpoint either
         .route("/admin/off_roster_list", get(page_off_roster_list))

@@ -534,6 +534,7 @@ async fn post_page_resources_initial(
     sqlx::query(sql::INSERT_SOP_INITIALS)
         .bind(user_info.cid)
         .bind(resource.id)
+        .bind(Utc::now())
         .execute(&state.db)
         .await?;
     push_flashed_message(session, MessageLevel::Success, "Resource initialled").await?;
@@ -543,7 +544,7 @@ async fn post_page_resources_initial(
             user_info.cid, resource.id, resource.name
         ),
         &state.db,
-        true,
+        false,
     )
     .await?;
     Ok(Redirect::to("/facility/resources"))

@@ -1,0 +1,9 @@
+{% if data|length > 0 %}
+  <ul>
+    {% for entry in data %}
+      <li><a href="/controller/{{ entry.cid }}" target="_blank" style="text-decoration: none">{{ entry.name }}</a> signed on {{ entry.created_date|simple_date }}</li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No controllers have signed this resource</p>
+{% endif %}
