@@ -3,7 +3,7 @@
 //! The CRUD of events themselves is under /admin routes.
 
 use crate::{
-    flashed_messages,
+    flashed_messages::{self, MessageLevel, push_flashed_message},
     shared::{
         AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, is_user_member_of,
         js_timestamp_to_utc, record_log, reject_if_not_in,
@@ -791,6 +791,54 @@ async fn post_set_position(
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct NoShowForm {
+    cid: u32,
+    notes: String,
+}
+
+/// Record a no-show entry.
+async fn post_no_show(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Path(id): Path<u32>,
+    Form(no_show_form): Form<NoShowForm>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::EventsTeam).await
+    {
+        return Ok(redirect);
+    }
+    let user_info = user_info.unwrap();
+    let event: Option<Event> = sqlx::query_as(sql::GET_EVENT)
+        .bind(id)
+        .fetch_optional(&state.db)
+        .await?;
+    if event.is_none() {
+        return Ok(Redirect::to("/"));
+    }
+    sqlx::query(sql::CREATE_NEW_NO_SHOW_ENTRY)
+        .bind(no_show_form.cid)
+        .bind(user_info.cid)
+        .bind("event")
+        .bind(Utc::now())
+        .bind(format!("Event {id}: {}", no_show_form.notes))
+        .execute(&state.db)
+        .await?;
+    record_log(
+        format!(
+            "{} submitted a no-show event record for {} for event {id}",
+            user_info.cid, no_show_form.cid
+        ),
+        &state.db,
+        true,
+    )
+    .await?;
+
+    push_flashed_message(session, MessageLevel::Success, "Added no show entry").await?;
+    Ok(Redirect::to(&format!("/events/{id}")))
+}
+
 /// This file's routes and templates.
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -813,4 +861,5 @@ pub fn router() -> Router<Arc<AppState>> {
             post(post_delete_position),
         )
         .route("/events/{id}/set_position", post(post_set_position))
+        .route("/events/{id}/no_show", post(post_no_show))
 }

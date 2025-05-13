@@ -1347,8 +1347,12 @@ async fn api_delete_no_show_entry(
     flashed_messages::push_flashed_message(session, MessageLevel::Success, "Entry deleted").await?;
     record_log(
         format!(
-            "{} deleted no-show entry #{} of {} from {}",
-            user_info.cid, id, no_show_entry.entry_type, no_show_entry.reported_by
+            "{} deleted no-show entry #{} for {} of {} from {}",
+            user_info.cid,
+            id,
+            no_show_entry.cid,
+            no_show_entry.entry_type,
+            no_show_entry.reported_by
         ),
         &state.db,
         true,

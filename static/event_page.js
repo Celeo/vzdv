@@ -116,6 +116,13 @@ document
   });
 
 document
+  .getElementById("btn-modal-no-show-close")
+  .addEventListener("click", (e) => {
+    e.preventDefault();
+    document.getElementById("modalNoShow").close();
+  });
+
+document
   .getElementById("modalAddPosition")
   .querySelectorAll('input[type="text"]')
   .forEach((input) => {
