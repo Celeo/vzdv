@@ -119,18 +119,19 @@ pub async fn handler(
     if let Some(event) = setup(raw_event, db, &interaction).await? {
         let author_id = event.author_id().unwrap();
         match &event.0.data.as_ref().unwrap() {
-            InteractionData::ApplicationCommand(_app_command) => {
-                info!("Got event command by {author_id}; building dropdown");
-                let events: Vec<_> = {
-                    let all: Vec<vzdv::sql::Event> =
-                        sqlx::query_as(sql::GET_ALL_EVENTS).fetch_all(db).await?;
-                    all.iter()
-                        .filter(|event| event.end >= Utc::now())
-                        .cloned()
-                        .collect()
-                };
-                if events.is_empty() {
-                    interaction.create_response(event.id, &event.token, &InteractionResponse {
+            InteractionData::ApplicationCommand(app_command) => {
+                if app_command.name == "event" {
+                    info!("Got event command by {author_id}; building dropdown");
+                    let events: Vec<_> = {
+                        let all: Vec<vzdv::sql::Event> =
+                            sqlx::query_as(sql::GET_ALL_EVENTS).fetch_all(db).await?;
+                        all.iter()
+                            .filter(|event| event.end >= Utc::now())
+                            .cloned()
+                            .collect()
+                    };
+                    if events.is_empty() {
+                        interaction.create_response(event.id, &event.token, &InteractionResponse {
                         kind: twilight_model::http::interaction::InteractionResponseType::ChannelMessageWithSource,
                         data: Some(InteractionResponseDataBuilder::new()
                             .content("No upcoming events found")
@@ -140,38 +141,39 @@ pub async fn handler(
                         ),
                     })
                     .await?;
-                    return Ok(());
+                        return Ok(());
+                    }
+                    let component = Component::ActionRow(ActionRow {
+                        components: vec![Component::SelectMenu(SelectMenu {
+                            custom_id: String::from("event_selection"),
+                            disabled: false,
+                            max_values: Some(1),
+                            min_values: Some(1),
+                            options: events
+                                .iter()
+                                .map(|event| SelectMenuOption {
+                                    default: false,
+                                    description: None,
+                                    emoji: None,
+                                    label: event.name.clone(),
+                                    value: event.id.to_string(),
+                                })
+                                .collect(),
+                            placeholder: Some(String::from("Select an event")),
+                        })],
+                    });
+                    debug!("Rendering event selection dropdown");
+                    interaction.create_response(event.id, &event.token, &InteractionResponse {
+                        kind: twilight_model::http::interaction::InteractionResponseType::ChannelMessageWithSource,
+                        data: Some(InteractionResponseDataBuilder::new()
+                            .content("Select an event")
+                            .flags(MessageFlags::EPHEMERAL)
+                            .components([component])
+                            .build()
+                        )}).await?;
+                } else if app_command.name == "resources" {
+                    // TODO
                 }
-                let component = Component::ActionRow(ActionRow {
-                    components: vec![Component::SelectMenu(SelectMenu {
-                        custom_id: String::from("event_selection"),
-                        disabled: false,
-                        max_values: Some(1),
-                        min_values: Some(1),
-                        options: events
-                            .iter()
-                            .map(|event| SelectMenuOption {
-                                default: false,
-                                description: None,
-                                emoji: None,
-                                label: event.name.clone(),
-                                value: event.id.to_string(),
-                            })
-                            .collect(),
-                        placeholder: Some(String::from("Select an event")),
-                    })],
-                });
-                debug!("Rendering event selection dropdown");
-                interaction.create_response(event.id, &event.token, &InteractionResponse {
-                    kind: twilight_model::http::interaction::InteractionResponseType::ChannelMessageWithSource,
-                    data: Some(InteractionResponseDataBuilder::new()
-                        .content("Select an event")
-                        .flags(MessageFlags::EPHEMERAL)
-                        .components([component])
-                        .build()
-                    ),
-                })
-                .await?;
             }
             InteractionData::MessageComponent(component) => {
                 if component.custom_id == "event_selection" {
