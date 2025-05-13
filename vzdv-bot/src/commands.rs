@@ -172,7 +172,13 @@ pub async fn handler(
                             .build()
                         )}).await?;
                 } else if app_command.name == "resources" {
-                    // TODO
+                    debug!("Resources command being used");
+                    interaction.create_response(event.id, &event.token, &InteractionResponse{
+                        kind: twilight_model::http::interaction::InteractionResponseType::ChannelMessageWithSource,
+                        data: Some(InteractionResponseDataBuilder::new()
+                            .content("You can find the answer to your requestion in the [facility resources](https://zdvartcc.org/facility/resources)!")
+                            .build()
+                        )}).await?;
                 }
             }
             InteractionData::MessageComponent(component) => {
