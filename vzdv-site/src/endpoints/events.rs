@@ -188,10 +188,14 @@ async fn page_event(
         None => None,
     };
 
-    let positions_raw: Vec<EventPosition> = sqlx::query_as(sql::GET_EVENT_POSITIONS)
-        .bind(event.id)
-        .fetch_all(&state.db)
-        .await?;
+    let positions_raw = {
+        let mut p: Vec<EventPosition> = sqlx::query_as(sql::GET_EVENT_POSITIONS)
+            .bind(event.id)
+            .fetch_all(&state.db)
+            .await?;
+        p.sort_by(|a, b| a.name.partial_cmp(&b.name).unwrap());
+        p
+    };
     let positions = event_positions_extra(&positions_raw, &state.db).await?;
     let registrations = event_registrations_extra(event.id, &positions_raw, &state.db).await?;
     let all_controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS_ON_ROSTER)
