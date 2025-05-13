@@ -1,10 +1,10 @@
 //! HTTP endpoint for third-parties to query.
 
 use crate::{
-    flights::{get_relevant_flights, OnlineFlights},
+    flights::{OnlineFlights, get_relevant_flights},
     shared::{AppError, AppState, CacheEntry},
 };
-use axum::{extract::State, routing::get, Json, Router};
+use axum::{Json, Router, extract::State, routing::get};
 use std::{sync::Arc, time::Instant};
 use vatsim_utils::live_api::Vatsim;
 

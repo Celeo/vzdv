@@ -4,7 +4,7 @@
 use crate::shared::AppError;
 use serde::Deserialize;
 use std::collections::HashMap;
-use vzdv::{config::Config, GENERAL_HTTP_CLIENT};
+use vzdv::{GENERAL_HTTP_CLIENT, config::Config};
 
 // In each of these structs, there are other fields that are returned by their respective
 // API endpoints, but these are the only fields that are actually needed.
@@ -28,9 +28,9 @@ struct DiscordUserInfoUser {
 
 /// Generate the URL to navigate users to in order to start the Discord OAuth flow.
 pub fn get_oauth_link(config: &Config) -> String {
-    format!("https://discord.com/oauth2/authorize?client_id={}&response_type=code&redirect_uri={}&scope=identify",
-        &config.discord.auth.client_id,
-        &config.discord.auth.redirect_uri,
+    format!(
+        "https://discord.com/oauth2/authorize?client_id={}&response_type=code&redirect_uri={}&scope=identify",
+        &config.discord.auth.client_id, &config.discord.auth.redirect_uri,
     )
 }
 

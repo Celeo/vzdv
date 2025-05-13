@@ -2,8 +2,8 @@ use crate::{config::Config, sql};
 use anyhow::Result;
 use log::warn;
 use sqlx::{
-    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteSynchronous},
     Executor, SqlitePool,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteSynchronous},
 };
 use std::path::Path;
 

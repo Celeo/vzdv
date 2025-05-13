@@ -2,10 +2,10 @@
 
 use crate::shared::AppError;
 use lettre::{
-    message::header::ContentType, transport::smtp::authentication::Credentials, Message,
-    SmtpTransport, Transport,
+    Message, SmtpTransport, Transport, message::header::ContentType,
+    transport::smtp::authentication::Credentials,
 };
-use minijinja::{context, Environment};
+use minijinja::{Environment, context};
 use sqlx::{Pool, Sqlite};
 use vzdv::{
     config::Config,

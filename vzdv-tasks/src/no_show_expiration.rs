@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::{Months, Utc};
 use log::info;
 use sqlx::{Pool, Sqlite};
