@@ -181,6 +181,13 @@ pub struct IPC {
     pub data: String,
 }
 
+#[derive(Debug, Clone, FromRow, Serialize)]
+pub struct SopInitial {
+    pub id: u32,
+    pub cid: u32,
+    pub resource_id: u32,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -348,6 +355,15 @@ CREATE TABLE ipc (
     uuid TEXT PRIMARY KEY NOT NULL,
     action TEXT NOT NULL,
     data TEXT
+) STRICT;
+
+CREATE TABLE sop_initial (
+    id INTEGER PRIMARY KEY NOT NULL,
+    cid INTEGER NOT NULL,
+    resource_id INTEGER NOT NULL,
+
+    FOREIGN KEY (cid) REFERENCES controller(cid),
+    FOREIGN KEY (resource_id) REFERENCES resource(id)
 ) STRICT;
 "#;
 
@@ -524,3 +540,9 @@ pub const CREATE_LOG: &str = "INSERT INTO log VALUES (NULL, $1, $2)";
 pub const GET_IPC_MESSAGES: &str = "SELECT * FROM ipc";
 pub const INSERT_INTO_IPC: &str = "INSERT INTO ipc VALUES ($1, $2, $3);";
 pub const DELETE_IPC_MESSAGE: &str = "DELETE FROM ipc WHERE uuid=$1";
+
+pub const GET_ALL_SOP_INITIALS: &str = "SELECT * FROM sop_initial";
+pub const GET_ALL_SOP_INITIALS_FOR_CID: &str = "SELECT * FROM sop_initial WHERE cid=$1";
+pub const GET_SOP_INITIALS_FOR_RESOURCE: &str = "SELECT * FROM sop_initial WHERE resource_id=$1";
+pub const INSERT_SOP_INITIALS: &str = "INSERT INTO sop_initial VALUES (NULL, $1, $2)";
+pub const DELETE_SOP_INITIALS_FOR_RESOURCE: &str = "DELETE FROM sop_initial WHERE resource_id=$1";
