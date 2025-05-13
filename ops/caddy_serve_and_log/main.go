@@ -59,12 +59,13 @@ func (m Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddy
 	if len(cookie) > 3 {
 		cookie = cookie[3:]
 		path := r.URL.Path[1:]
-		m.logger.Sugar().Infof("Saw cookie '%s' access resource '%s'", cookie, path)
 
-		statement := fmt.Sprintf("INSERT INTO %s VALUES (NULL, ?, ?)", m.DbTable)
-		if _, err := m.db.Exec(statement, cookie, path); err != nil {
-			return err
-		}
+		go func() {
+			statement := fmt.Sprintf("INSERT INTO %s VALUES (NULL, ?, ?)", m.DbTable)
+			if _, err := m.db.Exec(statement, cookie, path); err != nil {
+				m.logger.Sugar().Errorf("Error inserting resource access into DB: %s", err)
+			}
+		}()
 	}
 
 	return next.ServeHTTP(w, r)
