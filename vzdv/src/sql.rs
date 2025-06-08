@@ -367,6 +367,12 @@ CREATE TABLE sop_initial (
     FOREIGN KEY (cid) REFERENCES controller(cid),
     FOREIGN KEY (resource_id) REFERENCES resource(id)
 ) STRICT;
+
+CREATE TABLE resource_requests (
+    id INTEGER PRIMARY KEY NOT NULL,
+    cookie TEXT NOT NULL,
+    path TEXT NOT NULL
+) STRICT;
 "#;
 
 pub const UPSERT_USER_LOGIN: &str = "
