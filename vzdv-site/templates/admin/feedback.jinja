@@ -33,7 +33,7 @@
             </span>
             <span class="col-2">{{ feedback.first_name }} {{ feedback.last_name }}</span>
             <span class="col-2">{{ feedback.position }}</span>
-            <span class="col-2">{{ feedback.rating }}</span>
+            <span class="col-2">{{ feedback.rating|capitalize_first }}</span>
             <span class="col-2">{{ feedback.created_date|nice_date }}</span>
             <span class="col-2">{% if feedback.contact_me %}<a href="mailto:{{ feedback.email }}">{{ feedback.email }}</a>{% else %}No{% endif %}</span>
             <span class="col-12 pt-2">
