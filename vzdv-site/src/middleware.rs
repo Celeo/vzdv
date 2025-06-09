@@ -62,39 +62,36 @@ pub async fn asset_access(
         let path = &path[8..path.len()];
         path.to_string()
     };
-    match session.get::<UserInfo>(SESSION_USER_INFO_KEY).await {
-        Ok(Some(user_info)) => {
-            tokio::spawn(async move {
-                let resource: Result<Option<Resource>, sqlx::Error> =
-                    sqlx::query_as(sql::GET_RESOURCE_BY_FILE_NAME)
-                        .bind(&path)
-                        .fetch_optional(&state.db)
-                        .await;
-                match resource {
-                    Ok(Some(resource)) => {
-                        if resource.category == "SOPs" {
-                            let upsert_res = sqlx::query(sql::UPSERT_SOP_ACCESS)
-                                .bind(user_info.cid)
-                                .bind(resource.id)
-                                .bind(Utc::now())
-                                .execute(&state.db)
-                                .await;
-                            if let Err(e) = upsert_res {
-                                error!(
-                                    "Error updating SOP access time for {} {}: {e}",
-                                    user_info.cid, resource.id
-                                );
-                            }
+    if let Ok(Some(user_info)) = session.get::<UserInfo>(SESSION_USER_INFO_KEY).await {
+        tokio::spawn(async move {
+            let resource: Result<Option<Resource>, sqlx::Error> =
+                sqlx::query_as(sql::GET_RESOURCE_BY_FILE_NAME)
+                    .bind(&path)
+                    .fetch_optional(&state.db)
+                    .await;
+            match resource {
+                Ok(Some(resource)) => {
+                    if resource.category == "SOPs" {
+                        let upsert_res = sqlx::query(sql::UPSERT_SOP_ACCESS)
+                            .bind(user_info.cid)
+                            .bind(resource.id)
+                            .bind(Utc::now())
+                            .execute(&state.db)
+                            .await;
+                        if let Err(e) = upsert_res {
+                            error!(
+                                "Error updating SOP access time for {} {}: {e}",
+                                user_info.cid, resource.id
+                            );
                         }
                     }
-                    Err(e) => {
-                        error!("Error in SOP access middleware getting resources from the DB: {e}")
-                    }
-                    _ => {}
                 }
-            });
-        }
-        _ => {}
+                Err(e) => {
+                    error!("Error in SOP access middleware getting resources from the DB: {e}")
+                }
+                _ => {}
+            }
+        });
     }
     next.run(request).await
 }
