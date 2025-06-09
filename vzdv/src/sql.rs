@@ -189,6 +189,14 @@ pub struct SopInitial {
     pub created_date: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, FromRow, Serialize)]
+pub struct SopAccess {
+    pub id: u32,
+    pub cid: u32,
+    pub resource_id: u32,
+    pub created_date: DateTime<Utc>,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -368,10 +376,16 @@ CREATE TABLE sop_initial (
     FOREIGN KEY (resource_id) REFERENCES resource(id)
 ) STRICT;
 
-CREATE TABLE resource_requests (
+CREATE TABLE sop_access (
     id INTEGER PRIMARY KEY NOT NULL,
-    cookie TEXT NOT NULL,
-    path TEXT NOT NULL
+    cid INTEGER NOT NULL,
+    resource_id INTEGER NOT NULL,
+    created_date TEXT NOT NULL,
+
+    UNIQUE(cid, resource_id),
+    
+    FOREIGN KEY (cid) REFERENCES controller(cid),
+    FOREIGN KEY (resource_id) REFERENCES resource(id)
 ) STRICT;
 "#;
 
@@ -471,6 +485,7 @@ pub const UPDATE_FEEDBACK_COMMENTS: &str = "UPDATE feedback SET comments=$2 WHER
 
 pub const GET_ALL_RESOURCES: &str = "SELECT * FROM resource";
 pub const GET_RESOURCE_BY_ID: &str = "SELECT * FROM resource WHERE id=$1";
+pub const GET_RESOURCE_BY_FILE_NAME: &str = "SELECT * FROM resource WHERE file_name=$1";
 pub const DELETE_RESOURCE_BY_ID: &str = "DELETE FROM resource WHERE id=$1";
 pub const CREATE_NEW_RESOURCE: &str = "INSERT INTO resource VALUES (NULL, $1, $2, $3, $4, $5)";
 pub const UPDATE_RESOURCE: &str =
@@ -554,3 +569,20 @@ pub const GET_ALL_SOP_INITIALS_FOR_CID: &str = "SELECT * FROM sop_initial WHERE 
 pub const GET_SOP_INITIALS_FOR_RESOURCE: &str = "SELECT * FROM sop_initial WHERE resource_id=$1";
 pub const INSERT_SOP_INITIALS: &str = "INSERT INTO sop_initial VALUES (NULL, $1, $2, $3)";
 pub const DELETE_SOP_INITIALS_FOR_RESOURCE: &str = "DELETE FROM sop_initial WHERE resource_id=$1";
+
+pub const GET_ALL_SOP_ACCESS: &str = "SELECT * FROM sop_access";
+pub const GET_SOP_ACCESS_FOR_CID: &str = "SELECT * FROM sop_access WHERE cid=$1";
+pub const GET_SOP_ACCESS_FOR_CID_AND_RESOURCE: &str =
+    "SELECT * FROM sop_access WHERE cid=$1 AND resource_id=$2";
+pub const UPSERT_SOP_ACCESS: &str = "
+INSERT INTO sop_access
+    (id, cid, resource_id, created_date)
+VALUES
+    (NULL, $1, $2, $3)
+ON CONFLICT(cid, resource_id) DO UPDATE SET
+    created_date=$3
+WHERE
+    cid=excluded.cid AND
+    resource_id=excluded.resource_id
+";
+pub const DELETE_SOP_ACCESS_FOR_RESOURCE: &str = "DELETE FROM sop_access WHERE resource_id=$1";

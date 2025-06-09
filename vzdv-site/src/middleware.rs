@@ -1,9 +1,19 @@
 //! App middleware functions.
 
-use axum::{extract::Request, middleware::Next, response::Response};
-use log::{debug, warn};
-use std::{collections::HashSet, sync::LazyLock};
+use crate::shared::{AppState, SESSION_USER_INFO_KEY, UserInfo};
+use axum::{
+    extract::{Request, State},
+    middleware::Next,
+    response::Response,
+};
+use chrono::Utc;
+use log::{debug, error, warn};
+use std::{
+    collections::HashSet,
+    sync::{Arc, LazyLock},
+};
 use tower_sessions::{Expiry, Session};
+use vzdv::sql::{self, Resource};
 
 static IGNORE_PATHS: LazyLock<HashSet<&str>> = LazyLock::new(|| HashSet::from(["/favicon.ico"]));
 
@@ -31,6 +41,62 @@ pub async fn logging(request: Request, next: Next) -> Response {
     } else {
         next.run(request).await
     }
+}
+
+/// Middleware to record a logged-in user accessing an asset static endpoint.
+///
+/// This is used to asset that a user has actually opened a resource before they're
+/// allowed to initial on SOPs. This middleware updates the datbase (in a Tokio task)
+/// with the date of the user opening the resource if it's an SOP document. This
+/// middleware doesn't do anything for non-SOP resources.
+pub async fn asset_access(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    request: Request,
+    next: Next,
+) -> Response {
+    let path = {
+        // just Rust doing Rust things ...
+        let uri = request.uri().clone();
+        let path = uri.path();
+        let path = &path[8..path.len()];
+        path.to_string()
+    };
+    match session.get::<UserInfo>(SESSION_USER_INFO_KEY).await {
+        Ok(Some(user_info)) => {
+            tokio::spawn(async move {
+                let resource: Result<Option<Resource>, sqlx::Error> =
+                    sqlx::query_as(sql::GET_RESOURCE_BY_FILE_NAME)
+                        .bind(&path)
+                        .fetch_optional(&state.db)
+                        .await;
+                match resource {
+                    Ok(Some(resource)) => {
+                        if resource.category == "SOPs" {
+                            let upsert_res = sqlx::query(sql::UPSERT_SOP_ACCESS)
+                                .bind(user_info.cid)
+                                .bind(resource.id)
+                                .bind(Utc::now())
+                                .execute(&state.db)
+                                .await;
+                            if let Err(e) = upsert_res {
+                                error!(
+                                    "Error updating SOP access time for {} {}: {e}",
+                                    user_info.cid, resource.id
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Error in SOP access middleware getting resources from the DB: {e}")
+                    }
+                    _ => {}
+                }
+            });
+        }
+        _ => {}
+    }
+    next.run(request).await
 }
 
 /// Middleware to extend the `tower_sessions` session cookie on the user's browser.

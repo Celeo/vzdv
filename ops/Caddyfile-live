@@ -1,9 +1,4 @@
 example.com {
-	handle_path /assets/* {
-		root * /srv/vzdv/assets
-		file_server
-	}
-
 	@robots {
 		method GET
 		path_regexp ^/robots\.txt$

@@ -27,7 +27,9 @@ use vzdv::{
     ControllerRating, GENERAL_HTTP_CLIENT,
     config::Config,
     determine_staff_positions,
-    sql::{self, Activity, Certification, Controller, Resource, SopInitial, VisitorRequest},
+    sql::{
+        self, Activity, Certification, Controller, Resource, SopAccess, SopInitial, VisitorRequest,
+    },
 };
 
 #[derive(Debug, Serialize)]
@@ -505,6 +507,21 @@ async fn post_page_resources_initial(
             session,
             MessageLevel::Error,
             "You cannot initial non-SOP resources",
+        )
+        .await?;
+        return Ok(Redirect::to("/facility/resources"));
+    }
+
+    let access_record: Option<SopAccess> = sqlx::query_as(sql::GET_SOP_ACCESS_FOR_CID_AND_RESOURCE)
+        .bind(user_info.cid)
+        .bind(resource.id)
+        .fetch_optional(&state.db)
+        .await?;
+    if access_record.is_none() {
+        push_flashed_message(
+            session,
+            MessageLevel::Error,
+            "There is no record of you having opened this document",
         )
         .await?;
         return Ok(Redirect::to("/facility/resources"));

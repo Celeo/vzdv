@@ -734,7 +734,12 @@ async fn api_delete_resource(
             return Ok(StatusCode::NOT_FOUND);
         }
     };
-    // delete all intiails for this SOP
+    // delete all access records for this SOP
+    sqlx::query(sql::DELETE_SOP_ACCESS_FOR_RESOURCE)
+        .bind(id)
+        .execute(&state.db)
+        .await?;
+    // delete all initials for this SOP
     sqlx::query(sql::DELETE_SOP_INITIALS_FOR_RESOURCE)
         .bind(id)
         .execute(&state.db)
@@ -939,7 +944,12 @@ async fn api_edit_resource(
         .execute(&state.db)
         .await?;
 
-    // delete all intiails for this SOP since controllers will need to read it anew
+    // delete all access records for this SOP
+    sqlx::query(sql::DELETE_SOP_ACCESS_FOR_RESOURCE)
+        .bind(resource.id)
+        .execute(&state.db)
+        .await?;
+    // delete all initials for this SOP
     sqlx::query(sql::DELETE_SOP_INITIALS_FOR_RESOURCE)
         .bind(resource.id)
         .execute(&state.db)

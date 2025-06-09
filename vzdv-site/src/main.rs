@@ -122,9 +122,12 @@ fn load_templates() -> Result<Environment<'static>, AppError> {
 }
 
 /// Create all the endpoints and insert middleware.
-fn load_router(sessions_layer: SessionManagerLayer<SqliteStore>) -> Router<Arc<AppState>> {
+fn load_router(
+    sessions_layer: SessionManagerLayer<SqliteStore>,
+    app_state: &Arc<AppState>,
+) -> Router<Arc<AppState>> {
     Router::new()
-        .merge(endpoints::router())
+        .merge(endpoints::router(app_state))
         .merge(endpoints::admin::router())
         .merge(endpoints::api::router())
         .merge(endpoints::airspace::router())
@@ -203,13 +206,13 @@ async fn main() {
     debug!("Loaded");
 
     debug!("Setting up app");
-    let router = load_router(session_layer);
     let app_state = Arc::new(AppState {
         config,
         db: db.clone(),
         templates,
         cache: Cache::new(20),
     });
+    let router = load_router(session_layer, &app_state);
     let app = router.with_state(app_state);
     let assets_dir = Path::new("./assets");
     if !assets_dir.exists() {

@@ -218,7 +218,7 @@ async fn page_static_special(Path(name): Path<String>) -> Result<Response, AppEr
 }
 
 /// This file's routes and templates.
-pub fn router() -> Router<Arc<AppState>> {
+pub fn router(app_state: &Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
         .route("/404", get(page_404))
         .route("/feedback", get(page_feedback_form))
@@ -226,6 +226,10 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/changelog", get(page_changelog))
         .route("/privacy_policy", get(page_privacy_policy))
         .nest_service("/assets", ServeDir::new("assets"))
+        .route_layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            crate::middleware::asset_access,
+        ))
         .route("/static_special/{name}", get(page_static_special))
         .nest_service("/static", ServeDir::new("static"))
 }
