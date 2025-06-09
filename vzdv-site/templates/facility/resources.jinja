@@ -28,7 +28,7 @@
                         {% if sop_initials[resource.id] %}
                           <button type="button" class="btn btn-sm btn-dark" disabled>Signed</button>
                         {% else %}
-                          <button type="button" class="btn btn-sm btn-outline-warning" title="You must initial to acknowledge compliance" onclick="openModal({{ resource.id }})">Sign</button>
+                          <button type="button" class="btn btn-sm btn-outline-warning" title="You must sign to acknowledge compliance" onclick="openModal({{ resource.id }})">Sign</button>
                         {% endif %}
                       </div>
                     {% endif %}
@@ -44,19 +44,12 @@
 {% endfor %}
 
 <dialog id="modalInitialSOP">
-  <h2 class="pb-3">Initial SOP</h2>
+  <h2 class="pb-3">Sign SOP</h2>
   <p>
-    By entering your operating initials here and clicking Submit, you assert that you have opened and read the SOP document
-    and will adhere to its contents.
+    By clicking Submit, you assert that you have opened and read the SOP document and will adhere to its contents.
   </p>
   <form action="/facility/resources" method="POST">
     <input type="hidden" name="resource_id" id="resource_id" value="">
-    <div class="row">
-      <div class="col">
-        <label for="initials" class="form-label">Operating Initials</label>
-        <input type="text" class="form-control" id="initials" name="initials" style="text-transform: uppercase" maxlength="2" required>
-      </div>
-    </div>
     <div class="row mt-3">
       <div class="d-flex justify-content-between">
         <button class="btn btn-warning" role="button" id="btn-modal-initial-sop-close">Close</button>
@@ -72,16 +65,8 @@ document.getElementById("btn-modal-initial-sop-close").addEventListener("click",
   document.getElementById("modalInitialSOP").close();
 });
 
-document.querySelector("form").addEventListener("submit", (e) => {
-  const ois = document.getElementById("initials").value?.toUpperCase() || "";
-  if (ois.length !== 2) {
-    e.preventDefault();
-  }
-});
-
 function openModal(resourceId) {
   document.getElementById("resource_id").value = resourceId;
-  document.getElementById("initials").value = "";
   document.getElementById("modalInitialSOP").showModal();
 }
 </script>

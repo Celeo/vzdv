@@ -469,16 +469,15 @@ async fn page_resources(
 }
 
 #[derive(Debug, Deserialize)]
-struct InitialSopForm {
+struct SignSopForm {
     resource_id: u32,
-    initials: String,
 }
 
-/// Form submission handler for a controller initializing a SOP resource.
-async fn post_page_resources_initial(
+/// Form submission handler for a controller signing an SOP resource.
+async fn post_page_resources_sign(
     State(state): State<Arc<AppState>>,
     session: Session,
-    Form(initial_form): Form<InitialSopForm>,
+    Form(sign_form): Form<SignSopForm>,
 ) -> Result<Redirect, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let user_info = match user_info {
@@ -487,12 +486,8 @@ async fn post_page_resources_initial(
             return Ok(Redirect::to("/facility/resources"));
         }
     };
-    let controller: Controller = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
-        .bind(user_info.cid)
-        .fetch_one(&state.db)
-        .await?;
     let resource: Option<Resource> = sqlx::query_as(sql::GET_RESOURCE_BY_ID)
-        .bind(initial_form.resource_id)
+        .bind(sign_form.resource_id)
         .fetch_optional(&state.db)
         .await?;
     let resource = match resource {
@@ -506,7 +501,7 @@ async fn post_page_resources_initial(
         push_flashed_message(
             session,
             MessageLevel::Error,
-            "You cannot initial non-SOP resources",
+            "You cannot sign non-SOP resources",
         )
         .await?;
         return Ok(Redirect::to("/facility/resources"));
@@ -527,37 +522,16 @@ async fn post_page_resources_initial(
         return Ok(Redirect::to("/facility/resources"));
     }
 
-    let ois = match controller.operating_initials {
-        Some(ref ois) => ois,
-        None => {
-            push_flashed_message(
-                session,
-                MessageLevel::Error,
-                "You cannot initial SOPs until you have been granted operating initials",
-            )
-            .await?;
-            return Ok(Redirect::to("/facility/resources"));
-        }
-    };
-    if &initial_form.initials.to_uppercase() != ois {
-        push_flashed_message(
-            session,
-            MessageLevel::Error,
-            "You must correctly enter your operating initials",
-        )
-        .await?;
-        return Ok(Redirect::to("/facility/resources"));
-    }
     sqlx::query(sql::INSERT_SOP_INITIALS)
         .bind(user_info.cid)
         .bind(resource.id)
         .bind(Utc::now())
         .execute(&state.db)
         .await?;
-    push_flashed_message(session, MessageLevel::Success, "Resource initialled").await?;
+    push_flashed_message(session, MessageLevel::Success, "Resource signed").await?;
     record_log(
         format!(
-            "{} initialled resource {}, '{}'",
+            "{} signed resource {}, '{}'",
             user_info.cid, resource.id, resource.name
         ),
         &state.db,
@@ -847,7 +821,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/facility/activity", get(page_activity))
         .route(
             "/facility/resources",
-            get(page_resources).post(post_page_resources_initial),
+            get(page_resources).post(post_page_resources_sign),
         )
         .route("/facility/aliasref", get(alias_ref))
         .route(
