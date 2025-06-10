@@ -86,7 +86,9 @@
                   <li><a class="dropdown-item" href="/facility/activity">Activity</a></li>
                   <li><a class="dropdown-item" href="/facility/resources">Resources</a></li>
                   <li><a class="dropdown-item" href="/facility/aliasref">Alias Reference</a></li>
-                  <li><a class="dropdown-item" href="/facility/visitor_application">Visitor Application</a></li>
+                  {% if not user_info or not user_info.is_home %}
+                    <li><a class="dropdown-item" href="/facility/visitor_application">Visitor Application</a></li>
+                  {% endif %}
                 </ul>
               </li>
               {% if user_info and user_info.is_some_staff %}

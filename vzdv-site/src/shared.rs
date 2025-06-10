@@ -193,6 +193,8 @@ pub struct UserInfo {
     pub first_name: String,
     pub last_name: String,
 
+    pub is_home: bool,
+
     pub is_some_staff: bool,
     pub is_named_staff: bool,
     pub is_training_staff: bool,

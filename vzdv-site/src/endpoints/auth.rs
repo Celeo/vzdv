@@ -64,6 +64,12 @@ async fn page_auth_callback(
         cid: session_user_info.data.cid.parse()?,
         first_name: session_user_info.data.personal.name_first,
         last_name: session_user_info.data.personal.name_last,
+
+        is_home: db_user_info
+            .as_ref()
+            .map(|c| c.home_facility == "ZDV")
+            .unwrap_or_default(),
+
         is_some_staff: !roles.is_empty(),
         is_named_staff: controller_can_see(&db_user_info, vzdv::PermissionsGroup::NamedPosition),
         is_training_staff: controller_can_see(&db_user_info, vzdv::PermissionsGroup::TrainingTeam),
