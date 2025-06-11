@@ -45,7 +45,7 @@ tower-http = { version = "0.6.2", features = ["fs", "timeout"] }
 tower-sessions = "0.14.0"
 tower-sessions-sqlx-store = { version = "0.15.0", features = ["sqlite"] }
 uuid = { version = "1.11.0", features = ["v4", "fast-rng"] }
-vatsim_utils = "0.5.3"
+vatsim_utils = "0.5.4"
 
 [build-dependencies]
 minijinja-embed = "2.6.0"

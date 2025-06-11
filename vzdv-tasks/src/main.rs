@@ -13,6 +13,7 @@ mod activity;
 mod no_show_expiration;
 mod roster;
 mod solo_cert;
+mod traffic_tracking;
 
 /// vZDV task runner.
 #[derive(Parser)]
@@ -146,10 +147,25 @@ async fn main() {
         })
     };
 
+    let _online_data_handle = {
+        let db: sqlx::Pool<sqlx::Sqlite> = db.clone();
+        tokio::spawn(async move {
+            debug!("Waiting 5 seconds before staring live data retrieval");
+            time::sleep(Duration::from_secs(15)).await;
+            loop {
+                if let Err(e) = traffic_tracking::store_live_data(&db).await {
+                    error!("Error getting VATSIM live data: {e}");
+                }
+                time::sleep(Duration::from_secs(15)).await;
+            }
+        })
+    };
+
     _roster_handle.await.unwrap();
     _activity_handle.await.unwrap();
     _solo_cert_handle.await.unwrap();
     _no_show_expiration_handle.await.unwrap();
+    _online_data_handle.await.unwrap();
 
     db.close().await;
 }

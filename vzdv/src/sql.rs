@@ -387,6 +387,11 @@ CREATE TABLE sop_access (
     FOREIGN KEY (cid) REFERENCES controller(cid),
     FOREIGN KEY (resource_id) REFERENCES resource(id)
 ) STRICT;
+
+CREATE TABLE kvs (
+    key TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL
+) STRICT;
 "#;
 
 pub const UPSERT_USER_LOGIN: &str = "
@@ -586,3 +591,16 @@ WHERE
     resource_id=excluded.resource_id
 ";
 pub const DELETE_SOP_ACCESS_FOR_RESOURCE: &str = "DELETE FROM sop_access WHERE resource_id=$1";
+
+pub const GET_KVS_ENTRY: &str = "SELECT * FROM kvs WHERE key=$1";
+pub const UPSERT_KVS_ENTRY: &str = "
+INSERT INTO kvs
+    (key, value)
+VALUES
+    ($1, $2)
+ON CONFLICT(key) DO UPDATE SET
+    value=$2
+WHERE
+    key=$1
+";
+pub const DELETE_KVS_ENTRY: &str = "DELETE FROM kvs WHERE key=$1";
