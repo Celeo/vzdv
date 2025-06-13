@@ -24,7 +24,7 @@ pub struct AirportWeather<'a> {
 }
 
 /// Parse a METAR into a struct of data.
-pub fn parse_metar(line: &str) -> Result<AirportWeather> {
+pub fn parse_metar(line: &str) -> Result<AirportWeather<'_>> {
     let parts: Vec<_> = line.split(' ').collect();
     let airport = {
         let s = parts.first().ok_or_else(|| anyhow!("Blank metar?"))?;
