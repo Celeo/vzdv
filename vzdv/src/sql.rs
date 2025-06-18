@@ -457,6 +457,7 @@ pub const CREATE_CERTIFICATION: &str =
     "INSERT INTO certification VALUES (NULL, $1, $2, $3, $4, $5);";
 pub const UPDATE_CERTIFICATION: &str =
     "UPDATE certification SET value=$2, changed_on=$3, set_by=$4 WHERE id=$1";
+pub const DELETE_CERTIFICATIONS_FOR: &str = "DELETE FROM certification WHERE cid=$1";
 
 pub const GET_ALL_ACTIVITY: &str =
     "SELECT * FROM activity LEFT JOIN controller ON activity.cid = controller.cid";

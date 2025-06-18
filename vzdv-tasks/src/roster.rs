@@ -132,6 +132,14 @@ pub async fn update_roster(db: &Pool<Sqlite>) -> Result<()> {
             {
                 error!("Error updating controller {cid} to show off-roster: {e}")
             }
+            // strip certs
+            if let Err(e) = sqlx::query(sql::DELETE_CERTIFICATIONS_FOR)
+                .bind(cid)
+                .execute(db)
+                .await
+            {
+                error!("Error removing certs for removed controller {cid}: {e}");
+            }
         }
     }
     debug!(
