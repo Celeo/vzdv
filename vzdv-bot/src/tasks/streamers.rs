@@ -5,13 +5,13 @@ use regex::Regex;
 use scraper::{Html, Selector};
 use serde_json::json;
 use sqlx::{Pool, Sqlite};
-use std::{sync::Arc, sync::LazyLock, time::Duration};
+use std::{collections::HashSet, sync::Arc, sync::LazyLock, time::Duration};
 use tokio::time::sleep;
 use twilight_http::Client;
 use vzdv::{GENERAL_HTTP_CLIENT, config::Config};
 
 const CHROME_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36";
-static FIELD_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"\W([A-Z]{3,4})\W"#).unwrap());
+static FIELD_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"([A-Z]{3,4})"#).unwrap());
 
 /// Parse the HTML response for a live YouTube video.
 fn parse_for_live_link(text: &str) -> Result<String> {
@@ -129,7 +129,7 @@ pub async fn detect_presence(config: &Config) -> Result<Vec<(String, Vec<&str>)>
                     if s.len() == 3 {
                         s.to_string()
                     } else {
-                        (s[0..4]).to_string()
+                        (s[1..]).to_string()
                     }
                 };
                 let matching_airports: Vec<_> = config
@@ -156,7 +156,12 @@ async fn tick(config: &Arc<Config>, _http: &Arc<Client>) -> Result<()> {
     if !streamers.is_empty() {
         let s = format!(
             "These streamers are active in relevant fields: {}",
-            streamers.iter().map(|(name, _)| name).join(", ")
+            streamers
+                .iter()
+                .map(|(name, _)| name)
+                .collect::<HashSet<_>>()
+                .iter()
+                .join(", ")
         );
         info!("{s}");
         // TODO this is temporary
