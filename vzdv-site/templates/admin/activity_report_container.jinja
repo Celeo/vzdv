@@ -64,8 +64,9 @@
 
 <script>
 document.addEventListener("htmx:afterRequest", (event) => {
-  const table = document.querySelector("table");
-  sorttable.makeSortable(table);
+  document.querySelectorAll("table").forEach((table) => {
+    sorttable.makeSortable(table);
+  });
 });
 </script>
 
