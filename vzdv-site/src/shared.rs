@@ -5,7 +5,7 @@ use axum::{
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
 };
-use chrono::{NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use log::{error, info};
 use mini_moka::sync::Cache;
 use minijinja::{Environment, context};
@@ -185,7 +185,7 @@ pub struct VatisData {
     #[serde(rename = "airportConditions")]
     pub airport_conditions: String,
     pub notams: String,
-    pub timestamp: String,
+    pub timestamp: DateTime<Utc>,
     pub version: String,
 }
 
