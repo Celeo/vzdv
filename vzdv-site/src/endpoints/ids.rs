@@ -6,7 +6,7 @@ use crate::shared::{
 use axum::{
     Router,
     extract::{Json, State},
-    response::{IntoResponse, Response},
+    response::{IntoResponse, Json as JsonResponse, Response},
     routing::{get, post},
 };
 use reqwest::StatusCode;
@@ -56,7 +56,7 @@ async fn show_atis_data(
         serde_json::to_string(&*guard)?
     };
 
-    Ok((StatusCode::OK, format!("<pre>{response}</pre>")).into_response())
+    Ok(JsonResponse(response).into_response())
 }
 
 /// This file's routes and templates.
