@@ -53,7 +53,7 @@ async fn show_atis_data(
                     .into_response());
             }
         };
-        serde_json::to_string(&*guard)?
+        (*guard).clone()
     };
 
     Ok(JsonResponse(response).into_response())
