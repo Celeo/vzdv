@@ -13,6 +13,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{Pool, Sqlite};
+use std::sync::Mutex;
 use std::{
     sync::Arc,
     sync::{LazyLock, OnceLock},
@@ -69,6 +70,8 @@ pub enum AppError {
     FileWriteError(#[from] std::io::Error),
     #[error(transparent)]
     JsonProcessingError(#[from] serde_json::Error),
+    #[error("getting mutex lock")]
+    MutexLockError,
     #[error("generic error {0}: {1}")]
     GenericFallback(&'static str, anyhow::Error),
 }
@@ -93,6 +96,7 @@ impl AppError {
             Self::EmailError(_) => "Issue sending an email",
             Self::FileWriteError(_) => "Writing to a file",
             Self::JsonProcessingError(_) => "error processing JSON",
+            Self::MutexLockError => "error locking a mutex",
             Self::GenericFallback(_, _) => "Unknown error",
         }
     }
@@ -169,6 +173,22 @@ impl CacheEntry {
     }
 }
 
+/// Data incoming from vATIS.
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct VatisData {
+    pub facility: String,
+    pub preset: String,
+    #[serde(rename = "atisLetter")]
+    pub atis_letter: String,
+    #[serde(rename = "atisType")]
+    pub atis_type: String,
+    #[serde(rename = "airportConditions")]
+    pub airport_conditions: String,
+    pub notams: String,
+    pub timestamp: String,
+    pub version: String,
+}
+
 /// App's state, available in all handlers via an extractor.
 pub struct AppState {
     /// App config
@@ -179,6 +199,8 @@ pub struct AppState {
     pub templates: Environment<'static>,
     /// Server-side cache for heavier-compute rendered templates
     pub cache: Cache<String, CacheEntry>,
+    /// Data from vATIS reporting
+    pub atis_data: Mutex<Vec<VatisData>>,
 }
 
 /// Key for user info CRUD in session.

@@ -14,7 +14,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use thousands::Separable;
@@ -211,6 +211,7 @@ async fn main() {
         db: db.clone(),
         templates,
         cache: Cache::new(20),
+        atis_data: Mutex::new(Vec::new()),
     });
     let router = load_router(session_layer, &app_state);
     let app = router.with_state(app_state);
