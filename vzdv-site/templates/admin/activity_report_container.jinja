@@ -60,4 +60,13 @@
   </div>
 </div>
 
+<script src="/static/sorttable.js"></script>
+
+<script>
+document.addEventListener("htmx:afterRequest", (event) => {
+  const table = document.querySelector("table");
+  sorttable.makeSortable(table);
+});
+</script>
+
 {% endblock %}
