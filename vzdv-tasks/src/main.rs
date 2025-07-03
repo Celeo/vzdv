@@ -48,7 +48,7 @@ async fn main() {
                  * Update the entire roster every 2 hours, but check for scheduled
                  * "quick updates" requested by users of the site every 5 minutes.
                  */
-                if index % 24 == 0 {
+                if index.is_multiple_of(24) {
                     info!("Querying roster");
                     match roster::update_roster(&db).await {
                         Ok(_) => {
@@ -78,7 +78,7 @@ async fn main() {
                  * Update everyone on a 6 hour schedule (15 minutes * 24 ticks = 6 hours).
                  * This update makes sure that everyone's data is accurate.
                  */
-                if index % 24 == 0 {
+                if index.is_multiple_of(24) {
                     info!("Updating all activity");
                     match activity::true_up_all_controllers_activity(&config, &db).await {
                         Ok(_) => {
