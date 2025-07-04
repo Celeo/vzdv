@@ -1,33 +1,56 @@
 //! Endpoints for the integrated IDS.
 
-use crate::shared::{
-    AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, VatisData, reject_if_not_in,
-};
+use crate::shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, reject_if_not_in};
 use axum::{
     Router,
-    extract::{Json, State},
-    response::{IntoResponse, Json as JsonResponse, Response},
+    extract::{Json as JsonE, State},
+    response::{IntoResponse, Json as JsonR, Response},
     routing::{get, post},
 };
+use chrono::{TimeDelta, Utc};
+use log::{debug, error};
 use reqwest::StatusCode;
 use std::sync::Arc;
 use tower_sessions::Session;
+use vzdv::sql::{self, AtisData};
 
 /// Receive HTTP POST events from vATIS being ran by facility controllers.
+///
+/// Note that there doesn't seem to be a way to _authenticate_ that the data
+/// is actually coming from vATIS ....
 async fn receive_vatis_post(
     State(state): State<Arc<AppState>>,
-    Json(payload): Json<VatisData>,
+    JsonE(payload): JsonE<AtisData>,
 ) -> Result<StatusCode, AppError> {
-    let mut guard = state
-        .atis_data
-        .lock()
-        .map_err(|_| AppError::MutexLockError)?;
-    guard.retain(|data| {
-        // keep values that don't match the incoming ATIS data
-        !(data.facility == payload.facility && data.atis_type == payload.atis_type)
-    });
-    // add the new value
-    guard.push(payload);
+    let existing: Vec<AtisData> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
+        .fetch_all(&state.db)
+        .await?;
+    let now = Utc::now();
+    let to_remove: Vec<_> = existing
+        .iter()
+        .filter(|entry| {
+            let expired = (now - entry.timestamp) >= TimeDelta::hours(1);
+            let matching =
+                entry.facility == payload.facility && entry.atis_type == payload.atis_type;
+            expired || matching
+        })
+        .map(|entry| entry.id)
+        .collect();
+    // can't use `.for_each` because of async
+    for index in to_remove {
+        if let Err(e) = sqlx::query(sql::DELETE_ATIS_ENTRY)
+            .bind(index)
+            .execute(&state.db)
+            .await
+        {
+            error!("Could not delete stale ATIS {index}: {e}");
+        }
+    }
+    sqlx::query(sql::INSERT_ATIS_ENTRY)
+        .bind(serde_json::to_string(&payload)?)
+        .execute(&state.db)
+        .await?;
+    debug!("New ATIS data stored");
     Ok(StatusCode::OK)
 }
 
@@ -41,22 +64,10 @@ async fn show_atis_data(
     {
         return Ok(redirect.into_response());
     }
-
-    let response = {
-        let guard = match state.atis_data.try_lock() {
-            Ok(g) => g,
-            Err(e) => {
-                return Ok((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Couldn't get mutex lock: {e:?}"),
-                )
-                    .into_response());
-            }
-        };
-        (*guard).clone()
-    };
-
-    Ok(JsonResponse(response).into_response())
+    let data: Vec<AtisData> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
+        .fetch_all(&state.db)
+        .await?;
+    Ok(JsonR(data).into_response())
 }
 
 /// This file's routes and templates.

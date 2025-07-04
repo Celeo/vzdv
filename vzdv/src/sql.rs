@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{
     prelude::FromRow,
     types::chrono::{DateTime, Utc},
@@ -197,6 +197,25 @@ pub struct SopAccess {
     pub created_date: DateTime<Utc>,
 }
 
+/// Data incoming from vATIS.
+#[derive(Debug, Deserialize, Serialize, FromRow, Clone)]
+pub struct AtisData {
+    // field not present when getting data from vATIS, but present with the DB
+    #[serde(default)]
+    pub id: u32,
+    pub facility: String,
+    pub preset: String,
+    #[serde(rename = "atisLetter")]
+    pub atis_letter: String,
+    #[serde(rename = "atisType")]
+    pub atis_type: String,
+    #[serde(rename = "airportConditions")]
+    pub airport_conditions: String,
+    pub notams: String,
+    pub timestamp: DateTime<Utc>,
+    pub version: String,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -391,6 +410,11 @@ CREATE TABLE sop_access (
 CREATE TABLE kvs (
     key TEXT NOT NULL UNIQUE,
     value TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE atis (
+    id INTEGER PRIMARY KEY NOT NULL,
+    entry TEXT NOT NULL
 ) STRICT;
 "#;
 
@@ -605,3 +629,7 @@ WHERE
     key=$1
 ";
 pub const DELETE_KVS_ENTRY: &str = "DELETE FROM kvs WHERE key=$1";
+
+pub const GET_ALL_ATIS_ENTRIES: &str = "SELECT * FROM atis";
+pub const INSERT_ATIS_ENTRY: &str = "INSERT INTO atis VALUES (NULL, $1)";
+pub const DELETE_ATIS_ENTRY: &str = "DELETE FROM atis WHERE id=$1";
