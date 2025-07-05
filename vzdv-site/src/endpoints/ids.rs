@@ -12,7 +12,7 @@ use log::{debug, error};
 use reqwest::StatusCode;
 use std::sync::Arc;
 use tower_sessions::Session;
-use vzdv::sql::{self, AtisData};
+use vzdv::sql::{self, Atis};
 
 /// Receive HTTP POST events from vATIS being ran by facility controllers.
 ///
@@ -20,9 +20,9 @@ use vzdv::sql::{self, AtisData};
 /// is actually coming from vATIS ....
 async fn receive_vatis_post(
     State(state): State<Arc<AppState>>,
-    JsonE(payload): JsonE<AtisData>,
+    JsonE(payload): JsonE<Atis>,
 ) -> Result<StatusCode, AppError> {
-    let existing: Vec<AtisData> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
+    let existing: Vec<Atis> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
         .fetch_all(&state.db)
         .await?;
     let now = Utc::now();
@@ -47,7 +47,14 @@ async fn receive_vatis_post(
         }
     }
     sqlx::query(sql::INSERT_ATIS_ENTRY)
-        .bind(serde_json::to_string(&payload)?)
+        .bind(&payload.facility)
+        .bind(&payload.preset)
+        .bind(&payload.atis_letter)
+        .bind(&payload.atis_type)
+        .bind(&payload.airport_conditions)
+        .bind(&payload.notams)
+        .bind(payload.timestamp)
+        .bind(&payload.version)
         .execute(&state.db)
         .await?;
     debug!("New ATIS data stored");
@@ -64,7 +71,7 @@ async fn show_atis_data(
     {
         return Ok(redirect.into_response());
     }
-    let data: Vec<AtisData> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
+    let data: Vec<Atis> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
         .fetch_all(&state.db)
         .await?;
     Ok(JsonR(data).into_response())

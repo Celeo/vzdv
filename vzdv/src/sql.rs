@@ -199,7 +199,7 @@ pub struct SopAccess {
 
 /// Data incoming from vATIS.
 #[derive(Debug, Deserialize, Serialize, FromRow, Clone)]
-pub struct AtisData {
+pub struct Atis {
     // field not present when getting data from vATIS, but present with the DB
     #[serde(default)]
     pub id: u32,
@@ -414,7 +414,14 @@ CREATE TABLE kvs (
 
 CREATE TABLE atis (
     id INTEGER PRIMARY KEY NOT NULL,
-    entry TEXT NOT NULL
+    facility TEXT NOT NULL,
+    preset TEXT NOT NULL,
+    atis_letter TEXT NOT NULL,
+    atis_type TEXT NOT NULL,
+    airport_conditions TEXT NOT NULL,
+    notams TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    version TEXT NOT NULL
 ) STRICT;
 "#;
 
@@ -631,5 +638,6 @@ WHERE
 pub const DELETE_KVS_ENTRY: &str = "DELETE FROM kvs WHERE key=$1";
 
 pub const GET_ALL_ATIS_ENTRIES: &str = "SELECT * FROM atis";
-pub const INSERT_ATIS_ENTRY: &str = "INSERT INTO atis VALUES (NULL, $1)";
+pub const INSERT_ATIS_ENTRY: &str =
+    "INSERT INTO atis VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8)";
 pub const DELETE_ATIS_ENTRY: &str = "DELETE FROM atis WHERE id=$1";
