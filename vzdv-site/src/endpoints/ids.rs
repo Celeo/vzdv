@@ -1,14 +1,18 @@
 //! Endpoints for the integrated IDS.
 
-use crate::shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, reject_if_not_in};
+use crate::{
+    flashed_messages,
+    shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, reject_if_not_in},
+};
 use axum::{
     Router,
     extract::{Json as JsonE, State},
-    response::{IntoResponse, Json as JsonR, Response},
+    response::{Html, IntoResponse, Json as JsonR, Response},
     routing::{get, post},
 };
 use chrono::{TimeDelta, Utc};
 use log::{debug, error};
+use minijinja::context;
 use reqwest::StatusCode;
 use std::sync::Arc;
 use tower_sessions::Session;
@@ -77,9 +81,27 @@ async fn show_atis_data(
     Ok(JsonR(data).into_response())
 }
 
+/// Show the base IDS page.
+async fn page_home(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Response, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) =
+        reject_if_not_in(&state, &user_info, vzdv::PermissionsGroup::LoggedIn).await
+    {
+        return Ok(redirect.into_response());
+    }
+    let template = state.templates.get_template("ids/base.jinja")?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let rendered = template.render(context! { user_info, flashed_messages, })?;
+    Ok(Html(rendered).into_response())
+}
+
 /// This file's routes and templates.
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
+        .route("/ids", get(page_home))
         .route("/ids/vatis/submit", post(receive_vatis_post))
         .route("/ids/vatis/current", get(show_atis_data))
 }

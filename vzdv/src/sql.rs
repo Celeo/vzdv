@@ -201,7 +201,7 @@ pub struct SopAccess {
 #[derive(Debug, Deserialize, Serialize, FromRow, Clone)]
 pub struct Atis {
     // field not present when getting data from vATIS, but present with the DB
-    #[serde(default)]
+    #[serde(skip)]
     pub id: u32,
     pub facility: String,
     pub preset: String,
