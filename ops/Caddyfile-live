@@ -1,4 +1,17 @@
 example.com {
+	handle /vatis.json {
+		reverse_proxy https://raw.githubusercontent.com {
+			header_up Host {upstream_hostport}
+			header_down Content-Type "application/octet-stream"
+		}
+		rewrite * /Celeo/vzdv/refs/heads/master/static/vatis.json
+	}
+
+	handle_path /assets/* {
+		root * /srv/vzdv/assets
+		file_server
+	}
+
 	@robots {
 		method GET
 		path_regexp ^/robots\.txt$
