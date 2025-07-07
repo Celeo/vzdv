@@ -29,25 +29,19 @@ async fn receive_vatis_post(
     let existing: Vec<Atis> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
         .fetch_all(&state.db)
         .await?;
-    let now = Utc::now();
-    let to_remove: Vec<_> = existing
+    let matching: Vec<_> = existing
         .iter()
-        .filter(|entry| {
-            let expired = (now - entry.timestamp) >= TimeDelta::hours(1);
-            let matching =
-                entry.facility == payload.facility && entry.atis_type == payload.atis_type;
-            expired || matching
-        })
+        .filter(|entry| entry.facility == payload.facility && entry.atis_type == payload.atis_type)
         .map(|entry| entry.id)
         .collect();
     // can't use `.for_each` because of async
-    for index in to_remove {
+    for index in matching {
         if let Err(e) = sqlx::query(sql::DELETE_ATIS_ENTRY)
             .bind(index)
             .execute(&state.db)
             .await
         {
-            error!("Could not delete stale ATIS {index}: {e}");
+            error!("Could not delete matching ATIS {index}: {e}");
         }
     }
     sqlx::query(sql::INSERT_ATIS_ENTRY)
@@ -75,9 +69,25 @@ async fn show_atis_data(
     {
         return Ok(redirect.into_response());
     }
-    let data: Vec<Atis> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
+    let now = Utc::now();
+    let mut data: Vec<Atis> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
         .fetch_all(&state.db)
         .await?;
+    let expired: Vec<_> = data
+        .iter()
+        .filter(|e| (now - e.timestamp) >= TimeDelta::hours(1))
+        .map(|e| e.id)
+        .collect();
+    data.retain(|e| !expired.contains(&e.id));
+    for index in expired {
+        if let Err(e) = sqlx::query(sql::DELETE_ATIS_ENTRY)
+            .bind(index)
+            .execute(&state.db)
+            .await
+        {
+            error!("Could not delete stale ATIS {index}: {e}");
+        }
+    }
     Ok(JsonR(data).into_response())
 }
 
