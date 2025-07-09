@@ -10,7 +10,6 @@ use axum::{
     response::{Html, IntoResponse, Json as JsonR, Response},
     routing::{get, post},
 };
-use chrono::{TimeDelta, Utc};
 use log::{debug, error};
 use minijinja::context;
 use reqwest::StatusCode;
@@ -69,25 +68,9 @@ async fn show_atis_data(
     {
         return Ok(redirect.into_response());
     }
-    let now = Utc::now();
-    let mut data: Vec<Atis> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
+    let data: Vec<Atis> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
         .fetch_all(&state.db)
         .await?;
-    let expired: Vec<_> = data
-        .iter()
-        .filter(|e| (now - e.timestamp) >= TimeDelta::hours(1))
-        .map(|e| e.id)
-        .collect();
-    data.retain(|e| !expired.contains(&e.id));
-    for index in expired {
-        if let Err(e) = sqlx::query(sql::DELETE_ATIS_ENTRY)
-            .bind(index)
-            .execute(&state.db)
-            .await
-        {
-            error!("Could not delete stale ATIS {index}: {e}");
-        }
-    }
     Ok(JsonR(data).into_response())
 }
 

@@ -10,6 +10,7 @@ use tokio::time;
 use vzdv::general_setup;
 
 mod activity;
+mod atis;
 mod no_show_expiration;
 mod roster;
 mod solo_cert;
@@ -150,7 +151,7 @@ async fn main() {
     let _online_data_handle = {
         let db: sqlx::Pool<sqlx::Sqlite> = db.clone();
         tokio::spawn(async move {
-            debug!("Waiting 5 seconds before staring live data retrieval");
+            debug!("Waiting 15 seconds before starting live data retrieval");
             time::sleep(Duration::from_secs(15)).await;
             loop {
                 if let Err(e) = traffic_tracking::store_live_data(&db).await {
@@ -161,11 +162,26 @@ async fn main() {
         })
     };
 
+    let _atis_cleanup_handle = {
+        let db = db.clone();
+        tokio::spawn(async move {
+            debug!("Waiting 15 seconds before starting ATIS cleanup");
+            time::sleep(Duration::from_secs(15)).await;
+            loop {
+                if let Err(e) = atis::cleanup(&db).await {
+                    error!("Error cleaning up ATIS data: {e}");
+                }
+                time::sleep(Duration::from_secs(60 * 5)).await;
+            }
+        })
+    };
+
     _roster_handle.await.unwrap();
     _activity_handle.await.unwrap();
     _solo_cert_handle.await.unwrap();
     _no_show_expiration_handle.await.unwrap();
     _online_data_handle.await.unwrap();
+    _atis_cleanup_handle.await.unwrap();
 
     db.close().await;
 }
