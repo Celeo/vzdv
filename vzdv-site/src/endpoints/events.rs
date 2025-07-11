@@ -448,10 +448,21 @@ async fn api_delete_event(
         .fetch_optional(&state.db)
         .await?;
     if event.is_some() {
+        let mut tx = state.db.begin().await?;
+        sqlx::query(sql::DELETE_EVENT_REGISTRATIONS_FOR)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query(sql::DELETE_EVENT_POSITIONS_FOR)
+            .bind(id)
+            .execute(&mut *tx)
+            .await?;
         sqlx::query(sql::DELETE_EVENT)
             .bind(id)
-            .execute(&state.db)
+            .execute(&mut *tx)
             .await?;
+        tx.commit().await?;
+
         record_log(
             format!("{} deleted event {id}", user_info.unwrap().cid),
             &state.db,

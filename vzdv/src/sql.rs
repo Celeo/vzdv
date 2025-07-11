@@ -547,6 +547,7 @@ pub const GET_EVENT_REGISTRATION_FOR: &str =
     "SELECT * FROM event_registration WHERE event_id=$1 AND cid=$2";
 pub const GET_EVENT_REGISTRATIONS: &str = "SELECT * FROM event_registration WHERE event_id=$1";
 pub const DELETE_EVENT_REGISTRATION: &str = "DELETE FROM event_registration WHERE id=$1";
+pub const DELETE_EVENT_REGISTRATIONS_FOR: &str = "DELETE FROM event_registration WHERE event_id=$1";
 pub const UPSERT_EVENT_REGISTRATION: &str = "
 INSERT INTO event_registration
     (event_id, cid, choice_1, choice_2, choice_3, notes)
@@ -568,6 +569,7 @@ pub const GET_EVENT_POSITIONS: &str = "SELECT * FROM event_position WHERE event_
 pub const INSERT_EVENT_POSITION: &str =
     "INSERT INTO event_position VALUES (NULL, $1, $2, $3, NULL);";
 pub const DELETE_EVENT_POSITION: &str = "DELETE FROM event_position WHERE id=$1";
+pub const DELETE_EVENT_POSITIONS_FOR: &str = "DELETE FROM event_position WHERE event_id=$1";
 pub const UPDATE_EVENT_POSITION_CONTROLLER: &str = "UPDATE event_position SET cid=$2 WHERE id=$1";
 pub const CLEAR_CID_FROM_EVENT_POSITIONS: &str =
     "UPDATE event_position SET cid=NULL WHERE event_id=$1 AND cid=$2";
