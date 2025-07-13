@@ -6,4 +6,14 @@
 
 <h1>IDS</h1>
 
+{% if atis|length > 0 %}
+  <ul>
+    {% for entry in atis %}
+      <li>{{ entry.facility }} {{ atis_type }} {{ atis_letter }}</li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <h4>No current ATIS data</h4>
+{% endif %}
+
 {% endblock %}

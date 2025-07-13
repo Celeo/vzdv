@@ -87,7 +87,10 @@ async fn page_home(
     }
     let template = state.templates.get_template("ids/base.jinja")?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let rendered = template.render(context! { user_info, flashed_messages, })?;
+    let atis: Vec<Atis> = sqlx::query_as(sql::GET_ALL_ATIS_ENTRIES)
+        .fetch_all(&state.db)
+        .await?;
+    let rendered = template.render(context! { user_info, flashed_messages, atis })?;
     Ok(Html(rendered).into_response())
 }
 
