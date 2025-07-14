@@ -6,19 +6,15 @@ use crate::{
 };
 use axum::{
     Form, Router,
-    extract::{Path, State},
-    response::{Html, IntoResponse, Redirect, Response},
+    extract::State,
+    response::{Html, Redirect},
     routing::{get, post},
 };
 use log::error;
 use minijinja::context;
-use reqwest::StatusCode;
 use serde::Deserialize;
 use serde_json::json;
-use std::{
-    collections::HashMap,
-    sync::{Arc, LazyLock},
-};
+use std::sync::Arc;
 use tower_http::services::ServeDir;
 use tower_sessions::Session;
 use vzdv::{
@@ -36,10 +32,6 @@ pub mod facility;
 pub mod homepage;
 pub mod ids;
 pub mod user;
-
-/// Special "content-type" overrides for some files under ./static.
-static SPECIAL_STATIC_CONTENT_TYPE: LazyLock<HashMap<&'static str, &'static str>> =
-    LazyLock::new(|| HashMap::from([("vatis.json", "application/octet-stream")]));
 
 /// 404 not found page.
 ///
@@ -202,21 +194,6 @@ async fn page_privacy_policy(
     Ok(Html(rendered))
 }
 
-/// Return files under ./static with custom content-type overrides.
-async fn page_static_special(Path(name): Path<String>) -> Result<Response, AppError> {
-    let content_type = match SPECIAL_STATIC_CONTENT_TYPE.get(name.as_str()) {
-        Some(ct) => ct,
-        None => return Ok(StatusCode::NOT_FOUND.into_response()),
-    };
-    let content = std::fs::read_to_string(std::path::Path::new("static").join(&name))?;
-    let resp = (
-        [(axum::http::header::CONTENT_TYPE, content_type.to_owned())],
-        content,
-    )
-        .into_response();
-    Ok(resp)
-}
-
 /// This file's routes and templates.
 pub fn router(app_state: &Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
@@ -230,6 +207,5 @@ pub fn router(app_state: &Arc<AppState>) -> Router<Arc<AppState>> {
             app_state.clone(),
             crate::middleware::asset_access,
         ))
-        .route("/static_special/{name}", get(page_static_special))
         .nest_service("/static", ServeDir::new("static"))
 }
