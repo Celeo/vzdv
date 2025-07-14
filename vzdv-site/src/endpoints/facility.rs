@@ -2,13 +2,13 @@
 
 use crate::{
     flashed_messages::{self, MessageLevel, push_flashed_message},
-    shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, record_log},
+    shared::{AppError, AppState, CacheEntry, SESSION_USER_INFO_KEY, UserInfo, record_log},
     vatusa,
 };
 use axum::{
     Form, Router,
     extract::State,
-    response::{Html, Redirect},
+    response::{Html, Json, Redirect},
     routing::get,
 };
 use chrono::{DateTime, Months, Utc};
@@ -21,6 +21,7 @@ use serde_json::json;
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
+    time::Instant,
 };
 use tower_sessions::Session;
 use vzdv::{
@@ -251,6 +252,91 @@ async fn page_roster(
        flashed_messages
     })?;
     Ok(Html(rendered))
+}
+
+/// View some stats about the roster.
+async fn page_roster_stats(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Html<String>, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let template = state
+        .templates
+        .get_template("facility/roster_stats.jinja")?;
+    let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
+    let rendered = template.render(context! { user_info, flashed_messages })?;
+    Ok(Html(rendered))
+}
+
+#[derive(Serialize)]
+struct NameValuePair<'a> {
+    name: &'a str,
+    value: u16,
+}
+
+/// View some stats about the roster (JSON API endpoint).
+async fn api_roster_stats(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    // cache this endpoint's returned data for 5 minutes
+    let cache_key = "ROSTER_STATS".to_string();
+    if let Some(cached) = state.cache.get(&cache_key) {
+        let elapsed = Instant::now() - cached.inserted;
+        if elapsed.as_secs() < 300 {
+            return Ok(Json(serde_json::from_str(&cached.data).unwrap()));
+        }
+        state.cache.invalidate(&cache_key);
+    }
+
+    let controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS_ON_ROSTER)
+        .fetch_all(&state.db)
+        .await?;
+    let controllers: Vec<_> = controllers
+        .iter()
+        .filter(|c| c.home_facility == "ZDV")
+        .collect();
+    let home_controllers: HashSet<u32> = controllers.iter().map(|c| c.cid).collect();
+    let certifications: Vec<Certification> = sqlx::query_as(sql::GET_ALL_CERTIFICATIONS)
+        .fetch_all(&state.db)
+        .await?;
+
+    let mut by_rating: HashMap<&str, u16> = HashMap::new();
+    controllers.iter().for_each(|c| {
+        by_rating
+            .entry(ControllerRating::try_from(c.rating).unwrap().as_str())
+            .and_modify(|i| *i += 1)
+            .or_insert(1);
+    });
+    let by_rating: Vec<_> = by_rating
+        .iter()
+        .map(|(&name, &value)| NameValuePair { name, value })
+        .collect();
+
+    let mut by_cert: HashMap<&str, u16> = HashMap::new();
+    certifications
+        .iter()
+        .filter(|c| home_controllers.contains(&c.cid) && c.value == "certified")
+        .for_each(|c| {
+            by_cert.entry(&c.name).and_modify(|i| *i += 1).or_insert(1);
+        });
+    let certs = &state.config.training.certifications;
+    let by_cert: Vec<_> = by_cert
+        .iter()
+        .map(|(&name, &value)| (name, value))
+        .sorted_by(|a, b| {
+            let a = certs.iter().position(|e| e == a.0).unwrap_or_default();
+            let b = certs.iter().position(|e| e == b.0).unwrap_or_default();
+            Ord::cmp(&a, &b)
+        })
+        .map(|(_, value)| value)
+        .collect();
+
+    let data = json!({ "by_rating": by_rating, "certs": certs, "by_cert": by_cert });
+    state.cache.insert(
+        cache_key,
+        CacheEntry::new(serde_json::to_string(&data).unwrap()),
+    );
+    Ok(Json(data))
 }
 
 /// View the facility's staff.
@@ -817,6 +903,8 @@ async fn page_visitor_application_form_submit(
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/facility/roster", get(page_roster))
+        .route("/facility/roster/stats", get(page_roster_stats))
+        .route("/facility/roster/stats/data", get(api_roster_stats))
         .route("/facility/staff", get(page_staff))
         .route("/facility/activity", get(page_activity))
         .route(

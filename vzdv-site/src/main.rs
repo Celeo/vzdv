@@ -210,7 +210,7 @@ async fn main() {
         config,
         db: db.clone(),
         templates,
-        cache: Cache::new(20),
+        cache: Cache::new(30),
     });
     let router = load_router(session_layer, &app_state);
     let app = router.with_state(app_state);

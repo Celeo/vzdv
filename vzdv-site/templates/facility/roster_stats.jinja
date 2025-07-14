@@ -1,0 +1,23 @@
+{% extends "_layout.jinja" %}
+
+{% block title %}Roster Stats | {{ super() }}{% endblock %}
+
+{% block body %}
+
+<h2>Roster Stats</h2>
+
+<div class="pt-5">
+  <div>
+    <h3>Home Controller Ratings</h3>
+    <div id="ratings" style="width: 100%; height: 500px;"></div>
+  </div>
+  <div class="pt-3">
+    <h3>Home Controller Certifications</h3>
+    <div id="certs" style="width: 100%; height: 500px;"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+<script src="/static/roster_stats_page.js"></script>
+
+{% endblock %}
