@@ -10,21 +10,22 @@
       <th>Type</th>
       <th>Join date</th>
       <th>Hours on scope</th>
-      <th></th>
+      <th>Mark for removal</th>
     </tr>
   </thead>
   <tbody>
     {% for controller in rated_violations %}
       <tr>
-        <td>{{ controller.name }}</td>
-        <td>{% if controller.home %}Home{% else %}Visiting{% endif %}</td>
-        <td>{{ controller.join_date }}</td>
-        <td>{{ controller.minutes_online|minutes_to_hm }}</td>
         <td>
+          {{ controller.name }}
           <a href="/controller/{{ controller.cid }}" class="icon-link icon-link-hover text-decoration-none" target="_blank">
             <i class="bi bi-arrow-right-short"></i>
           </a>
         </td>
+        <td>{% if controller.home %}Home{% else %}Visiting{% endif %}</td>
+        <td>{{ controller.join_date }}</td>
+        <td>{{ controller.minutes_online|minutes_to_hm }}</td>
+        <td><input type="checkbox" name="{{ controller.cid }}"></td>
       </tr>
     {% endfor %}
   </tbody>
@@ -37,27 +38,65 @@
       <th>Name</th>
       <th>Type</th>
       <th>Join date</th>
-      <th></th>
+      <th>Mark for removal</th>
     </tr>
   </thead>
   <tbody>
     {% for controller in unrated_violations %}
       <tr>
-        <td>{{ controller.name }}</td>
-        <td>{% if controller.home %}Home{% else %}Visiting{% endif %}</td>
-        <td>{{ controller.join_date }}</td>
         <td>
+          {{ controller.name }}
           <a href="/controller/{{ controller.cid }}" class="icon-link icon-link-hover text-decoration-none">
             <i class="bi bi-arrow-right-short"></i>
           </a>
         </td>
+        <td>{% if controller.home %}Home{% else %}Visiting{% endif %}</td>
+        <td>{{ controller.join_date }}</td>
+        <td><input type="checkbox" name="{{ controller.cid }}"></td>
       </tr>
     {% endfor %}
   </tbody>
 </table>
+<div class="pt-3">
+  <button class="btn btn-warning" role="button" id="btn-roster-remove">Remove marked controllers from roster</button>
+</div>
 
 <p class="pt-3">
   Generated at: {{ now_utc }}; cached for 6 hours afterwards
   <br>
   Click <a href="/admin/activity_report/delete" class="text-decoration-none">here</a> to clear that cache.
 </p>
+
+<script>
+document
+  .getElementById("btn-roster-remove")
+  .addEventListener("click", (e) => {
+    e.preventDefault();
+    const checked = [...document.querySelectorAll('input[type="checkbox"]')]
+      .filter((checkbox) => checkbox.checked)
+      .map((checkbox) => parseInt(checkbox.getAttribute("name")));
+    if (checked.length === 0) {
+      return;
+    }
+    const result = window.confirm(
+      "Are you sure you want to remove the selected controllers from the roster?",
+    );
+    if (!result) {
+      return;
+    }
+    fetch("/admin/activity_report/roster_remove", {
+      method: "POST",
+      body: JSON.stringify(checked),
+      headers: {
+        "content-type": "application/json"
+      }
+    })
+      .then((response) => {
+        window.location.reload();
+      })
+      .catch((error) => {
+        console.error(error);
+        window.alert(`Something went wrong: ${error}`);
+      });
+  });
+</script>

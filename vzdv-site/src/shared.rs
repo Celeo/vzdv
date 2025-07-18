@@ -1,12 +1,16 @@
 //! Structs and data to be shared across multiple parts of the site.
 
+use crate::{
+    email::{self, send_mail},
+    vatusa,
+};
 use axum::extract::rejection::FormRejection;
 use axum::{
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
 };
 use chrono::{NaiveDateTime, TimeZone, Utc};
-use log::{error, info};
+use log::{error, info, warn};
 use mini_moka::sync::Cache;
 use minijinja::{Environment, context};
 use regex::Regex;
@@ -69,6 +73,8 @@ pub enum AppError {
     FileWriteError(#[from] std::io::Error),
     #[error(transparent)]
     JsonProcessingError(#[from] serde_json::Error),
+    #[error("error removing controller from roster: {0}")]
+    RosterRemovalError(&'static str),
     #[error("generic error {0}: {1}")]
     GenericFallback(&'static str, anyhow::Error),
 }
@@ -93,6 +99,7 @@ impl AppError {
             Self::EmailError(_) => "Issue sending an email",
             Self::FileWriteError(_) => "Writing to a file",
             Self::JsonProcessingError(_) => "error processing JSON",
+            Self::RosterRemovalError(_) => "error removing controller from roster",
             Self::GenericFallback(_, _) => "Unknown error",
         }
     }
@@ -315,6 +322,83 @@ pub async fn record_log(message: String, db: &Pool<Sqlite>, log: bool) -> Result
     if log {
         info!("{message}");
     }
+    Ok(())
+}
+
+/// Remove a controller from the facility roster, either home or visiting.
+///
+/// This method updates VATUSA and the DB, but communicating success/failure
+/// to the user initiating this action is the calling code's responsibility.
+pub async fn remove_controller_from_roster(
+    cid: u32,
+    remover: u32,
+    reason: &str,
+    db: &Pool<Sqlite>,
+    config: &Config,
+) -> Result<(), AppError> {
+    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
+        .bind(cid)
+        .fetch_optional(db)
+        .await?;
+    let controller = match controller {
+        Some(c) => c,
+        None => {
+            warn!("{remover} tried to remove unknown controller {cid} from roster");
+            return Err(AppError::RosterRemovalError("unknown controller"));
+        }
+    };
+    if !controller.is_on_roster {
+        warn!("{remover} tried to remove off-roster controller {cid}");
+        return Err(AppError::RosterRemovalError("off-roster controller"));
+    }
+    let home_controller = controller.home_facility == "ZDV";
+    // update VATUSA
+    if home_controller {
+        vatusa::remove_home_controller(
+            cid,
+            &remover.to_string(),
+            reason,
+            &config.vatsim.vatusa_api_key,
+        )
+        .await?;
+    } else {
+        vatusa::remove_visiting_controller(cid, reason, &config.vatsim.vatusa_api_key)
+            .await
+            .map_err(|_| AppError::RosterRemovalError("error with VATUSA"))?;
+        // emails must be sent for removing visiting controllers, as VATUSA does not notify
+        let controller_info =
+            vatusa::get_controller_info(cid, Some(&config.vatsim.vatusa_api_key)).await?;
+        if let Some(ref email) = controller_info.email {
+            send_mail(
+                config,
+                db,
+                &format!(
+                    "{} {}",
+                    controller_info.first_name, controller_info.last_name
+                ),
+                email,
+                email::templates::VISITOR_REMOVED,
+            )
+            .await?;
+        } else {
+            warn!("Could not send visitor removal email for {cid} due to lack of email address");
+        }
+    }
+
+    // update DB
+    sqlx::query(sql::UPDATE_REMOVED_FROM_ROSTER)
+        .bind(cid)
+        .execute(db)
+        .await?;
+    record_log(
+        format!(
+            "{remover} removed {cid} from {} roster: {reason}",
+            if home_controller { "home" } else { "visiting " }
+        ),
+        db,
+        true,
+    )
+    .await?;
     Ok(())
 }
 

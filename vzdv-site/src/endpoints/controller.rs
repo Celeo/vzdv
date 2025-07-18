@@ -1,11 +1,11 @@
 //! HTTP endpoints for controller pages.
 
 use crate::{
-    email::{self, send_mail, send_mail_raw},
+    email::send_mail_raw,
     flashed_messages::{MessageLevel, drain_flashed_messages, push_flashed_message},
     shared::{
         AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, js_timestamp_to_utc, post_audit,
-        record_log, reject_if_not_in, strip_some_tags,
+        record_log, reject_if_not_in, remove_controller_from_roster, strip_some_tags,
     },
     vatusa::{self, NewTrainingRecord, TrainingRecord, get_training_records, save_training_record},
 };
@@ -998,85 +998,28 @@ async fn post_remove_controller(
     }
     let user_info = user_info.unwrap();
 
-    let controller: Option<Controller> = sqlx::query_as(sql::GET_CONTROLLER_BY_CID)
-        .bind(cid)
-        .fetch_optional(&state.db)
-        .await?;
-    let controller = match controller {
-        Some(c) => c,
-        None => {
-            warn!("{} tried to remove unknown controller {cid}", user_info.cid);
-            push_flashed_message(session, MessageLevel::Error, "Unknown controller").await?;
-            return Ok(Redirect::to(&format!("/controller/{cid}")));
-        }
-    };
-
-    if !controller.is_on_roster {
-        warn!(
-            "{} tried to remove off-roster controller {cid}",
-            user_info.cid
-        );
-        return Ok(Redirect::to(&format!("/controller/{cid}")));
-    }
-
-    if controller.home_facility == "ZDV" {
-        // home
-        vatusa::remove_home_controller(
-            cid,
-            &user_info.cid.to_string(),
-            &removal_form.reason,
-            &state.config.vatsim.vatusa_api_key,
-        )
-        .await?;
-        // VATUSA handles emailing the user for home facility removals
-        record_log(
-            format!(
-                "{} removed home controller {cid}, reason: {}",
-                user_info.cid, &removal_form.reason
-            ),
-            &state.db,
-            true,
-        )
-        .await?;
-    } else {
-        // visiting
-        vatusa::remove_visiting_controller(
-            cid,
-            &removal_form.reason,
-            &state.config.vatsim.vatusa_api_key,
-        )
-        .await?;
-        // we're responsible for informing visitors of their removal
-        let controller_info =
-            vatusa::get_controller_info(cid, Some(&state.config.vatsim.vatusa_api_key)).await?;
-        if let Some(ref email) = controller_info.email {
-            send_mail(
-                &state.config,
-                &state.db,
-                &format!("{} {}", controller.first_name, controller.last_name),
-                email,
-                email::templates::VISITOR_REMOVED,
+    match remove_controller_from_roster(
+        cid,
+        user_info.cid,
+        &removal_form.reason,
+        &state.db,
+        &state.config,
+    )
+    .await
+    {
+        Ok(_) => {
+            push_flashed_message(
+                session,
+                MessageLevel::Info,
+                "Controller removed from roster",
             )
             .await?;
-        } else {
-            warn!("Could not get email for {cid} to inform of removal from the visitor roster");
         }
-        record_log(
-            format!(
-                "{} removed visiting controller {cid}, reason: {}",
-                user_info.cid, &removal_form.reason
-            ),
-            &state.db,
-            true,
-        )
-        .await?;
+        Err(e) => {
+            error!("Error removing controller {cid} from roster, controller page: {e}");
+            push_flashed_message(session, MessageLevel::Error, "Controller removal failed").await?;
+        }
     }
-    push_flashed_message(
-        session,
-        MessageLevel::Info,
-        "Controller removed from roster",
-    )
-    .await?;
 
     Ok(Redirect::to(&format!("/controller/{cid}")))
 }

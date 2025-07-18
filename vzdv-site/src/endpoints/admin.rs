@@ -2,16 +2,16 @@
 
 use crate::{
     email::{self, send_mail},
-    flashed_messages::{self, MessageLevel},
+    flashed_messages::{self, MessageLevel, push_flashed_message},
     shared::{
         AppError, AppState, CacheEntry, SESSION_USER_INFO_KEY, UserInfo, is_user_member_of,
-        post_audit, record_log, reject_if_not_in,
+        post_audit, record_log, reject_if_not_in, remove_controller_from_roster,
     },
     vatusa::{self, add_visiting_controller},
 };
 use axum::{
     Form, Router,
-    extract::{DefaultBodyLimit, Multipart, Path, State},
+    extract::{DefaultBodyLimit, Json, Multipart, Path, State},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{delete, get, post},
 };
@@ -1163,7 +1163,6 @@ async fn page_activity_report_generate(
     }
 
     info!("Returning activity report");
-
     let template = state
         .templates
         .get_template("admin/activity_report.jinja")?;
@@ -1203,6 +1202,42 @@ async fn page_activity_report_delete(
         "Activity report deleted",
     )
     .await?;
+    Ok(Redirect::to("/admin/activity_report"))
+}
+
+/// Remove the specified controllers from the facility.
+///
+/// Admin members only.
+async fn page_activity_report_roster_remove(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+    Json(cids): Json<Vec<u32>>,
+) -> Result<Redirect, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
+        return Ok(redirect);
+    }
+    if cids.is_empty() {
+        push_flashed_message(session, MessageLevel::Error, "No controllers selected").await?;
+        return Ok(Redirect::to("/admin/activity_report"));
+    }
+    let user_info = user_info.unwrap();
+
+    for cid in cids {
+        if let Err(e) = remove_controller_from_roster(
+            cid,
+            user_info.cid,
+            "Did not meet activity requirements per Facility Policy",
+            &state.db,
+            &state.config,
+        )
+        .await
+        {
+            error!("Error removing controller {cid} from roster, activity page: {e}");
+        }
+    }
+
+    push_flashed_message(session, MessageLevel::Success, "Removals processed").await?;
     Ok(Redirect::to("/admin/activity_report"))
 }
 
@@ -1449,7 +1484,7 @@ async fn api_delete_no_show_entry(
 
 /// Show a log of important events.
 ///
-/// For admin staff members only.
+/// Admin staff members only.
 async fn page_audit_log(
     State(state): State<Arc<AppState>>,
     session: Session,
@@ -1516,6 +1551,10 @@ pub fn router() -> Router<Arc<AppState>> {
         .route(
             "/admin/activity_report/delete",
             get(page_activity_report_delete),
+        )
+        .route(
+            "/admin/activity_report/roster_remove",
+            post(page_activity_report_roster_remove),
         )
         .route("/admin/solo_cert_list", get(page_solo_cert_list))
         .route(
