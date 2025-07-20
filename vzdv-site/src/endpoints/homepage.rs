@@ -1,6 +1,7 @@
 //! HTTP endpoints for the homepage.
 
 use crate::{
+    endpoints::events::query_for_events,
     flashed_messages,
     flights::{OnlineFlightSummary, get_relevant_flights},
     shared::{AppError, AppState, CacheEntry, SESSION_USER_INFO_KEY, UserInfo, is_user_member_of},
@@ -20,8 +21,6 @@ use vzdv::{
     sql::{self, Activity},
     vatsim::{OnlineController, get_online_facility_controllers},
 };
-
-use super::events::query_for_events;
 
 /// Homepage.
 async fn page_home(
