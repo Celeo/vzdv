@@ -181,6 +181,10 @@ async fn get_correct_roles(
         certifications.contains("APP T1"),
     ));
     to_resolve.push((
+        config.discord.roles.t2_ctr,
+        certifications.contains("ENR T2"),
+    ));
+    to_resolve.push((
         config.discord.roles.t1_twr,
         certifications.contains("LC T1"),
     ));

@@ -136,6 +136,7 @@ pub struct ConfigDiscordRoles {
     pub observer: u64,
 
     // certs
+    pub t2_ctr: u64,
     pub t1_app: u64,
     pub t1_twr: u64,
     pub t1_gnd: u64,

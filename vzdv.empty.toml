@@ -81,6 +81,7 @@ student_1 = 0
 observer = 0
 
 # certs
+t2_ctr = 0
 t1_app = 0
 t1_twr = 0
 t1_gnd = 0
