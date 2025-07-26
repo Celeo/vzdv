@@ -1,7 +1,7 @@
 use anyhow::Result;
 use log::{debug, error, info};
 use sqlx::{Pool, Sqlite};
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 use tokio::time::sleep;
 use twilight_http::Client;
 use twilight_model::{
@@ -11,7 +11,7 @@ use twilight_model::{
 use vzdv::{
     ControllerRating,
     config::Config,
-    sql::{self, Controller},
+    sql::{self, Certification, Controller},
 };
 
 /// Set the guild member's nickname if needed.
@@ -107,6 +107,7 @@ async fn resolve_roles(
 async fn get_correct_roles(
     config: &Arc<Config>,
     controller: &Option<Controller>,
+    certifications: &HashSet<&str>,
 ) -> Result<Vec<(u64, bool)>> {
     let mut to_resolve = Vec::with_capacity(15);
 
@@ -174,6 +175,20 @@ async fn get_correct_roles(
         rating == ControllerRating::OBS.as_id(),
     ));
 
+    // certs
+    to_resolve.push((
+        config.discord.roles.t1_app,
+        certifications.contains("APP T1"),
+    ));
+    to_resolve.push((
+        config.discord.roles.t1_twr,
+        certifications.contains("LC T1"),
+    ));
+    to_resolve.push((
+        config.discord.roles.t1_gnd,
+        certifications.contains("GC T1"),
+    ));
+
     // staff
     if ["ATM", "DATM", "TA"]
         .iter()
@@ -235,9 +250,19 @@ pub async fn process_single_member(
             return false;
         }
     };
+    let certifications: Vec<Certification> = sqlx::query_as(sql::GET_ALL_CERTIFICATIONS_FOR)
+        .bind(user_id.to_string())
+        .fetch_all(db)
+        .await
+        .unwrap_or_default();
+    let cert_names: HashSet<_> = certifications
+        .iter()
+        .filter(|c| c.value == "certified")
+        .map(|c| c.name.as_str())
+        .collect();
 
     // determine the roles the guild member should have and update accordingly
-    match get_correct_roles(config, &controller).await {
+    match get_correct_roles(config, &controller, &cert_names).await {
         Ok(to_resolve) => {
             if let Err(e) = resolve_roles(guild_id, member, &to_resolve, http).await {
                 error!("Error resolving roles for {nick} ({user_id}): {e}");

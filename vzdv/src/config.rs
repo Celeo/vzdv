@@ -135,6 +135,11 @@ pub struct ConfigDiscordRoles {
     pub student_1: u64,
     pub observer: u64,
 
+    // certs
+    pub t1_app: u64,
+    pub t1_twr: u64,
+    pub t1_gnd: u64,
+
     // misc
     pub ignore: u64,
 }
