@@ -107,7 +107,7 @@ async fn resolve_roles(
 async fn get_correct_roles(
     config: &Arc<Config>,
     controller: &Option<Controller>,
-    certifications: &HashSet<&str>,
+    certifications: &HashSet<String>,
 ) -> Result<Vec<(u64, bool)>> {
     let mut to_resolve = Vec::with_capacity(15);
 
@@ -250,17 +250,28 @@ pub async fn process_single_member(
             return false;
         }
     };
-    let certifications: Vec<Certification> = sqlx::query_as(sql::GET_ALL_CERTIFICATIONS_FOR)
-        .bind(user_id.to_string())
-        .fetch_all(db)
-        .await
-        .unwrap_or_default();
-    let cert_names: HashSet<_> = certifications
-        .iter()
-        .filter(|c| c.value == "certified")
-        .map(|c| c.name.as_str())
-        .collect();
 
+    let cert_names: HashSet<_> = if let Some(ref c) = controller {
+        let certifications: Vec<Certification> =
+            match sqlx::query_as(sql::GET_ALL_CERTIFICATIONS_FOR)
+                .bind(c.cid)
+                .fetch_all(db)
+                .await
+            {
+                Ok(e) => e,
+                Err(e) => {
+                    error!("Error getting certs for CID {}: {e}", c.id);
+                    Vec::new()
+                }
+            };
+        certifications
+            .iter()
+            .filter(|c| c.value == "certified")
+            .map(|c| c.name.clone())
+            .collect()
+    } else {
+        HashSet::new()
+    };
     // determine the roles the guild member should have and update accordingly
     match get_correct_roles(config, &controller, &cert_names).await {
         Ok(to_resolve) => {
