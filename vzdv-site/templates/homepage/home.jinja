@@ -2,6 +2,10 @@
 
 {% block title %}Home | {{ super() }}{% endblock %}
 
+{% block above_nav %}
+<div id="banner"></div>
+{% endblock %}
+
 {% block body %}
 
 <style>
@@ -10,6 +14,12 @@
 .ocb-red { background-color: rgb(220, 53, 69); }
 .ocb-green { background-color: rgb(25, 135, 84); }
 .ocb-dark-blue { background-color: rgb(13, 110, 253); }
+#banner {
+  background: url('/static/banner.png');
+  background-position: center bottom;
+  background-size: cover;
+  height: 200px;
+}
 </style>
 
 <script>
