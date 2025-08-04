@@ -31,7 +31,11 @@
             <span class="col-2">
               <a href="https://stats.vatsim.net/stats/{{ feedback.submitter_cid }}" target="_blank">{{ cid_names[feedback.submitter_cid] }} ({{ feedback.submitter_cid }})</a>
             </span>
-            <span class="col-2">{{ feedback.first_name }} {{ feedback.last_name }}</span>
+            {% if feedback.first_name | length > 0 and feedback.last_name | length > 0 %}
+              <span class="col-2">{{ feedback.first_name }} {{ feedback.last_name }}</span>
+            {% else %}
+              <span class="col-2">(( Unknown ))</span>
+            {% endif %}
             <span class="col-2">{{ feedback.position }}</span>
             <span class="col-2">{{ feedback.rating|capitalize_first }}</span>
             <span class="col-2">{{ feedback.created_date|nice_date }}</span>
