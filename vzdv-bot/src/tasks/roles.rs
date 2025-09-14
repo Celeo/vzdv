@@ -46,6 +46,8 @@ async fn set_nickname(
         name.push_str(" | FE");
     } else if roles.contains(&"WM") {
         name.push_str(" | WM");
+    } else if roles.contains(&"INS") {
+        name.push_str(" | INS")
     } else if roles.contains(&"MTR") {
         name.push_str(" | MTR")
     } else if roles.contains(&"AEC") {
