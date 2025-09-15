@@ -8,7 +8,7 @@ use sqlx::{Pool, Row, Sqlite, sqlite::SqliteRow};
 use std::collections::HashSet;
 use vzdv::{
     generate_operating_initials_for, retrieve_all_in_use_ois,
-    sql::{self, Controller, IPC},
+    sql::{self, Certification, Controller, IPC},
     vatusa::{self, MembershipType, RosterMember},
 };
 
@@ -133,6 +133,18 @@ pub async fn update_roster(db: &Pool<Sqlite>) -> Result<()> {
                 error!("Error updating controller {cid} to show off-roster: {e}")
             }
             // strip certs
+            let certs: Vec<Certification> = sqlx::query_as(sql::GET_ALL_CERTIFICATIONS_FOR)
+                .bind(cid)
+                .fetch_all(db)
+                .await?;
+            info!(
+                "Controller {cid} has certs for: {}",
+                certs
+                    .iter()
+                    .filter(|c| &c.value == "certified")
+                    .map(|c| &c.name)
+                    .join(",")
+            );
             if let Err(e) = sqlx::query(sql::DELETE_CERTIFICATIONS_FOR)
                 .bind(cid)
                 .execute(db)
