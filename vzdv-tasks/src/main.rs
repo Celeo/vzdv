@@ -4,9 +4,10 @@
 #![deny(unsafe_code)]
 
 use clap::Parser;
-use log::{debug, error, info};
-use std::{path::PathBuf, time::Duration};
-use tokio::time;
+use clokwerk::{AsyncScheduler, TimeUnits};
+use log::{error, info};
+use std::{path::PathBuf, sync::Arc, time::Duration};
+use tokio::sync::Semaphore;
 use vzdv::general_setup;
 
 mod activity;
@@ -36,152 +37,166 @@ struct Cli {
 async fn main() {
     let cli = Cli::parse();
     let (config, db) = general_setup(cli.debug, "vzdv_tasks", cli.config).await;
+    let config = Arc::new(config);
+    let db = Arc::new(db);
+    let mut scheduler = AsyncScheduler::with_tz(chrono::Utc);
 
-    info!("Starting tasks");
+    /*
+     * Semaphores are used to prevent partial updating of roster and
+     * activity to happen at the same time as the updating of the
+     * *full* roster and activity. In the previous design, this wasn't
+     * needed as the partial and full updates were never performed
+     * at the same time, but they can with this scheduler, so a
+     * mechanism is needed to ensure that the two async tasks
+     * don't collide with each other.
+     */
 
-    let _roster_handle = {
-        let db = db.clone();
-        tokio::spawn(async move {
-            debug!("Waiting 15 seconds before starting roster sync");
-            time::sleep(Duration::from_secs(15)).await;
-            for index in 0u64.. {
-                /*
-                 * Update the entire roster every 2 hours, but check for scheduled
-                 * "quick updates" requested by users of the site every 5 minutes.
-                 */
-                if index.is_multiple_of(24) {
-                    info!("Querying roster");
-                    match roster::update_roster(&db).await {
-                        Ok(_) => {
-                            info!("Roster update successful");
-                        }
-                        Err(e) => {
-                            error!("Error updating roster: {e}");
-                        }
-                    }
-                } else if let Err(e) = roster::partial_update_roster(&db).await {
-                    // don't log the success of this; individual CIDs will be logged in the function
-                    error!("Error partial updating roster: {e}");
+    let roster_semaphore = Arc::new(Semaphore::new(1));
+    let activity_semaphore = Arc::new(Semaphore::new(1));
+
+    // every 5 minutes, partial roster update
+    {
+        let db = Arc::clone(&db);
+        let roster_semaphore = Arc::clone(&roster_semaphore);
+        scheduler.every(5.minutes()).run(move || {
+            let db = Arc::clone(&db);
+            let roster_semaphore = Arc::clone(&roster_semaphore);
+            async move {
+                // don't try to do a partial update when the full update is processing
+                if roster_semaphore.try_acquire().is_err() {
+                    return;
                 }
-                time::sleep(Duration::from_secs(60 * 5)).await;
-            }
-        })
-    };
-
-    let _activity_handle = {
-        let config = config.clone();
-        let db = db.clone();
-        tokio::spawn(async move {
-            debug!("Waiting 30 seconds before starting activity sync");
-            time::sleep(Duration::from_secs(30)).await;
-            for index in 0u64.. {
-                /*
-                 * Update everyone on a 6 hour schedule (15 minutes * 24 ticks = 6 hours).
-                 * This update makes sure that everyone's data is accurate.
-                 */
-                if index.is_multiple_of(24) {
-                    info!("Updating all activity");
-                    match activity::true_up_all_controllers_activity(&config, &db).await {
-                        Ok(_) => {
-                            info!("Full activity update successful");
-                        }
-                        Err(e) => {
-                            error!("Error updating full activity: {e}");
-                        }
-                    }
-                } else {
-                    /*
-                     * Update online controllers every 15 minutes.
-                     * This update might introduce small deltas in total time, but updates much
-                     * faster for controllers that are actively controlling.
-                     */
-                    info!("Online controller activity check");
-                    match activity::update_online_controller_activity(&config, &db).await {
-                        Ok(_) => {
-                            info!("Partial activity update successful");
-                        }
-                        Err(e) => {
-                            error!("Error updating partial activity: {e}");
-                        }
-                    }
+                if let Err(e) = roster::partial_update_roster(&db).await {
+                    error!("Error partial updating roster: {e}")
                 }
-                time::sleep(Duration::from_secs(60 * 15)).await;
             }
-        })
-    };
+        });
+    }
 
-    let _solo_cert_handle = {
-        let db: sqlx::Pool<sqlx::Sqlite> = db.clone();
-        tokio::spawn(async move {
-            debug!("Waiting 15 seconds before starting solo cert expiration check");
-            time::sleep(Duration::from_secs(15)).await;
-            loop {
-                match solo_cert::check_expired(&db).await {
-                    Ok(_) => {
-                        debug!("Solo cert expiration checked");
-                    }
-                    Err(e) => {
-                        error!("Error checking for solo cert expiration: {e}");
-                    }
+    // every 2 hours, full roster update
+    {
+        let db = Arc::clone(&db);
+        let roster_semaphore = Arc::clone(&roster_semaphore);
+        scheduler.every(2.hours()).run(move || {
+            let db = Arc::clone(&db);
+            let roster_semaphore = Arc::clone(&roster_semaphore);
+            async move {
+                // lock the semaphore while updating the whole roster
+                let _ = roster_semaphore.acquire().await.unwrap();
+                info!("Querying roster");
+                match roster::update_roster(&db).await {
+                    Ok(_) => info!("Roster update successful"),
+                    Err(e) => error!("Error updating roster: {e}"),
                 }
-                time::sleep(Duration::from_secs(60 * 30)).await;
             }
-        })
-    };
+        });
+    }
 
-    let _no_show_expiration_handle = {
-        let db: sqlx::Pool<sqlx::Sqlite> = db.clone();
-        tokio::spawn(async move {
-            debug!("Waiting 15 seconds before starting no-show expiration check");
-            time::sleep(Duration::from_secs(15)).await;
-            loop {
-                match no_show_expiration::check_expired(&db).await {
-                    Ok(_) => {
-                        debug!("No-show expiration checked");
-                    }
-                    Err(e) => {
-                        error!("Error checking for no-show expiration: {e}");
-                    }
+    // every 15 minutes, partial activity check
+    {
+        let db = Arc::clone(&db);
+        let config = Arc::clone(&config);
+        let activity_semaphore = Arc::clone(&activity_semaphore);
+        scheduler.every(15.minutes()).run(move || {
+            let db = Arc::clone(&db);
+            let config = Arc::clone(&config);
+            let activity_semaphore = Arc::clone(&activity_semaphore);
+            async move {
+                // don't try to do a partial update when the full update is processing
+                if activity_semaphore.try_acquire().is_err() {
+                    return;
                 }
-                time::sleep(Duration::from_secs(60 * 60 * 12)).await;
+                if let Err(e) = activity::update_online_controller_activity(&config, &db).await {
+                    error!("Error updating partial activity: {e}");
+                }
             }
-        })
-    };
+        });
+    }
 
-    let _online_data_handle = {
-        let db: sqlx::Pool<sqlx::Sqlite> = db.clone();
-        tokio::spawn(async move {
-            debug!("Waiting 15 seconds before starting live data retrieval");
-            time::sleep(Duration::from_secs(15)).await;
-            loop {
+    // every 6 hours, full activity sync
+    {
+        let db = Arc::clone(&db);
+        let config = Arc::clone(&config);
+        let roster_semaphore = Arc::clone(&roster_semaphore);
+        scheduler.every(6.hours()).run(move || {
+            let db = Arc::clone(&db);
+            let config = Arc::clone(&config);
+            let roster_semaphore = Arc::clone(&roster_semaphore);
+            async move {
+                // lock the semaphore while updating the whole roster
+                let _ = roster_semaphore.acquire().await.unwrap();
+                info!("Updating all activity");
+                match activity::true_up_all_controllers_activity(&config, &db).await {
+                    Ok(_) => info!("Full activity update successful"),
+                    Err(e) => error!("Error updating full activity: {e}"),
+                }
+            }
+        });
+    }
+
+    // every 30 minutes, solo cert expiration check
+    {
+        let db = Arc::clone(&db);
+        scheduler.every(30.minutes()).run(move || {
+            let db = Arc::clone(&db);
+            async move {
+                if let Err(e) = solo_cert::check_expired(&db).await {
+                    error!("Error checking for solo cert expiration: {e}");
+                }
+            }
+        });
+    }
+
+    // every 12 hours, no show expiration check
+    {
+        let db = Arc::clone(&db);
+        scheduler.every(12.hours()).run(move || {
+            let db = Arc::clone(&db);
+            async move {
+                if let Err(e) = no_show_expiration::check_expired(&db).await {
+                    error!("Error checking for no-show expiration: {e}");
+                }
+            }
+        });
+    }
+
+    // every 15 seconds, get VATSIM live data
+    {
+        let db = Arc::clone(&db);
+        scheduler.every(15.seconds()).run(move || {
+            let db = Arc::clone(&db);
+            async move {
                 if let Err(e) = traffic_tracking::store_live_data(&db).await {
                     error!("Error getting VATSIM live data: {e}");
                 }
-                time::sleep(Duration::from_secs(15)).await;
             }
-        })
-    };
+        });
+    }
 
-    let _atis_cleanup_handle = {
-        let db = db.clone();
-        tokio::spawn(async move {
-            debug!("Waiting 15 seconds before starting ATIS cleanup");
-            time::sleep(Duration::from_secs(15)).await;
-            loop {
+    // every 5 minutes, clean up ATIS data
+    {
+        let db = Arc::clone(&db);
+        scheduler.every(5.minutes()).run(move || {
+            let db = Arc::clone(&db);
+            async move {
                 if let Err(e) = atis::cleanup(&db).await {
                     error!("Error cleaning up ATIS data: {e}");
                 }
-                time::sleep(Duration::from_secs(60 * 5)).await;
             }
-        })
-    };
+        });
+    }
 
-    _roster_handle.await.unwrap();
-    _activity_handle.await.unwrap();
-    _solo_cert_handle.await.unwrap();
-    _no_show_expiration_handle.await.unwrap();
-    _online_data_handle.await.unwrap();
-    _atis_cleanup_handle.await.unwrap();
+    info!("Waiting 15 seconds before kicking off the scheduler");
+    tokio::time::sleep(Duration::from_secs(15)).await;
+    info!("Starting");
+
+    // poll the scheduler
+    tokio::spawn(async move {
+        loop {
+            scheduler.run_pending().await;
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    });
 
     db.close().await;
 }
