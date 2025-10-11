@@ -21,7 +21,7 @@ chrono = "0.4.39"
 clap = { version = "4.5.26", features = ["derive"] }
 log = "0.4.22"
 select = "0.6.0"
-sqlx = { version = "0.8.3", default-features = false, features = ["runtime-tokio", "sqlx-sqlite", "chrono"] }
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite", "chrono"] }
 tokio = { version = "1.43.0", features = ["full"] }
 twilight-gateway = "0.15.4"
 twilight-http = "0.15.4"
