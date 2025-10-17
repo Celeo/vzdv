@@ -5,7 +5,7 @@
 
 use clap::Parser;
 use clokwerk::{AsyncScheduler, TimeUnits};
-use log::{error, info};
+use log::{debug, error, info};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 use vzdv::general_setup;
@@ -62,6 +62,7 @@ async fn main() {
             let db = Arc::clone(&db);
             let roster_semaphore = Arc::clone(&roster_semaphore);
             async move {
+                debug!("Partial roster update tick");
                 // don't try to do a partial update when the full update is processing
                 if roster_semaphore.try_acquire().is_err() {
                     return;
@@ -81,6 +82,7 @@ async fn main() {
             let db = Arc::clone(&db);
             let roster_semaphore = Arc::clone(&roster_semaphore);
             async move {
+                debug!("Full roster update tick");
                 // lock the semaphore while updating the whole roster
                 let _ = roster_semaphore.acquire().await.unwrap();
                 info!("Querying roster");
@@ -102,6 +104,7 @@ async fn main() {
             let config = Arc::clone(&config);
             let activity_semaphore = Arc::clone(&activity_semaphore);
             async move {
+                debug!("Partial activity sync tick");
                 // don't try to do a partial update when the full update is processing
                 if activity_semaphore.try_acquire().is_err() {
                     return;
@@ -123,6 +126,7 @@ async fn main() {
             let config = Arc::clone(&config);
             let roster_semaphore = Arc::clone(&roster_semaphore);
             async move {
+                debug!("Full activity sync tick");
                 // lock the semaphore while updating the whole roster
                 let _ = roster_semaphore.acquire().await.unwrap();
                 info!("Updating all activity");
@@ -140,6 +144,7 @@ async fn main() {
         scheduler.every(30.minutes()).run(move || {
             let db = Arc::clone(&db);
             async move {
+                debug!("Solo cert expiration tick");
                 if let Err(e) = solo_cert::check_expired(&db).await {
                     error!("Error checking for solo cert expiration: {e}");
                 }
@@ -160,25 +165,13 @@ async fn main() {
         });
     }
 
-    // every 15 seconds, get VATSIM live data
-    {
-        let db = Arc::clone(&db);
-        scheduler.every(15.seconds()).run(move || {
-            let db = Arc::clone(&db);
-            async move {
-                if let Err(e) = traffic_tracking::store_live_data(&db).await {
-                    error!("Error getting VATSIM live data: {e}");
-                }
-            }
-        });
-    }
-
     // every 5 minutes, clean up ATIS data
     {
         let db = Arc::clone(&db);
         scheduler.every(5.minutes()).run(move || {
             let db = Arc::clone(&db);
             async move {
+                debug!("ATIS cleanup tick");
                 if let Err(e) = atis::cleanup(&db).await {
                     error!("Error cleaning up ATIS data: {e}");
                 }
@@ -186,17 +179,13 @@ async fn main() {
         });
     }
 
-    info!("Waiting 15 seconds before kicking off the scheduler");
-    tokio::time::sleep(Duration::from_secs(15)).await;
+    info!("Waiting 5 seconds before kicking off the scheduler");
+    tokio::time::sleep(Duration::from_secs(5)).await;
     info!("Starting");
 
     // poll the scheduler
-    tokio::spawn(async move {
-        loop {
-            scheduler.run_pending().await;
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    });
-
-    db.close().await;
+    loop {
+        scheduler.run_pending().await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
 }

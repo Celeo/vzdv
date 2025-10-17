@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use anyhow::{Result, bail};
 use sqlx::{Pool, Sqlite};
 use tokio::sync::OnceCell;
