@@ -137,20 +137,22 @@ pub async fn update_roster(db: &Pool<Sqlite>) -> Result<()> {
                 .bind(cid)
                 .fetch_all(db)
                 .await?;
-            info!(
-                "Controller {cid} has certs for: {}",
-                certs
-                    .iter()
-                    .filter(|c| &c.value == "certified")
-                    .map(|c| &c.name)
-                    .join(",")
-            );
-            if let Err(e) = sqlx::query(sql::DELETE_CERTIFICATIONS_FOR)
-                .bind(cid)
-                .execute(db)
-                .await
-            {
-                error!("Error removing certs for removed controller {cid}: {e}");
+            if certs.is_empty() {
+                info!(
+                    "Controller {cid} has certs for: {}",
+                    certs
+                        .iter()
+                        .filter(|c| &c.value == "certified")
+                        .map(|c| &c.name)
+                        .join(",")
+                );
+                if let Err(e) = sqlx::query(sql::DELETE_CERTIFICATIONS_FOR)
+                    .bind(cid)
+                    .execute(db)
+                    .await
+                {
+                    error!("Error removing certs for removed controller {cid}: {e}");
+                }
             }
         }
     }
