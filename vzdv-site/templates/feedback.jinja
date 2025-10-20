@@ -71,4 +71,14 @@
 </form>
 {% endif %}
 
+<script>
+(() => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const cid = urlParams.get("cid");
+  if (cid) {
+    document.querySelector('select#controller').value = parseInt(cid);
+  }
+})();
+</script>
+
 {% endblock %}
