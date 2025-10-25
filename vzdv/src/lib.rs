@@ -22,6 +22,7 @@ use std::{
     time::SystemTime,
 };
 
+pub mod activity;
 pub mod aviation;
 pub mod config;
 pub mod db;
