@@ -1,9 +1,6 @@
 //! Structs and data to be shared across multiple parts of the site.
 
-use crate::{
-    email::{self, send_mail},
-    vatusa,
-};
+use crate::vatusa;
 use axum::extract::rejection::FormRejection;
 use axum::{
     http::StatusCode,
@@ -27,6 +24,7 @@ use vzdv::{
     GENERAL_HTTP_CLIENT, PermissionsGroup,
     config::Config,
     controller_can_see,
+    email::{self, send_mail},
     sql::{self, Controller},
 };
 
@@ -67,8 +65,8 @@ pub enum AppError {
     MultipartFormGet,
     #[error(transparent)]
     MultipartFormParsing(#[from] axum::extract::multipart::MultipartError),
-    #[error(transparent)]
-    EmailError(#[from] lettre::transport::smtp::Error),
+    #[error("error sending an email: {0}")]
+    EmailError(anyhow::Error),
     #[error(transparent)]
     FileWriteError(#[from] std::io::Error),
     #[error(transparent)]
@@ -378,8 +376,10 @@ pub async fn remove_controller_from_roster(
                 ),
                 email,
                 email::templates::VISITOR_REMOVED,
+                None,
             )
-            .await?;
+            .await
+            .map_err(AppError::EmailError)?;
         } else {
             warn!("Could not send visitor removal email for {cid} due to lack of email address");
         }

@@ -32,10 +32,14 @@ pub struct ControllerActivity {
 }
 
 /// Get activity for all controllers on the roster in the given months.
+///
+/// The `months` collection should be in the "%Y-%m" format, i.e. "2025-10".
 pub async fn get_controller_activity(
     db: &Pool<Sqlite>,
     months: &[String],
 ) -> Result<Vec<ControllerActivity>> {
+    log::info!("months is {months:?}");
+
     let controllers: Vec<Controller> = sqlx::query_as(sql::GET_ALL_CONTROLLERS_ON_ROSTER)
         .fetch_all(db)
         .await?;
@@ -49,7 +53,7 @@ pub async fn get_controller_activity(
                 .iter()
                 .filter(|a| a.cid == controller.cid)
                 .collect();
-            let months: Vec<ActivityMonth> = (0..=4)
+            let month_data: Vec<ActivityMonth> = (0..months.len())
                 .map(|month| {
                     this_controller
                         .iter()
@@ -59,7 +63,13 @@ pub async fn get_controller_activity(
                         .into()
                 })
                 .collect();
-            let violation = months.iter().take(3).map(|month| month.value).sum::<u32>() < 180; // 3 hours in a quarter
+            // 3 hours per quarter are required
+            let violation = month_data
+                .iter()
+                .take(3)
+                .map(|month| month.value)
+                .sum::<u32>()
+                < 180;
 
             ControllerActivity {
                 name: format!("{} {}", controller.first_name, controller.last_name),
@@ -70,7 +80,7 @@ pub async fn get_controller_activity(
                 cid: controller.cid,
                 loa_until: controller.loa_until,
                 rating: controller.rating,
-                months,
+                months: month_data,
                 violation,
             }
         })

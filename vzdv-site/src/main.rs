@@ -26,7 +26,6 @@ use tower_sessions_sqlx_store::SqliteStore;
 use vzdv::{ControllerRating, general_setup};
 
 mod discord;
-mod email;
 mod endpoints;
 mod flashed_messages;
 mod flights;

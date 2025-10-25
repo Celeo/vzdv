@@ -12,6 +12,7 @@ pub struct Controller {
     pub cid: u32,
     pub first_name: String,
     pub last_name: String,
+    pub email: String,
     pub operating_initials: Option<String>,
     pub rating: i8,
     pub status: String,
@@ -402,7 +403,7 @@ CREATE TABLE sop_access (
     created_date TEXT NOT NULL,
 
     UNIQUE(cid, resource_id),
-    
+
     FOREIGN KEY (cid) REFERENCES controller(cid),
     FOREIGN KEY (resource_id) REFERENCES resource(id)
 ) STRICT;

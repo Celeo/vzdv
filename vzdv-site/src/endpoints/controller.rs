@@ -1,7 +1,6 @@
 //! HTTP endpoints for controller pages.
 
 use crate::{
-    email::send_mail_raw,
     flashed_messages::{MessageLevel, drain_flashed_messages, push_flashed_message},
     shared::{
         AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, js_timestamp_to_utc, post_audit,
@@ -30,6 +29,7 @@ use tower_sessions::Session;
 use uuid::Uuid;
 use vzdv::{
     ControllerRating, PermissionsGroup, StaffPosition, controller_can_see,
+    email::send_mail_raw,
     get_controller_cids_and_names, retrieve_all_in_use_ois,
     sql::{self, Certification, Controller, Feedback, SoloCert, StaffNote},
     vatsim,
@@ -856,7 +856,8 @@ async fn post_add_training_note(
                 ),
                 "ta@zdvartcc.org",
             )
-            .await?;
+            .await
+            .map_err(AppError::EmailError)?;
         }
 
         // update the form to use the VATUSA no-show field

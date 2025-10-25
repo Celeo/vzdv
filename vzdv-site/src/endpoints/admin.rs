@@ -1,7 +1,6 @@
 //! Endpoints for editing and controlling aspects of the site.
 
 use crate::{
-    email::{self, send_mail},
     flashed_messages::{self, MessageLevel, push_flashed_message},
     shared::{
         AppError, AppState, CacheEntry, SESSION_USER_INFO_KEY, UserInfo, is_user_member_of,
@@ -29,8 +28,9 @@ use std::{collections::HashMap, io::BufRead, path::Path as FilePath, sync::Arc, 
 use tower_sessions::Session;
 use uuid::Uuid;
 use vzdv::{
-    ControllerRating, GENERAL_HTTP_CLIENT, PermissionsGroup, generate_operating_initials_for,
-    get_controller_cids_and_names, retrieve_all_in_use_ois,
+    ControllerRating, GENERAL_HTTP_CLIENT, PermissionsGroup,
+    email::{self, send_mail},
+    generate_operating_initials_for, get_controller_cids_and_names, retrieve_all_in_use_ois,
     sql::{
         self, Activity, Controller, Feedback, FeedbackForReview, Log, NoShow, Resource, SoloCert,
         SopInitial, VisitorRequest,
@@ -307,7 +307,9 @@ async fn page_emails(
         .await?;
     let template = state.templates.get_template("admin/emails.jinja")?;
     let flashed_messages = flashed_messages::drain_flashed_messages(session).await?;
-    let email_templates = email::query_templates(&state.db).await?;
+    let email_templates = email::query_templates(&state.db)
+        .await
+        .map_err(AppError::EmailError)?;
     let rendered = template.render(context! {
         user_info,
         all_controllers,
@@ -315,6 +317,7 @@ async fn page_emails(
         visitor_accepted => email_templates.visitor_accepted,
         visitor_denied => email_templates.visitor_denied,
         visitor_removed => email_templates.visitor_removed,
+        currency_required => email_templates.currency_required,
     })?;
     Ok(Html(rendered).into_response())
 }
@@ -338,11 +341,12 @@ async fn post_email_template_update(
     if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::Admin).await {
         return Ok(redirect);
     }
-    // verify it's one of the three templates
+    // verify it's one of the templates
     if ![
         email::templates::VISITOR_ACCEPTED,
         email::templates::VISITOR_DENIED,
         email::templates::VISITOR_REMOVED,
+        email::templates::CURRENCY_REQUIRED,
     ]
     .iter()
     .any(|&name| name == update_template_form.name)
@@ -435,8 +439,10 @@ async fn post_email_manual_send(
         &format!("{} {}", controller.first_name, controller.last_name),
         &email,
         &manual_email_form.template,
+        None,
     )
-    .await?;
+    .await
+    .map_err(AppError::EmailError)?;
     flashed_messages::push_flashed_message(session, MessageLevel::Info, "Email sent").await?;
     Ok(Redirect::to("/admin/emails").into_response())
 }
@@ -632,8 +638,10 @@ async fn post_visitor_application_action(
                 &format!("{} {}", request.first_name, request.last_name),
                 &email_address,
                 email::templates::VISITOR_ACCEPTED,
+                None,
             )
-            .await?;
+            .await
+            .map_err(AppError::EmailError)?;
             flashed_messages::push_flashed_message(
                 session,
                 MessageLevel::Success,
@@ -658,8 +666,10 @@ async fn post_visitor_application_action(
                 &format!("{} {}", request.first_name, request.last_name),
                 &email_address,
                 email::templates::VISITOR_DENIED,
+                None,
             )
-            .await?;
+            .await
+            .map_err(AppError::EmailError)?;
             flashed_messages::push_flashed_message(
                 session,
                 MessageLevel::Success,

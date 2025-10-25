@@ -16,13 +16,18 @@
   <li>"{{ recipient_name }}" - name of the recipient</li>
   <li>"{{ atm }}" - name of the ARTCC ATM</li>
   <li>"{{ datm }}" - name of the ARTCC DATM</li>
+  <li>"{{ quarter_end }}" - end date of the quarter</li>
+  <li>"{{ currency_hours }}" - how many hours the controller has</li>
 </ul>
 {% endraw %}
+
+<p>Note that the last 2 are only properly filled out when the email is sent from the task runner, not this page.</p>
 
 <ul class="nav nav-tabs pt-3" role="tablist">
   <button class="nav-link active" id="nav-visitor-accepted-tab" data-bs-toggle="tab" data-bs-target="#nav-visitor-accepted" type="button" role="tab" aria-controls="nav-visitor-accepted" aria-selected="true">Visitor accepted</button>
   <button class="nav-link" id="nav-visitor-denied-tab" data-bs-toggle="tab" data-bs-target="#nav-visitor-denied" type="button" role="tab" aria-controls="nav-visitor-denied" aria-selected="false">Visitor denied</button>
   <button class="nav-link" id="nav-visitor-removed-tab" data-bs-toggle="tab" data-bs-target="#nav-visitor-removed" type="button" role="tab" aria-controls="nav-visitor-removed" aria-selected="false">Visitor removed</button>
+  <button class="nav-link" id="nav-currency-required-tab" data-bs-toggle="tab" data-bs-target="#nav-currency-required" type="button" role="tab" aria-controls="nav-currency-required" aria-selected="false">Currency required</button>
 </ul>
 
 <div class="tab-content pt-3" id="nav-tabContent">
@@ -101,6 +106,31 @@
       </button>
     </form>
   </div>
+  <div class="tab-pane fade" id="nav-currency-required" role="tabpanel" aria-labelledby="nav-currency-required-tab" tabindex="0">
+    <form action="/admin/emails/update" method="POST">
+      <input type="hidden" name="name" value="currency_required">
+      <div class="row">
+        <div class="col">
+          <div class="mb-3">
+            <label for="subject" class="form-label">Subject</label>
+            <input type="text" id="subject" name="subject" class="form-control" value="{{ currency_required.subject }}">
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col">
+          <div class="mb-3">
+            <label for="body" class="form-label">Body</label>
+            <textarea name="body" id="body" class="form-control" style="height: 20rem">{{ currency_required.body }}</textarea>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary" role="button" type="submit">
+        <i class="bi bi-floppy2-fill"></i>
+        Save
+      </button>
+    </form>
+  </div>
 </div>
 
 <hr class="py-3">
@@ -127,6 +157,7 @@
         <option value="visitor_accepted">Visitor accepted</option>
         <option value="visitor_denied">Visitor denied</option>
         <option value="visitor_removed">Visitor removed</option>
+        <option value="currency_required">Currency required</option>
       </select>
     </div>
   </div>

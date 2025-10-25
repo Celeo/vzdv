@@ -12,6 +12,7 @@ use vzdv::general_setup;
 
 mod activity;
 mod atis;
+mod currency;
 mod no_show_expiration;
 mod roster;
 mod solo_cert;
@@ -179,9 +180,25 @@ async fn main() {
         });
     }
 
+    // every 24 hours, check if activity reminders need to be sent out
+    {
+        let db = Arc::clone(&db);
+        let config = Arc::clone(&config);
+        scheduler.every(24.hours()).run(move || {
+            let db = Arc::clone(&db);
+            let config = Arc::clone(&config);
+            async move {
+                debug!("Activity warning check tick");
+                if let Err(e) = currency::reminders(&config, &db).await {
+                    error!("Error sending currency reminder emails: {e}");
+                }
+            }
+        });
+    }
+
     info!("Waiting 5 seconds before kicking off the scheduler");
     tokio::time::sleep(Duration::from_secs(5)).await;
-    info!("Starting");
+    info!("Starting scheduler");
 
     // poll the scheduler
     loop {

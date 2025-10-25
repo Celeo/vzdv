@@ -1,22 +1,24 @@
 //! HTTP endpoints for managing some email configuration.
 
-use crate::shared::AppError;
+use crate::{
+    config::Config,
+    sql::{self, Controller, EmailTemplate},
+};
+use anyhow::Result;
 use lettre::{
     Message, SmtpTransport, Transport, message::header::ContentType,
     transport::smtp::authentication::Credentials,
 };
 use minijinja::{Environment, context};
 use sqlx::{Pool, Sqlite};
-use vzdv::{
-    config::Config,
-    sql::{self, Controller, EmailTemplate},
-};
+use std::collections::HashMap;
 
 /// Email template names.
 pub mod templates {
     pub const VISITOR_ACCEPTED: &str = "visitor_accepted";
     pub const VISITOR_DENIED: &str = "visitor_denied";
     pub const VISITOR_REMOVED: &str = "visitor_removed";
+    pub const CURRENCY_REQUIRED: &str = "currency_required";
 }
 
 /// Email templates by name.
@@ -24,6 +26,7 @@ pub struct Templates {
     pub visitor_accepted: EmailTemplate,
     pub visitor_denied: EmailTemplate,
     pub visitor_removed: EmailTemplate,
+    pub currency_required: EmailTemplate,
 }
 
 /// Send an SMTP email to the recipient.
@@ -34,7 +37,7 @@ pub async fn send_mail_raw(
     recipient_address: &str,
     subject: &str,
     body: &str,
-) -> Result<(), AppError> {
+) -> Result<()> {
     // construct and send email
     let email = Message::builder()
         .from(config.email.from.parse().unwrap())
@@ -56,6 +59,13 @@ pub async fn send_mail_raw(
     Ok(())
 }
 
+/// Additional keys that can be provided for email template rendering.
+#[derive(Debug, Hash, PartialEq, Eq)]
+pub enum EmailExtraKeys {
+    QuarterEnd,
+    CurrencyHours,
+}
+
 /// Send an SMTP email to the recipient.
 pub async fn send_mail(
     config: &Config,
@@ -63,7 +73,8 @@ pub async fn send_mail(
     recipient_name: &str,
     recipient_address: &str,
     template_name: &str,
-) -> Result<(), AppError> {
+    extra_info: Option<HashMap<EmailExtraKeys, String>>,
+) -> Result<()> {
     let template = query_template(db, template_name).await?;
 
     // ATM and DATM names for signing
@@ -82,9 +93,23 @@ pub async fn send_mail(
     // template load and render
     let mut env = Environment::new();
     env.add_template("body", &template.body)?;
+    let quarter_end = match &extra_info {
+        Some(extra_info) => match extra_info.get(&EmailExtraKeys::QuarterEnd) {
+            Some(val) => val.to_owned(),
+            None => String::new(),
+        },
+        None => String::new(),
+    };
+    let currency_hours = match &extra_info {
+        Some(extra_info) => match extra_info.get(&EmailExtraKeys::CurrencyHours) {
+            Some(val) => val.to_owned(),
+            None => String::new(),
+        },
+        None => String::new(),
+    };
     let body = env
         .get_template("body")?
-        .render(context! { recipient_name, atm, datm })?;
+        .render(context! { recipient_name, atm, datm, quarter_end, currency_hours })?;
 
     // send the email
     send_mail_raw(config, recipient_address, &template.subject, &body).await?;
@@ -95,7 +120,7 @@ pub async fn send_mail(
 /// Get a single template by name.
 ///
 /// Returns an error if the template does not exist.
-pub async fn query_template(db: &Pool<Sqlite>, template: &str) -> Result<EmailTemplate, AppError> {
+pub async fn query_template(db: &Pool<Sqlite>, template: &str) -> Result<EmailTemplate> {
     let template = sqlx::query_as(sql::GET_EMAIL_TEMPLATE)
         .bind(template)
         .fetch_one(db)
@@ -104,7 +129,7 @@ pub async fn query_template(db: &Pool<Sqlite>, template: &str) -> Result<EmailTe
 }
 
 /// Load email templates from the database.
-pub async fn query_templates(db: &Pool<Sqlite>) -> Result<Templates, AppError> {
+pub async fn query_templates(db: &Pool<Sqlite>) -> Result<Templates> {
     let visitor_accepted: EmailTemplate = sqlx::query_as(sql::GET_EMAIL_TEMPLATE)
         .bind(templates::VISITOR_ACCEPTED)
         .fetch_one(db)
@@ -117,9 +142,14 @@ pub async fn query_templates(db: &Pool<Sqlite>) -> Result<Templates, AppError> {
         .bind(templates::VISITOR_REMOVED)
         .fetch_one(db)
         .await?;
+    let currency_required: EmailTemplate = sqlx::query_as(sql::GET_EMAIL_TEMPLATE)
+        .bind(templates::CURRENCY_REQUIRED)
+        .fetch_one(db)
+        .await?;
     Ok(Templates {
         visitor_accepted,
         visitor_denied,
         visitor_removed,
+        currency_required,
     })
 }

@@ -26,6 +26,7 @@ pub mod activity;
 pub mod aviation;
 pub mod config;
 pub mod db;
+pub mod email;
 pub mod kden;
 pub mod sql;
 pub mod vatsim;
