@@ -45,7 +45,7 @@ Additional CLI parameters can be found by running each binary with the `--help` 
 
 ## Deploying
 
-This app makes few assertions about how it should be ran. You can run it directly, run triggered by a systemd unit file, run in a Docker container, etc. You _will_ need to have this app behind some sort of reverse proxy that provides HTTPS, like [Caddy](https://caddyserver.com/) as handling TLS termination is not something that this app does or will handle.
+This app makes few assertions about how it should be ran. You can run it directly, run triggered by a systemd unit file, run in a Docker container, etc. You _will_ need to have this app behind some sort of reverse proxy that provides HTTPS, like [Caddy](https://caddyserver.com/), as handling TLS termination is not something that this app does or will handle.
 
 ## License
 
