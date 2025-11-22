@@ -217,6 +217,16 @@ pub struct Atis {
     pub version: String,
 }
 
+#[derive(Debug, Deserialize, Serialize, FromRow, Clone)]
+pub struct AuxiliaryTrainingData {
+    pub id: u32,
+    pub cid: u32,
+    pub trainer: u32,
+    pub position: String,
+    pub session_date: DateTime<Utc>,
+    pub notes: Option<String>,
+}
+
 /// Statements to create tables. Only ran when the DB file does not exist,
 /// so no migration or "IF NOT EXISTS" conditions need to be added.
 pub const CREATE_TABLES: &str = r#"
@@ -423,6 +433,17 @@ CREATE TABLE atis (
     notams TEXT NOT NULL,
     timestamp TEXT NOT NULL,
     version TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE auxiliary_training_data (
+  id INTEGER PRIMARY KEY NOT NULL,
+  cid INTEGER NOT NULL,
+  trainer INTEGER NOT NULL,
+  position TEXT NOT NULL,
+  session_date TEXT NOT NULL,
+  notes TEXT,
+
+  FOREIGN KEY (cid) REFERENCES controller(cid)
 ) STRICT;
 "#;
 
@@ -644,3 +665,7 @@ pub const GET_ALL_ATIS_ENTRIES: &str = "SELECT * FROM atis";
 pub const INSERT_ATIS_ENTRY: &str =
     "INSERT INTO atis VALUES (NULL, $1, $2, $3, $4, $5, $6, $7, $8)";
 pub const DELETE_ATIS_ENTRY: &str = "DELETE FROM atis WHERE id=$1";
+
+pub const GET_AUX_TRAINING_DATA_FOR: &str = "SELECT * FROM auxiliary_training_data WHERE cid=$1";
+pub const ADD_AUX_TRAINING_DATA: &str =
+    "INSERT INTO auxiliary_training_data VALUES (NULL, $1, $2, $3, $4, $5);";

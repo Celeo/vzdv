@@ -3,23 +3,43 @@
   Create
 </button>
 <div class="accordion" id="training_records_accordion">
-  {% for record in training_records %}
-    <div class="accordion-item">
-      <h2 class="accordion-header">
-        <button
-          class="accordion-button"
-          type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#record-{{ record.id }}"
-          aria-expanded="false"
-          aria-controls="record-{{ record.id }}"
-        >
-          #{{ record.id }} on {{ record.position }} on {{ record.session_date }} for {{ record.duration }} with {{ instructors[record.instructor_id] }}
-        </button>
-      </h2>
-      <div id="record-{{ record.id }}" class="accordion-collapse collapse" data-bs-parent="#training_records_accordion">
-        <div class="accordion-body">{{ record.notes }}</div>
+  {% for record in all_training_data %}
+    {% if record.type == 'VatusaRecord' %}
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button
+            class="accordion-button"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#record-vatusa-{{ record.id }}"
+            aria-expanded="false"
+            aria-controls="record-vatusa-{{ record.id }}"
+          >
+            #{{ record.id }} on {{ record.position }} on {{ record.session_date }} for {{ record.duration }} with {{ trainers[record.instructor_id] }}
+          </button>
+        </h2>
+        <div id="record-vatusa-{{ record.id }}" class="accordion-collapse collapse" data-bs-parent="#training_records_accordion">
+          <div class="accordion-body">{{ record.notes }}</div>
+        </div>
       </div>
-    </div>
+    {% else %}
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button
+            class="accordion-button"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#record-aux-{{ record.id }}"
+            aria-expanded="false"
+            aria-controls="record-aux-{{ record.id }}"
+          >
+            RCE recommendation on {{ record.position }} on {{ record.session_date }} by {{ trainers[record.trainer] }}
+          </button>
+        </h2>
+        <div id="record-aux-{{ record.id }}" class="accordion-collapse collapse" data-bs-parent="#training_records_accordion">
+          <div class="accordion-body">{{ record.notes }}</div>
+        </div>
+      </div>
+    {% endif %}
   {% endfor %}
 </div>

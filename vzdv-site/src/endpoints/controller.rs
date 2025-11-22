@@ -31,7 +31,7 @@ use vzdv::{
     ControllerRating, PermissionsGroup, StaffPosition, controller_can_see,
     email::send_mail_raw,
     get_controller_cids_and_names, retrieve_all_in_use_ois,
-    sql::{self, Certification, Controller, Feedback, SoloCert, StaffNote},
+    sql::{self, AuxiliaryTrainingData, Certification, Controller, Feedback, SoloCert, StaffNote},
     vatsim,
     vatusa::get_multiple_controller_names,
 };
@@ -705,6 +705,33 @@ async fn api_delete_staff_note(
     Ok(StatusCode::OK)
 }
 
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+enum TrainingDataType {
+    VatusaRecord(TrainingRecord),
+    AuxData(AuxiliaryTrainingData),
+}
+
+impl TrainingDataType {
+    fn get_date(&self) -> DateTime<Utc> {
+        match self {
+            TrainingDataType::AuxData(record) => record.session_date,
+            TrainingDataType::VatusaRecord(record) => {
+                let dt = NaiveDateTime::parse_from_str(&record.session_date, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
+                DateTime::from_naive_utc_and_offset(dt, Utc)
+            }
+        }
+    }
+
+    fn trainer(&self) -> u32 {
+        match self {
+            TrainingDataType::VatusaRecord(record) => record.instructor_id,
+            TrainingDataType::AuxData(record) => record.trainer,
+        }
+    }
+}
+
 /// Render a page snippet that shows training notes and a button to create more.
 ///
 /// For training staff members.
@@ -719,9 +746,11 @@ async fn snippet_get_training_records(
     {
         return Ok(redirect.into_response());
     }
+
+    // get the records from VATUSA
     let all_training_records =
         get_training_records(cid, &state.config.vatsim.vatusa_api_key).await?;
-    let mut training_records: Vec<_> = all_training_records
+    let training_records: Vec<_> = all_training_records
         .iter()
         .filter(|record| record.facility_id == "ZDV")
         .map(|record| {
@@ -733,28 +762,40 @@ async fn snippet_get_training_records(
         })
         .collect();
 
-    // sort by session_date in descending order (newest first)
-    training_records.sort_by(|a, b| {
-        let date_a = NaiveDateTime::parse_from_str(&a.session_date, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_else(|_| NaiveDateTime::default());
-        let date_b = NaiveDateTime::parse_from_str(&b.session_date, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_else(|_| NaiveDateTime::default());
-        date_b.cmp(&date_a) // sort newest first
-    });
+    // include aux data from DB
+    let aux_training_data: Vec<AuxiliaryTrainingData> =
+        sqlx::query_as(sql::GET_AUX_TRAINING_DATA_FOR)
+            .bind(cid)
+            .fetch_all(&state.db)
+            .await?;
 
-    let instructor_cids: Vec<u32> = training_records
+    // combine both Vecs by enum and sort
+    let all_training_data: Vec<TrainingDataType> = training_records
+        .into_iter()
+        .map(TrainingDataType::VatusaRecord)
+        .chain(aux_training_data.into_iter().map(TrainingDataType::AuxData))
+        .sorted_by(|record_a, record_b| record_b.get_date().cmp(&record_a.get_date()))
+        .collect();
+
+    // get trainer cids for name matching
+    let trainer_cids: Vec<u32> = all_training_data
         .iter()
-        .map(|record| record.instructor_id)
+        .map(|record| record.trainer())
         .collect::<HashSet<u32>>()
         .iter()
         .copied()
         .collect();
-    let instructors = get_multiple_controller_names(&instructor_cids).await;
+    let trainers = get_multiple_controller_names(&trainer_cids).await;
+
+    std::fs::write(
+        "training_data.json",
+        serde_json::to_string(&all_training_data)?,
+    )?;
+
     let template = state
         .templates
         .get_template("controller/training_notes.jinja")?;
-    let rendered: String =
-        template.render(context! { user_info, training_records, instructors })?;
+    let rendered: String = template.render(context! { user_info, all_training_data, trainers })?;
     Ok(Html(rendered).into_response())
 }
 
@@ -818,6 +859,25 @@ async fn post_add_training_note(
     }
     let user_info = user_info.unwrap();
     let date = js_timestamp_to_utc(&record_form.date, &record_form.timezone)?;
+    if record_form.location == 255 {
+        // RCE recommendation; don't report to VATUSA
+        sqlx::query(sql::ADD_AUX_TRAINING_DATA)
+            .bind(cid)
+            .bind(user_info.cid)
+            .bind(&record_form.position)
+            .bind(date)
+            .bind(&record_form.notes)
+            .execute(&state.db)
+            .await?;
+        record_log(
+            format!("{} recommended {} for an RCE", user_info.cid, cid),
+            &state.db,
+            true,
+        )
+        .await?;
+        push_flashed_message(session, MessageLevel::Info, "New training record saved").await?;
+        return Ok(Redirect::to(&format!("/controller/{cid}")));
+    }
     let record_form = if record_form.location == 100 {
         // record a no-show DB entry
         sqlx::query(sql::CREATE_NEW_NO_SHOW_ENTRY)

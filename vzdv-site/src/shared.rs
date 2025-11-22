@@ -311,6 +311,8 @@ pub fn strip_some_tags(s: &str) -> String {
 }
 
 /// Add an audit log message to the DB.
+///
+/// If `log` is true, then the message is also logged via `log::info!`.
 pub async fn record_log(message: String, db: &Pool<Sqlite>, log: bool) -> Result<(), AppError> {
     sqlx::query(sql::CREATE_LOG)
         .bind(&message)
