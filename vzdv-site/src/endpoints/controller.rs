@@ -858,6 +858,10 @@ async fn post_add_training_note(
         return Ok(redirect);
     }
     let user_info = user_info.unwrap();
+    debug!(
+        "{} submitting training note for {cid} with location {}",
+        user_info.cid, record_form.location
+    );
     let date = js_timestamp_to_utc(&record_form.date, &record_form.timezone)?;
     if record_form.location == 255 {
         // RCE recommendation; don't report to VATUSA
@@ -875,7 +879,7 @@ async fn post_add_training_note(
             true,
         )
         .await?;
-        push_flashed_message(session, MessageLevel::Info, "New training record saved").await?;
+        push_flashed_message(session, MessageLevel::Info, "New RCE recommendation saved").await?;
         return Ok(Redirect::to(&format!("/controller/{cid}")));
     }
     let record_form = if record_form.location == 100 {
