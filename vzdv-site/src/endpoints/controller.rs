@@ -787,11 +787,6 @@ async fn snippet_get_training_records(
         .collect();
     let trainers = get_multiple_controller_names(&trainer_cids).await;
 
-    std::fs::write(
-        "training_data.json",
-        serde_json::to_string(&all_training_data)?,
-    )?;
-
     let template = state
         .templates
         .get_template("controller/training_notes.jinja")?;
