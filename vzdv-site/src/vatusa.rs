@@ -1,8 +1,12 @@
 //! Wrappers around the `vzdv::vatusa` module using `AppError`.
 
 use crate::AppError;
-use chrono::{DateTime, Utc};
-use vzdv::vatusa::{self, RatingHistory, RosterMember, TransferChecklist};
+use chrono::{DateTime, NaiveDateTime, Utc};
+use serde::Serialize;
+use vzdv::{
+    sql::AuxiliaryTrainingData,
+    vatusa::{self, RatingHistory, RosterMember, TransferChecklist},
+};
 
 pub use vzdv::vatusa::{NewTrainingRecord, TrainingRecord};
 
@@ -113,4 +117,32 @@ pub async fn add_visiting_controller(cid: u32, api_key: &str) -> Result<(), AppE
         .await
         .map_err(AppError::VatusaApi)?;
     Ok(())
+}
+
+/// Combination of VATUSA training records and database auxiliary records.
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
+pub enum TrainingDataType {
+    VatusaRecord(TrainingRecord),
+    AuxData(AuxiliaryTrainingData),
+}
+
+impl TrainingDataType {
+    pub fn get_date(&self) -> DateTime<Utc> {
+        match self {
+            TrainingDataType::AuxData(record) => record.session_date,
+            TrainingDataType::VatusaRecord(record) => {
+                let dt = NaiveDateTime::parse_from_str(&record.session_date, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
+                DateTime::from_naive_utc_and_offset(dt, Utc)
+            }
+        }
+    }
+
+    pub fn trainer(&self) -> u32 {
+        match self {
+            TrainingDataType::VatusaRecord(record) => record.instructor_id,
+            TrainingDataType::AuxData(record) => record.trainer,
+        }
+    }
 }

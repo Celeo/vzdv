@@ -6,7 +6,10 @@ use crate::{
         AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, js_timestamp_to_utc, post_audit,
         record_log, reject_if_not_in, remove_controller_from_roster, strip_some_tags,
     },
-    vatusa::{self, NewTrainingRecord, TrainingRecord, get_training_records, save_training_record},
+    vatusa::{
+        self, NewTrainingRecord, TrainingDataType, TrainingRecord, get_training_records,
+        save_training_record,
+    },
 };
 use axum::{
     Form, Router,
@@ -14,7 +17,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     routing::{delete, get, post},
 };
-use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use itertools::Itertools;
 use log::{debug, error, info, warn};
 use minijinja::context;
@@ -703,33 +706,6 @@ async fn api_delete_staff_note(
         }
     }
     Ok(StatusCode::OK)
-}
-
-#[derive(Debug, Serialize)]
-#[serde(tag = "type")]
-enum TrainingDataType {
-    VatusaRecord(TrainingRecord),
-    AuxData(AuxiliaryTrainingData),
-}
-
-impl TrainingDataType {
-    fn get_date(&self) -> DateTime<Utc> {
-        match self {
-            TrainingDataType::AuxData(record) => record.session_date,
-            TrainingDataType::VatusaRecord(record) => {
-                let dt = NaiveDateTime::parse_from_str(&record.session_date, "%Y-%m-%d %H:%M:%S")
-                    .unwrap_or_default();
-                DateTime::from_naive_utc_and_offset(dt, Utc)
-            }
-        }
-    }
-
-    fn trainer(&self) -> u32 {
-        match self {
-            TrainingDataType::VatusaRecord(record) => record.instructor_id,
-            TrainingDataType::AuxData(record) => record.trainer,
-        }
-    }
 }
 
 /// Render a page snippet that shows training notes and a button to create more.

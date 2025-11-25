@@ -3,7 +3,7 @@
 use crate::{
     discord, flashed_messages,
     shared::{AppError, AppState, SESSION_USER_INFO_KEY, UserInfo, record_log, strip_some_tags},
-    vatusa::{self, TrainingRecord},
+    vatusa::{self, TrainingDataType, TrainingRecord},
 };
 use axum::{
     Router,
@@ -11,7 +11,7 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
     routing::get,
 };
-use chrono::NaiveDateTime;
+use itertools::Itertools;
 use log::{debug, warn};
 use minijinja::context;
 use std::{
@@ -20,7 +20,7 @@ use std::{
 };
 use tower_sessions::Session;
 use vzdv::{
-    sql::{self, Controller},
+    sql::{self, AuxiliaryTrainingData, Controller},
     vatusa::get_multiple_controller_names,
 };
 
@@ -34,9 +34,11 @@ async fn page_training_notes(
         Some(info) => info,
         None => return Ok(Redirect::to("/").into_response()),
     };
+
+    // get the records from VATUSA
     let all_training_records =
         vatusa::get_training_records(user_info.cid, &state.config.vatsim.vatusa_api_key).await?;
-    let mut training_records: Vec<_> = all_training_records
+    let training_records: Vec<_> = all_training_records
         .iter()
         .filter(|record| record.facility_id == "ZDV")
         .map(|record| {
@@ -48,25 +50,33 @@ async fn page_training_notes(
         })
         .collect();
 
-    // sort by session_date in descending order (newest first)
-    training_records.sort_by(|a, b| {
-        let date_a = NaiveDateTime::parse_from_str(&a.session_date, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_else(|_| NaiveDateTime::default());
-        let date_b = NaiveDateTime::parse_from_str(&b.session_date, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_else(|_| NaiveDateTime::default());
-        date_b.cmp(&date_a) // sort newest first
-    });
-    let instructor_cids: Vec<u32> = training_records
+    // include aux data from DB
+    let aux_training_data: Vec<AuxiliaryTrainingData> =
+        sqlx::query_as(sql::GET_AUX_TRAINING_DATA_FOR)
+            .bind(user_info.cid)
+            .fetch_all(&state.db)
+            .await?;
+
+    // combine both Vecs by enum and sort
+    let all_training_data: Vec<TrainingDataType> = training_records
+        .into_iter()
+        .map(TrainingDataType::VatusaRecord)
+        .chain(aux_training_data.into_iter().map(TrainingDataType::AuxData))
+        .sorted_by(|record_a, record_b| record_b.get_date().cmp(&record_a.get_date()))
+        .collect();
+
+    // get trainer cids for name matching
+    let trainer_cids: Vec<u32> = all_training_data
         .iter()
-        .map(|record| record.instructor_id)
+        .map(|record| record.trainer())
         .collect::<HashSet<u32>>()
         .iter()
         .copied()
         .collect();
-    let instructors = get_multiple_controller_names(&instructor_cids).await;
+    let trainers = get_multiple_controller_names(&trainer_cids).await;
 
     let template = state.templates.get_template("user/training_notes.jinja")?;
-    let rendered = template.render(context! { user_info, training_records, instructors })?;
+    let rendered: String = template.render(context! { user_info, all_training_data, trainers })?;
     Ok(Html(rendered).into_response())
 }
 
