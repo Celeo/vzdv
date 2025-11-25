@@ -322,9 +322,14 @@ pub fn controller_can_see(controller: &Option<Controller>, team: PermissionsGrou
         ]
         .iter()
         .any(|r| roles.contains(r)),
-        PermissionsGroup::Admin => [StaffPosition::ATM, StaffPosition::DATM, StaffPosition::WM]
-            .iter()
-            .any(|r| roles.contains(r)),
+        PermissionsGroup::Admin => [
+            StaffPosition::ATM,
+            StaffPosition::DATM,
+            StaffPosition::TA,
+            StaffPosition::WM,
+        ]
+        .iter()
+        .any(|r| roles.contains(r)),
     }
 }
 
