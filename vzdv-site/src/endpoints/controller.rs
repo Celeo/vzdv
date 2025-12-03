@@ -66,18 +66,20 @@ async fn roles_to_set(
         roles_to_set.push(StaffPosition::AEC);
     } else if user_roles.contains(&"TA") {
         roles_to_set.push(StaffPosition::MTR);
+        roles_to_set.push(StaffPosition::ATA);
     } else if controller_can_see(&controller, PermissionsGroup::Admin) {
-        roles_to_set.push(vzdv::StaffPosition::ATM);
-        roles_to_set.push(vzdv::StaffPosition::DATM);
-        roles_to_set.push(vzdv::StaffPosition::TA);
-        roles_to_set.push(vzdv::StaffPosition::FE);
-        roles_to_set.push(vzdv::StaffPosition::EC);
-        roles_to_set.push(vzdv::StaffPosition::WM);
-        roles_to_set.push(vzdv::StaffPosition::AFE);
-        roles_to_set.push(vzdv::StaffPosition::AEC);
-        roles_to_set.push(vzdv::StaffPosition::AWM);
-        roles_to_set.push(vzdv::StaffPosition::INS);
-        roles_to_set.push(vzdv::StaffPosition::MTR);
+        roles_to_set.push(StaffPosition::ATM);
+        roles_to_set.push(StaffPosition::DATM);
+        roles_to_set.push(StaffPosition::TA);
+        roles_to_set.push(StaffPosition::FE);
+        roles_to_set.push(StaffPosition::EC);
+        roles_to_set.push(StaffPosition::WM);
+        roles_to_set.push(StaffPosition::ATA);
+        roles_to_set.push(StaffPosition::AFE);
+        roles_to_set.push(StaffPosition::AEC);
+        roles_to_set.push(StaffPosition::AWM);
+        roles_to_set.push(StaffPosition::INS);
+        roles_to_set.push(StaffPosition::MTR);
     }
 
     Ok(roles_to_set

@@ -114,11 +114,22 @@ fn generate_staff_outline(config: &Config) -> HashMap<&'static str, StaffPositio
             },
         ),
         (
+            "ATA",
+            StaffPosition {
+                short: "ATA",
+                name: "Assistant Training Administrator",
+                order: 7,
+                controllers: Vec::new(),
+                email: None,
+                description: "Assists the Training Administrator and assumes all duties of an Instructor.",
+            },
+        ),
+        (
             "INS",
             StaffPosition {
                 short: "INS",
                 name: "Instructor",
-                order: 7,
+                order: 8,
                 controllers: Vec::new(),
                 email: None,
                 description: "Under direction of the Training Administrator, leads training and handles OTS Examinations.",
@@ -129,7 +140,7 @@ fn generate_staff_outline(config: &Config) -> HashMap<&'static str, StaffPositio
             StaffPosition {
                 short: "MTR",
                 name: "Mentor",
-                order: 8,
+                order: 9,
                 controllers: Vec::new(),
                 email: None,
                 description: "Under direction of the Training Administrator, helps train students and prepare them for OTS Examinations.",
@@ -140,7 +151,7 @@ fn generate_staff_outline(config: &Config) -> HashMap<&'static str, StaffPositio
             StaffPosition {
                 short: "AFE",
                 name: "Assistant Facility Engineer",
-                order: 9,
+                order: 10,
                 controllers: Vec::new(),
                 email: None,
                 description: "Assists the Facility Engineer.",
@@ -151,7 +162,7 @@ fn generate_staff_outline(config: &Config) -> HashMap<&'static str, StaffPositio
             StaffPosition {
                 short: "AEC",
                 name: "Assistant Events Coordinator",
-                order: 10,
+                order: 11,
                 controllers: Vec::new(),
                 email: None,
                 description: "Assists the Events Coordinator.",
@@ -162,7 +173,7 @@ fn generate_staff_outline(config: &Config) -> HashMap<&'static str, StaffPositio
             StaffPosition {
                 short: "AWM",
                 name: "Assistant Webmaster",
-                order: 11,
+                order: 12,
                 controllers: Vec::new(),
                 email: None,
                 description: "Assists the Webmaster.",

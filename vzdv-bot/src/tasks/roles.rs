@@ -46,6 +46,8 @@ async fn set_nickname(
         name.push_str(" | FE");
     } else if roles.contains(&"WM") {
         name.push_str(" | WM");
+    } else if roles.contains(&"ATA") {
+        name.push_str(" | ATA");
     } else if roles.contains(&"INS") {
         name.push_str(" | INS")
     } else if roles.contains(&"MTR") {
@@ -202,7 +204,10 @@ async fn get_correct_roles(
     {
         to_resolve.push((config.discord.roles.sr_staff, true));
         to_resolve.push((config.discord.roles.jr_staff, false));
-    } else if ["EC", "FE", "WM"].iter().any(|role| roles.contains(role)) {
+    } else if ["EC", "FE", "WM", "ATA"]
+        .iter()
+        .any(|role| roles.contains(role))
+    {
         to_resolve.push((config.discord.roles.sr_staff, false));
         to_resolve.push((config.discord.roles.jr_staff, true));
     } else {
