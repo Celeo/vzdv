@@ -194,6 +194,17 @@ async fn page_privacy_policy(
     Ok(Html(rendered))
 }
 
+/// Privacy policy.
+async fn page_terms_of_use(
+    State(state): State<Arc<AppState>>,
+    session: Session,
+) -> Result<Html<String>, AppError> {
+    let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
+    let template = state.templates.get_template("terms_of_use.jinja")?;
+    let rendered = template.render(context! { user_info })?;
+    Ok(Html(rendered))
+}
+
 /// This file's routes and templates.
 pub fn router(app_state: &Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
@@ -202,6 +213,7 @@ pub fn router(app_state: &Arc<AppState>) -> Router<Arc<AppState>> {
         .route("/feedback", post(page_feedback_form_post))
         .route("/changelog", get(page_changelog))
         .route("/privacy_policy", get(page_privacy_policy))
+        .route("/terms_of_use", get(page_terms_of_use))
         .nest_service("/assets", ServeDir::new("assets"))
         .route_layer(axum::middleware::from_fn_with_state(
             app_state.clone(),
