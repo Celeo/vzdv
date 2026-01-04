@@ -176,7 +176,7 @@ pub async fn handler(
                     interaction.create_response(event.id, &event.token, &InteractionResponse{
                         kind: twilight_model::http::interaction::InteractionResponseType::ChannelMessageWithSource,
                         data: Some(InteractionResponseDataBuilder::new()
-                            .content("You can find the answer to your requestion in the [facility resources](https://zdvartcc.org/facility/resources)!")
+                            .content("You can find the answer to your question in the [facility resources](https://zdvartcc.org/facility/resources)!")
                             .build()
                         )}).await?;
                 }
