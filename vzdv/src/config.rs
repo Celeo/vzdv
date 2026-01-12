@@ -113,6 +113,9 @@ pub struct ConfigDiscordRoles {
     pub visiting_controller: u64,
     pub event_controller: u64,
 
+    // special
+    pub vatusa_vatgov: u64,
+
     // staff
     pub sr_staff: u64,
     pub jr_staff: u64,

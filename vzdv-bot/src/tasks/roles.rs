@@ -19,6 +19,7 @@ async fn set_nickname(
     guild_id: Id<GuildMarker>,
     member: &Member,
     controller: &Controller,
+    config: &Arc<Config>,
     http: &Arc<Client>,
 ) -> Result<()> {
     let mut name = format!(
@@ -33,8 +34,13 @@ async fn set_nickname(
         }
     }
 
+    let is_vatusa_vatgov = member
+        .roles
+        .contains(&Id::new(config.discord.roles.vatusa_vatgov));
     let roles: Vec<_> = controller.roles.split_terminator(',').collect();
-    if roles.contains(&"ATM") {
+    if is_vatusa_vatgov {
+        name.push_str(" | VATUSA");
+    } else if roles.contains(&"ATM") {
         name.push_str(" | ATM");
     } else if roles.contains(&"DATM") {
         name.push_str(" | DATM");
@@ -303,7 +309,7 @@ pub async fn process_single_member(
             .any(|r| r.get() == config.discord.roles.ignore)
         {
             debug!("{nick} ({user_id}) has bot ignore role; not setting nickname");
-        } else if let Err(e) = set_nickname(guild_id, member, &controller, http).await {
+        } else if let Err(e) = set_nickname(guild_id, member, &controller, config, http).await {
             error!("Error setting nickname of {nick} ({user_id}): {e}");
         }
     }

@@ -53,10 +53,15 @@ errors = ""
 audit = ""
 
 [discord.roles]
-# role
+# status
 guest = 0
 controller_otm = 0
+home_controller = 0
 visiting_controller = 0
+event_controller = 0
+
+# special
+vatusa_vatgov = 0
 
 # staff
 sr_staff = 0
