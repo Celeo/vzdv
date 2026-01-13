@@ -545,4 +545,20 @@
   </form>
 </dialog>
 
+<script>
+  const debounce = (callback) => {
+    let timeout = null;
+    return (...args) => {
+      window.clearTimeout(timeout);
+      timeout = window.setTimeout(() => {
+        callback(...args);
+      }, 500);
+    };
+  };
+
+  document.getElementById("notes")?.addEventListener("input", debounce((event) => {
+    sessionStorage.setItem("training-note", document.getElementById("notes").value);
+  }));
+</script>
+
 {% endblock %}
