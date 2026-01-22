@@ -66,18 +66,29 @@ async fn set_nickname(
         name.push_str(" | AWM");
     }
 
-    if let Some(existing) = &member.nick {
-        if existing != &name {
-            info!("Updating nick of {} to {name}", member.user.id);
-            http.update_guild_member(guild_id, member.user.id)
-                .nick(Some(&name))?
-                .await?;
-        }
+    if member.nick.as_ref() == Some(&name) {
+        // don't make the HTTP call if no change is needed
+        return Ok(());
+    }
+    if member.nick.is_some() {
+        info!("Updating nick of {} to {name}", member.user.id);
     } else {
         info!("Setting nick of {} to {name}", member.user.id);
-        http.update_guild_member(guild_id, member.user.id)
-            .nick(Some(&name))?
-            .await?;
+    }
+    let result = http
+        .update_guild_member(guild_id, member.user.id)
+        .nick(Some(&name))?
+        .await;
+    if let Err(e) = result {
+        if matches!(e.kind(), twilight_http::error::ErrorType::Response { status, .. } if status.get() == 403 )
+        {
+            debug!(
+                "Could not set nick of {} - insufficient permissions",
+                member.user.id
+            );
+            return Ok(());
+        }
+        return Err(e.into());
     }
 
     Ok(())
