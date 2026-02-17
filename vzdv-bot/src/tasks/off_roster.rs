@@ -1,6 +1,6 @@
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use log::{debug, error, info};
-use select::{document::Document, predicate::Name};
+use serde::Deserialize;
 use sqlx::{Pool, Sqlite};
 use std::{collections::HashSet, fmt::Write, sync::Arc, time::Duration};
 use tokio::time::sleep;
@@ -15,32 +15,25 @@ use vzdv::{
     sql::{self, Controller},
 };
 
-/// Query the VATUSA website for the list of ACE controllers' CIDs.
+#[derive(Deserialize)]
+struct AceControllerEntry {
+    cid: u64,
+}
+
+#[derive(Deserialize)]
+struct AceControllers {
+    data: Vec<AceControllerEntry>,
+}
+
+/// Query the VATUSA API for the list of ACE controller CIDs.
 async fn get_ace_controllers() -> Result<Vec<u64>> {
-    let html = GENERAL_HTTP_CLIENT
-        .get("https://www.vatusa.net/info/ace")
+    let data: AceControllers = GENERAL_HTTP_CLIENT
+        .get("https://api.vatusa.net/user/roles/ZHQ/ACE")
         .send()
         .await?
-        .text()
+        .json()
         .await?;
-
-    let doc = Document::from(html.as_str());
-    let table_body = doc
-        .find(Name("table"))
-        .next()
-        .ok_or_else(|| anyhow!("Empty iter"))?
-        .find(Name("tbody"))
-        .next()
-        .ok_or_else(|| anyhow!("Empty iter"))?;
-
-    let cids = table_body
-        .find(Name("tr"))
-        .flat_map(|row| match row.find(Name("td")).next() {
-            Some(col) => col.text().parse().ok(),
-            None => None,
-        })
-        .collect();
-    Ok(cids)
+    Ok(data.data.iter().map(|ace| ace.cid).collect())
 }
 
 /// Single loop execution.
