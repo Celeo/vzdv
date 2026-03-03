@@ -70,20 +70,18 @@ pub async fn asset_access(
                     .fetch_optional(&state.db)
                     .await;
             match resource {
-                Ok(Some(resource)) => {
-                    if resource.category == "SOPs" {
-                        let upsert_res = sqlx::query(sql::UPSERT_SOP_ACCESS)
-                            .bind(user_info.cid)
-                            .bind(resource.id)
-                            .bind(Utc::now())
-                            .execute(&state.db)
-                            .await;
-                        if let Err(e) = upsert_res {
-                            error!(
-                                "Error updating SOP access time for {} {}: {e}",
-                                user_info.cid, resource.id
-                            );
-                        }
+                Ok(Some(resource)) if resource.category == "SOPs" => {
+                    let upsert_res = sqlx::query(sql::UPSERT_SOP_ACCESS)
+                        .bind(user_info.cid)
+                        .bind(resource.id)
+                        .bind(Utc::now())
+                        .execute(&state.db)
+                        .await;
+                    if let Err(e) = upsert_res {
+                        error!(
+                            "Error updating SOP access time for {} {}: {e}",
+                            user_info.cid, resource.id
+                        );
                     }
                 }
                 Err(e) => {
