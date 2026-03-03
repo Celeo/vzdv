@@ -128,7 +128,10 @@
 {% if is_event_staff %}
   <div class="pt-3"></div>
   <hr />
-  <h2>Sign-ups</h2>
+  <h2>
+    Sign-ups
+    <span class="badge rounded-pill text-bg-light fs-6">{{ registrations|length }}</span>
+  </h2>
   <table class="table table-striped table-hover" style="table-layout: fixed">
     <thead>
       <tr>
