@@ -132,7 +132,7 @@ fn generate_staff_outline(config: &Config) -> HashMap<&'static str, StaffPositio
                 order: 8,
                 controllers: Vec::new(),
                 email: None,
-                description: "Under direction of the Training Administrator, leads training and handles OTS Examinations.",
+                description: "Under direction of the Training Administrator, leads training and handles RCEs.",
             },
         ),
         (
@@ -143,7 +143,7 @@ fn generate_staff_outline(config: &Config) -> HashMap<&'static str, StaffPositio
                 order: 9,
                 controllers: Vec::new(),
                 email: None,
-                description: "Under direction of the Training Administrator, helps train students and prepare them for OTS Examinations.",
+                description: "Under direction of the Training Administrator, helps train students and prepare them for RCEs.",
             },
         ),
         (
