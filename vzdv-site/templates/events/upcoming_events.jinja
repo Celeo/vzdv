@@ -22,7 +22,7 @@
 
 <dialog id="modalNewForm">
   <h2 class="pb-3">Create new event</h2>
-  <form action="/events" method="POST">
+  <form action="/events" method="POST" enctype="multipart/form-data">
     <div class="row">
       <div class="col">
         <input type="hidden" name="timezone" id="input-timezone">
@@ -32,11 +32,17 @@
         </div>
         <div class="mb-3">
           <label for="description" class="form-label">Description</label>
-          <textarea name="description" class="form-control"></textarea>
+          <textarea class="form-control" name="description"></textarea>
         </div>
-        <div class="mb-3">
-          <label for="banner" class="form-label">Banner URL</label>
-          <input type="text" class="form-control" name="banner" required>
+        <div class="row mb-3">
+          <div class="col">
+            <label for="banner" class="form-label">Banner URL</label>
+            <input type="text" class="form-control" name="banner">
+          </div>
+          <div class="col">
+            <label for="banner_file" class="form-label">Banner URL</label>
+            <input type="file" class="form-control" name="banner_file">
+          </div>
         </div>
         <div class="row mb-3">
           <div class="col">

@@ -1551,7 +1551,7 @@ pub fn router() -> Router<Arc<AppState>> {
             get(api_get_resource_initials),
         )
         .route("/admin/resources/edit", post(api_edit_resource))
-        .layer(DefaultBodyLimit::disable()) // no upload limit on this endpoint either
+        .layer(DefaultBodyLimit::disable()) // no upload limit on this endpoint
         .route("/admin/off_roster_list", get(page_off_roster_list))
         .route("/admin/activity_report", get(page_activity_report))
         .route(

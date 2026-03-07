@@ -173,7 +173,7 @@
 
 <dialog id="modalEditForm">
   <h2 class="pb-3">Edit event</h2>
-  <form action="/events/{{ event.id }}" method="POST">
+  <form action="/events/{{ event.id }}" method="POST" enctype="multipart/form-data">
     <div class="row">
       <div class="col">
         <input type="hidden" name="timezone" id="input-timezone">
@@ -183,11 +183,17 @@
         </div>
         <div class="mb-3">
           <label for="description" class="form-label">Description</label>
-          <textarea name="description" class="form-control">{{ event.description }}</textarea>
+          <textarea class="form-control" name="description">{{ event.description }}</textarea>
         </div>
-        <div class="mb-3">
-          <label for="banner" class="form-label">Banner URL</label>
-          <input type="text" class="form-control" name="banner" value="{{ event.image_url }}" required>
+        <div class="row mb-3">
+          <div class="col">
+            <label for="banner" class="form-label">Banner URL</label>
+            <input type="text" class="form-control" name="banner" value="{{ event.image_url }}">
+          </div>
+          <div class="col">
+            <label for="banner_file" class="form-label">Banner URL</label>
+            <input type="file" class="form-control" name="banner_file">
+          </div>
         </div>
         <div class="form-check mb-3">
           <input class="form-check-input" type="checkbox" value="" id="published" name="published" {% if event.published %}checked{% endif %}>

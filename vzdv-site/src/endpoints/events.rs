@@ -12,18 +12,20 @@ use crate::{
 };
 use axum::{
     Form, Router,
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Multipart, Path, State},
     http::StatusCode,
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
 };
-use axum_extra::extract::WithRejection;
 use chrono::Utc;
+use log::debug;
 use minijinja::context;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
+use std::path::Path as FilePath;
 use std::sync::Arc;
 use tower_sessions::Session;
+use uuid::Uuid;
 use vzdv::{
     ControllerRating, PermissionsGroup,
     sql::{self, Controller, Event, EventPosition, EventRegistration},
@@ -89,8 +91,8 @@ async fn get_upcoming_events(
     Ok(Html(rendered))
 }
 
-#[derive(Debug, Deserialize)]
-struct CreateEventForm {
+#[derive(Debug, Default)]
+struct NewEventData {
     name: String,
     description: String,
     banner: String,
@@ -105,7 +107,7 @@ struct CreateEventForm {
 async fn post_new_event_form(
     State(state): State<Arc<AppState>>,
     session: Session,
-    WithRejection(Form(create_new_form), _): WithRejection<Form<CreateEventForm>, AppError>,
+    mut form: Multipart,
 ) -> Result<Redirect, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     let is_event_staff = is_user_member_of(&state, &user_info, PermissionsGroup::EventsTeam).await;
@@ -114,23 +116,67 @@ async fn post_new_event_form(
     }
 
     let cid = user_info.unwrap().cid;
-    let start = js_timestamp_to_utc(&create_new_form.start, &create_new_form.timezone)?;
-    let end = js_timestamp_to_utc(&create_new_form.end, &create_new_form.timezone)?;
+    let mut event = NewEventData::default();
+
+    while let Some(field) = form.next_field().await? {
+        let name = field.name().ok_or(AppError::MultipartFormGet)?.to_string();
+        match name.as_str() {
+            "name" => {
+                event.name = field.text().await?;
+            }
+            "description" => {
+                event.description = field.text().await?;
+            }
+            "banner" => {
+                event.banner = field.text().await?;
+            }
+            "banner_file" => {
+                let new_uuid = Uuid::new_v4();
+                let file_name = field
+                    .file_name()
+                    .ok_or(AppError::MultipartFormGet)?
+                    .to_string();
+                let file_data = field.bytes().await?;
+                if file_data.is_empty() {
+                    continue;
+                }
+                let new_file_name = format!("{new_uuid}_{file_name}");
+                let write_path = FilePath::new("./assets").join(&new_file_name);
+                debug!("Writing new file to assets dir as part of event creation: {new_file_name}");
+                std::fs::write(write_path, file_data)?;
+                event.banner = format!("{}/assets/{new_file_name}", &state.config.hosted_domain);
+                // If someone uploads a banner and supplies a remote URL, then whether they get
+                // the remote URL or the uploaded is undefined. That's okay for now.
+            }
+            "start" => {
+                event.start = field.text().await?;
+            }
+            "end" => {
+                event.end = field.text().await?;
+            }
+            "timezone" => {
+                event.timezone = field.text().await?;
+            }
+            _ => {}
+        }
+    }
+    let start = js_timestamp_to_utc(&event.start, &event.timezone)?;
+    let end = js_timestamp_to_utc(&event.end, &event.timezone)?;
+
     let result = sqlx::query(sql::CREATE_EVENT)
         .bind(cid)
-        .bind(&create_new_form.name)
+        .bind(&event.name)
         .bind(start)
         .bind(end)
-        .bind(create_new_form.description)
-        .bind(create_new_form.banner)
+        .bind(event.description)
+        .bind(event.banner)
         .execute(&state.db)
         .await?;
     record_log(
         format!(
-            "{} created new event {}: \"{}\"",
-            cid,
+            "{cid} created new event {}: \"{}\"",
             result.last_insert_rowid(),
-            &create_new_form.name
+            &event.name
         ),
         &state.db,
         true,
@@ -376,11 +422,11 @@ async fn event_registrations_extra(
     Ok(ret)
 }
 
-#[derive(Deserialize)]
-struct UpdateEventForm {
+#[derive(Debug, Default)]
+struct UpdatedEventData {
     name: String,
     description: String,
-    published: Option<String>,
+    published: bool,
     banner: String,
     start: String,
     end: String,
@@ -394,7 +440,7 @@ async fn post_edit_event_form(
     State(state): State<Arc<AppState>>,
     session: Session,
     Path(id): Path<u32>,
-    Form(details_form): Form<UpdateEventForm>,
+    mut form: Multipart,
 ) -> Result<Redirect, AppError> {
     let user_info: Option<UserInfo> = session.get(SESSION_USER_INFO_KEY).await?;
     if let Some(redirect) = reject_if_not_in(&state, &user_info, PermissionsGroup::EventsTeam).await
@@ -406,29 +452,74 @@ async fn post_edit_event_form(
         .bind(id)
         .fetch_optional(&state.db)
         .await?;
-    if event.is_some() {
-        let start = js_timestamp_to_utc(&details_form.start, &details_form.timezone)?;
-        let end = js_timestamp_to_utc(&details_form.end, &details_form.timezone)?;
-        sqlx::query(sql::UPDATE_EVENT)
-            .bind(id)
-            .bind(details_form.name)
-            .bind(details_form.published.is_some())
-            .bind(start)
-            .bind(end)
-            .bind(details_form.description)
-            .bind(details_form.banner)
-            .execute(&state.db)
-            .await?;
-        record_log(
-            format!("{} edited event {id}", user_info.unwrap().cid),
-            &state.db,
-            true,
-        )
-        .await?;
-        Ok(Redirect::to(&format!("/events/{id}")))
-    } else {
-        Ok(Redirect::to("/"))
+    if event.is_none() {
+        return Ok(Redirect::to("/"));
     }
+
+    let cid = user_info.unwrap().cid;
+    let mut event = UpdatedEventData::default();
+
+    while let Some(field) = form.next_field().await? {
+        let name = field.name().ok_or(AppError::MultipartFormGet)?.to_string();
+        match name.as_str() {
+            "name" => {
+                event.name = field.text().await?;
+            }
+            "description" => {
+                event.description = field.text().await?;
+            }
+            "published" => {
+                event.published = true;
+            }
+            "banner" => {
+                event.banner = field.text().await?;
+            }
+            "banner_file" => {
+                let new_uuid = Uuid::new_v4();
+                let file_name = field
+                    .file_name()
+                    .ok_or(AppError::MultipartFormGet)?
+                    .to_string();
+                let file_data = field.bytes().await?;
+                if file_data.is_empty() {
+                    continue;
+                }
+                let new_file_name = format!("{new_uuid}_{file_name}");
+                let write_path = FilePath::new("./assets").join(&new_file_name);
+                debug!("Writing new file to assets dir as part of event update: {new_file_name}");
+                std::fs::write(write_path, file_data)?;
+                event.banner = format!("{}/assets/{new_file_name}", &state.config.hosted_domain);
+                // If someone uploads a banner and supplies a remote URL, then whether they get
+                // the remote URL or the uploaded is undefined. That's okay for now.
+            }
+            "start" => {
+                event.start = field.text().await?;
+            }
+            "end" => {
+                event.end = field.text().await?;
+            }
+            "timezone" => {
+                event.timezone = field.text().await?;
+            }
+            _ => {}
+        }
+    }
+
+    let start = js_timestamp_to_utc(&event.start, &event.timezone)?;
+    let end = js_timestamp_to_utc(&event.end, &event.timezone)?;
+
+    sqlx::query(sql::UPDATE_EVENT)
+        .bind(id)
+        .bind(event.name)
+        .bind(event.published)
+        .bind(start)
+        .bind(end)
+        .bind(event.description)
+        .bind(event.banner)
+        .execute(&state.db)
+        .await?;
+    record_log(format!("{cid} edited event {id}"), &state.db, true).await?;
+    Ok(Redirect::to(&format!("/events/{id}")))
 }
 
 /// API endpoint to delete an event.
@@ -856,13 +947,16 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/events/upcoming", get(snippet_get_upcoming_events))
         .route(
             "/events",
-            get(get_upcoming_events).post(post_new_event_form),
+            get(get_upcoming_events)
+                .post(post_new_event_form)
+                .layer(DefaultBodyLimit::disable()), // no upload limit on this endpoint
         )
         .route(
             "/events/{id}",
             get(page_event)
                 .delete(api_delete_event)
-                .post(post_edit_event_form),
+                .post(post_edit_event_form)
+                .layer(DefaultBodyLimit::disable()), // no upload limit on this endpoint
         )
         .route("/events/{id}/register", post(post_register_for_event))
         .route("/events/{id}/unregister", post(api_register_unregister))
